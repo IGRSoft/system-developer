@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     --self-test) SELF_TEST=1 ;;
     --kind) shift; KIND="${1:-tool}" ;;
   esac
-  shift
+  shift || true
 done
 
 read_stdin() {

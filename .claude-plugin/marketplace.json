@@ -53,7 +53,6 @@
         "./skills/bash/bash-scripting",
         "./skills/bash/bash-testing",
         "./skills/tooling",
-        "./skills/tooling/build-systems",
         "./skills/tooling/diagnostics",
         "./skills/tooling/ffi-interop"
       ],
