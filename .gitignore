@@ -1,0 +1,15 @@
+# Workflow scratch state
+.context/
+
+# macOS
+.DS_Store
+
+# Build outputs (CMake/Make/Meson)
+build*/
+*.o
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/

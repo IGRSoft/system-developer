@@ -1,0 +1,84 @@
+{
+  "name": "system-developer",
+  "owner": {
+    "name": "IGRSoft",
+    "email": "support@igrsoft.com"
+  },
+  "metadata": {
+    "description": "Systems development toolkit with specialized agents for C, C++, Python, and Bash.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "system-developer",
+      "description": "Systems development toolkit with specialized agents for C (C17/C23), C++ (C++17/20/23), Python 3.14, and Bash/POSIX shell. Includes language-aware commands, modern-standards skills, build-system and diagnostics tooling, FFI interop, secure-coding guidance, and utility agents for code fixes, test generation, performance, security, and dependency management.",
+      "source": "./",
+      "strict": true,
+      "category": "development",
+      "keywords": [
+        "c",
+        "cpp",
+        "c23",
+        "cpp23",
+        "python3.14",
+        "bash",
+        "posix",
+        "systems-programming",
+        "cmake",
+        "vcpkg",
+        "conan",
+        "uv",
+        "sanitizers",
+        "pytest",
+        "bats",
+        "workflow-integration"
+      ],
+      "skills": [
+        "./skills",
+        "./skills/_shared/secure-coding",
+        "./skills/_shared/workflow-integration",
+        "./skills/c",
+        "./skills/c/modern-c",
+        "./skills/c/c-memory-ownership",
+        "./skills/cpp",
+        "./skills/cpp/modern-cpp",
+        "./skills/cpp/cpp-concurrency",
+        "./skills/python",
+        "./skills/python/modern-python",
+        "./skills/python/python-typing",
+        "./skills/python/python-concurrency",
+        "./skills/python/python-tooling",
+        "./skills/python/python-testing",
+        "./skills/bash",
+        "./skills/bash/bash-scripting",
+        "./skills/bash/bash-testing",
+        "./skills/tooling",
+        "./skills/tooling/diagnostics",
+        "./skills/tooling/ffi-interop"
+      ],
+      "agents": [
+        "./agents/system-developer.md",
+        "./agents/c-developer.md",
+        "./agents/cpp-developer.md",
+        "./agents/python-developer.md",
+        "./agents/bash-developer.md",
+        "./agents/system-architector.md",
+        "./agents/sys-test-generator.md",
+        "./agents/sys-performance-engineer.md",
+        "./agents/sys-security-auditor.md",
+        "./agents/sys-code-fixer.md",
+        "./agents/sys-dependency-manager.md"
+      ],
+      "commands": [
+        "./commands/build-test.md",
+        "./commands/code-review.md",
+        "./commands/generate-tests.md",
+        "./commands/sanitize-check.md",
+        "./commands/lint-fix.md",
+        "./commands/profile-performance.md",
+        "./commands/code-modernize.md",
+        "./commands/deps-audit.md"
+      ]
+    }
+  ]
+}
