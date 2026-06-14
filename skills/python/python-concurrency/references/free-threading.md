@@ -53,7 +53,7 @@ What it does **not** change:
 | I/O-bound threads | Overlap (GIL releases on I/O) | Overlap |
 | `sys._is_gil_enabled()` | `True` | `False` |
 | Data-race risk | Low (GIL hides many) | Higher — locks required |
-| Single-thread speed | Baseline | ~5–10% slower in 3.14 (verify) |
+| Single-thread speed | Baseline | ~5–10% slower in 3.14 (down from ~40% in 3.13; verify) |
 
 ---
 
@@ -176,8 +176,8 @@ python3.14t -X gil=0 script.py        # equivalent CLI flag
 Treat these as orientation, not promises — measure your own workload.
 
 - **Single-threaded overhead:** roughly **5–10%** slower than the GIL build in 3.14
-  (down substantially from 3.13, because the specializing adaptive interpreter is now
-  enabled in free-threaded mode). Platform- and compiler-dependent — verify.
+  — down from **~40%** in 3.13, because the specializing adaptive interpreter is now
+  enabled in free-threaded mode. Platform- and compiler-dependent — verify.
 - **Multi-threaded CPU scaling:** near-linear for cleanly partitioned, lock-light
   workloads; sub-linear once threads contend on shared locks or shared data.
 - **Memory:** comparable to the GIL build for typical workloads.
@@ -349,6 +349,15 @@ on. Strategies:
 Pure-Python packages generally "just work" — but their *thread-safety assumptions*
 may not hold once threads run in parallel. Audit any global mutable state in
 libraries you call concurrently.
+
+### Adoption status (2026)
+
+Free-threaded wheels are no longer niche: roughly **~51% of the top native-wheel
+packages ship `cp314t` wheels** (about 183 of the ~360 most-downloaded native
+packages), and **NumPy 2.3.4 ships `cp314t` wheels**. That makes a free-threaded
+production build realistic for many stacks — but coverage is uneven, so **verify
+your dependency tree before pinning `3.14t` for production** (one missing `cp314t`
+wheel either builds from sdist or re-enables the GIL for the whole process).
 
 ### Tooling status
 

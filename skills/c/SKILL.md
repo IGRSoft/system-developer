@@ -64,6 +64,12 @@ Per-feature minimums: [c23-features.md](modern-c/references/c23-features.md).
 GCC 15 defaults to `-std=gnu23` when no flag is given — always pin `-std`
 explicitly in the build system.
 
+**Hardening shortcut**: GCC 14+ bundles the recommended hardening set behind
+the `-fhardened` umbrella flag (`-D_FORTIFY_SOURCE=3`, `-fstack-protector-strong`,
+PIE/RELRO, and more); add `-ftrivial-auto-var-init=zero` to zero-initialize
+locals. Full flag doctrine and per-flag rationale:
+[secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md).
+
 ## File Overview
 
 | Path | Purpose |

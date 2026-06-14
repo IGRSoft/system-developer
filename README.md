@@ -1,14 +1,18 @@
 # System Developer Plugin
 
-Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.17.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
+Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.17.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.1.0 | **igrsoft Compatibility**: v3.17.0 | **claude-code min version**: "2.1.169"
+**Version**: 1.2.0 | **igrsoft Compatibility**: v3.17.0 | **claude-code min version**: "2.1.169"
+
+## What's in 1.2.0
+
+- **2026 currency refresh** — C++26 added as an emerging standard (DIS 2026, not shipping; gate on `-std=c++2c` + feature-test macros) across the canonical hub, `cpp-developer`, and `cpp/SKILL.md`; Python `ty` (beta) / `pyrefly` (stable v1.0) checkers and PEP 751 `pylock.toml` interop lockfile added; Bash 5.3 de-hedged to current stable; tool baselines bumped (CMake 4.x, Conan 2.29, GoogleTest 1.17, shellcheck 0.11, shfmt 3.13, bats 1.13); `code-modernize` gained a C23 target profile; the previously-phantom `tooling/build-systems` skill is now created and registered. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in 1.1.0
 
 - **11 agents** — a `system-developer` router, four language developers (`c-developer`, `cpp-developer`, `python-developer`, `bash-developer`), `system-architector`, and five Tier-2 specialists (`sys-test-generator`, `sys-performance-engineer`, `sys-security-auditor`, `sys-code-fixer`, `sys-dependency-manager`). All inherit `agents/_base/language-agent.md`.
 - **8 commands** — language-aware review, build/test, test generation, sanitizer runs, lint/format, profiling, standard modernization, and dependency auditing, each with restrictive `allowed-tools` and an `estimated-cost` band.
-- **Complete skills tree** — 24 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, `embedded`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
+- **Complete skills tree** — 25 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, `embedded`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
 - **Plugin-scoped advisory hooks** — `audit-tooluse`, `audit-subagent`, `precompact-checkpoint`, wired in `plugin.json` with igrsoft-compatible dedupe keys. Advisory only: never merges `state.json` (orchestrator-owned). See [`hooks/README.md`](hooks/README.md).
 - **CC capabilities adopted** — tiered `maxTurns` runaway-loop backstops, `disallowed-tools: Write, Edit` on the two review-only auditors, fully-qualified `Task(system-developer:<agent>)` delegations, and scoped `Bash(cmd:*)` allowlists per toolchain.
 
@@ -18,7 +22,7 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 |-------|----------------|---------|
 | `system-developer` | sonnet / medium | Index + router. Routes by file extension and keyword to language developers and specialists; handles cross-language work (FFI, C extensions, mixed CMake+pyproject repos) directly. |
 | `c-developer` | sonnet / high | Efficient, memory-safe C. C17 baseline plus C23, POSIX/errno discipline, pthreads, C11 atomics, warning-clean GCC/Clang builds. |
-| `cpp-developer` | sonnet / high | Idiomatic, memory-safe C++17/20/23. RAII, smart pointers, ranges, concepts, coroutines, `std::expected`, Core Guidelines, standard-selection trade-offs. |
+| `cpp-developer` | sonnet / high | Idiomatic, memory-safe C++17/20/23 (plus C++26 emerging — DIS 2026, not shipping; gate on `-std=c++2c` + feature-test macros). RAII, smart pointers, ranges, concepts, coroutines, `std::expected`, Core Guidelines, standard-selection trade-offs. |
 | `python-developer` | sonnet / high | Modern, type-safe Python 3.14. uv-managed environments, ruff-clean code, deferred annotations, free-threading, t-strings, subinterpreters, concurrency-model selection. |
 | `bash-developer` | sonnet / high | Defensive, portable Bash and POSIX shell. Strict mode, GNU/BSD divergence, shellcheck/shfmt/bats gating, injection-safe scripting. |
 | `system-architector` | opus / xhigh | Architecture pattern selection and migration planning — layered libraries, hexagonal, plugin/registry, pipeline, concurrency and ownership models, API/ABI design, semver. |
@@ -40,12 +44,12 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 | `/system-developer:sanitize-check` | Build with sanitizers (ASan/UBSan/TSan/LSan/MSan), run tests under them, and triage the reports. Supports `--fix`. |
 | `/system-developer:lint-fix` | Run linters and formatters (clang-tidy/clang-format, ruff, mypy, shellcheck, shfmt) — check-only (`--check`) or auto-fix (`--fix`). |
 | `/system-developer:profile-performance` | Profile CPU, memory, or I/O hot paths, or benchmark before/after with hyperfine, then route findings to `sys-performance-engineer`. |
-| `/system-developer:code-modernize` | Modernize C++ (17→20→23), Python (→3.14), or Bash one standard jump at a time, gating each migration class on a green build and test run. Supports `--dry-run`. |
+| `/system-developer:code-modernize` | Modernize C (17→23), C++ (17→20→23), Python (→3.14), or Bash one standard jump at a time, gating each migration class on a green build and test run. Supports `--dry-run`. |
 | `/system-developer:deps-audit` | Audit, upgrade, or add C/C++/Python dependencies — outdated report, CVE lookup, license inventory, and safe one-at-a-time upgrades with a build+test gate. |
 
 All commands degrade gracefully when a tool is missing: they print an install hint (for example `brew install llvm shellcheck shfmt hyperfine`, `uv tool install ruff`), skip that language, and never hard-fail.
 
-## Skills (24)
+## Skills (25)
 
 ### Shared
 

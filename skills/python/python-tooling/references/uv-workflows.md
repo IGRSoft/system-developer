@@ -31,9 +31,9 @@ Jump to:
 - Migration
 - Command Reference
 
-Toolchain note: uv evolves quickly. Exact flag names and defaults below reflect a
-recent stable release; where a detail is version-sensitive it is flagged
-*(verify against your uv)* — confirm with `uv <cmd> --help` and `uv self version`.
+Toolchain note: this reference tracks the uv **0.11.x** line (current **0.11.21**),
+where the project workflow and the `uv_build` backend are stable. Flag names below
+are current; confirm anything you script with `uv <cmd> --help` and `uv self version`.
 
 ## Mental Model: What uv Manages
 
@@ -151,12 +151,28 @@ uv lock --upgrade-package httpx  # bump exactly one dependency
 uv lock --check                  # assert the lock is current; non-zero if not (CI guard)
 uv sync --frozen                 # install exactly the lock; error on any drift
 uv sync --locked                 # like --frozen; verify lock is up to date first
-uv export --format requirements-txt > requirements.txt   # interop export
+uv export --format pylock.toml -o pylock.toml          # PEP 751 standard lockfile
+uv export --format requirements-txt > requirements.txt   # legacy interop export
 ```
 
 `--frozen` is the CI default: it refuses to silently re-resolve, so a forgotten
 `uv lock` after a `pyproject.toml` edit fails the build instead of shipping
 different versions than were reviewed.
+
+### Standard interop: pylock.toml (PEP 751)
+
+`uv.lock` is uv's own format. **PEP 751 `pylock.toml` is the standardized,
+tool-interoperable lockfile** (final) — export it when a non-uv tool or a
+supply-chain scanner needs a standard lock:
+
+```bash
+uv export --format pylock.toml -o pylock.toml   # write the PEP 751 lock
+uv export --format pylock.toml --group dev -o pylock.dev.toml   # scope a group
+```
+
+Keep `uv.lock` as the committed source of truth; treat `pylock.toml` as a
+generated export (on demand or in CI) for interop and scanning, not as the lock
+you resolve from. See the deps-audit command for feeding it to scanners.
 
 ## Python Version Management
 
@@ -397,7 +413,8 @@ After migrating poetry, the biggest change is groups: poetry's
 | `uv sync [--frozen] [--locked] [--no-dev] [--only-group G] [--no-install-project]` | Make `.venv` match the lock |
 | `uv lock [--upgrade] [--upgrade-package P] [--check]` | Resolve / refresh / verify the lock |
 | `uv run [--group G] [--with PKG] [--python V] [--no-sync] CMD` | Run inside the project env |
-| `uv export --format requirements-txt` | Export the lock for interop |
+| `uv export --format pylock.toml -o pylock.toml` | Export the PEP 751 standard lockfile (interop/scanners) |
+| `uv export --format requirements-txt` | Export the lock for legacy interop |
 | `uv python install\|list\|find\|pin\|uninstall [V]` | Manage interpreters |
 | `uvx [--from SPEC] [--with PKG] TOOL` | Run a tool in an ephemeral env |
 | `uv tool install\|list\|upgrade\|uninstall TOOL` | Manage persistent tools |

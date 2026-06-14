@@ -40,6 +40,10 @@ MSVC as C17-only unless you have verified a specific feature.
 (GCC 9-13, Clang 9-17) accept the same features under `-std=c2x`.
 Feature-test macro: `__STDC_VERSION__ >= 202311L`.
 
+Forward note: **C2y** (the next WG14 revision) is in active drafting — no
+adoption yet, nothing to target. C23 stays the modern goal and C17 the
+universal baseline.
+
 ---
 
 ## Language Features
@@ -623,7 +627,11 @@ lookup and double-checks the caller's size bookkeeping.
    `{0}` -> `{}` where intent is "zero everything".
 5. **Adopt safety features deliberately**: every `malloc(a * b)` becomes a
    `ckd_mul` guard; every secret wipe becomes `memset_explicit` (with libc
-   fallback shim); switch-over-enum tails get `unreachable()`.
+   fallback shim); switch-over-enum tails get `unreachable()`. Pair the build
+   with hardening flags — GCC 14+ bundles the recommended set behind the
+   `-fhardened` umbrella (and `-ftrivial-auto-var-init=zero` zero-inits locals);
+   see the [hardening flags](../SKILL.md#hygiene-flags) in modern-c and
+   `${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md`.
 6. **Gate public headers**: keep installed headers C17-compatible or guard
    with `#if __STDC_VERSION__ >= 202311L` so downstream C17 and C++
    consumers keep building.

@@ -73,7 +73,7 @@ acme = "acme_widgets.cli:main"
 dev = ["pytest>=8", "ruff", "pyright"]
 
 [build-system]
-requires = ["uv_build>=0.9,<0.10"]       # verify the bound against your toolchain
+requires = ["uv_build>=0.11,<0.12"]      # uv_build is Production/Stable (uv 0.11.x)
 build-backend = "uv_build"
 ```
 
@@ -201,11 +201,13 @@ what you ship:
 ### uv_build (pure Python)
 
 Native uv backend: zero-config defaults, fast, validates structure, integrates
-with uv's messaging. **Pure Python only** — it cannot compile extension modules.
+with uv's messaging. **Production/Stable** as of the uv 0.11.x line (current
+**0.11.21**) — the default pure-Python backend, no longer experimental.
+**Pure Python only** — it cannot compile extension modules.
 
 ```toml
 [build-system]
-requires = ["uv_build>=0.9,<0.10"]   # pin a bound; verify it against your uv
+requires = ["uv_build>=0.11,<0.12"]   # pin a bound; uv_build is stable in uv 0.11.x
 build-backend = "uv_build"
 ```
 
@@ -221,7 +223,7 @@ module-root = "src"              # default; set "" for a root-level module
 
 The `uv` executable bundles a copy of the backend, so `uv build` is fast; other
 frontends (`python -m build`, pip) pull the published `uv_build` package. Keep
-the upper bound (`<0.10`) so a future backend release cannot silently change how
+the upper bound (`<0.12`) so a future backend release cannot silently change how
 your package builds.
 
 ### hatchling (hooks, flexible layout)

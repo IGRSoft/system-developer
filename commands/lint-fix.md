@@ -1,5 +1,5 @@
 ---
-description: Run linters and formatters (clang-tidy/clang-format, ruff, mypy, shellcheck, shfmt) over C, C++, Python, and Bash code — check-only or auto-fix
+description: Run linters and formatters (clang-tidy/clang-format, ruff, mypy/ty, shellcheck, shfmt) over C, C++, Python, and Bash code — check-only or auto-fix
 argument-hint: [path (default .)] [--check | --fix] [--lang c|cpp|python|bash]
 allowed-tools: Read, Edit, Glob, Grep, Bash
 model: haiku
@@ -100,12 +100,13 @@ Run tools in this order. In `--fix`, formatters run **before** the final lint re
 |----------|--------------|----------------|------------------|
 | C / C++ | `clang-tidy -p build <files>` (warnings only; `-warnings-as-errors=''` keeps it non-fatal in check) | `clang-format --dry-run --Werror <files>` | `clang-format -i <files>`; clang-tidy auto-fixes via `clang-tidy -p build --fix <files>` (only `modernize-*`/`readability-*` that apply cleanly) |
 | Python | `ruff check <path>` | `ruff format --check --diff <path>` | `ruff check --fix <path>` then `ruff format <path>` |
-| Python (types) | `mypy <path>` (if configured) | — | none (type errors are never auto-fixed — report only) |
+| Python (types) | `mypy <path>` (if configured); optionally `ty check <path>` (Astral, beta — fast, report-only) | — | none (type errors are never auto-fixed — report only) |
 | Bash | `shellcheck <files>` (`-f gcc` for parseable output) | `shfmt -d <files>` (diff = would-change) | `shfmt -w <files>`; shellcheck has no safe auto-fix — report SC codes |
 
 Notes:
 - **clang-tidy `--fix` is conservative**: only apply it when a `.clang-tidy` enables the relevant checks; never invent checks the project did not opt into. Fixes that touch behavior are out of scope (Rule 7).
 - **mypy and shellcheck are report-only.** Neither has a safe mechanical fixer; their findings always land in the report and, when they need judgment, under "Needs review".
+- **`ty` is an optional fast type-check (report-only, beta).** `ty` (Astral) is a Rust-based checker still in beta with no stable API — run it only as an additional fast signal, never as the gate. Keep `mypy`/`pyright` as the authoritative type gate; treat `ty` findings as advisory and never auto-fix them.
 - `ruff check --statistics` produces the per-rule counts used for the planted-violation summary in `--check`.
 
 ## Workflow
@@ -146,6 +147,7 @@ Emit the Output Format. In `--fix`, include the applied-fix table, the rollback 
 | `clang-tidy` / `clang-format` | `brew install llvm` (the `clang-*` tools ship with the LLVM formula) |
 | `ruff` | `uv tool install ruff` (or `pipx install ruff`) |
 | `mypy` | `uv tool install mypy` |
+| `ty` (optional fast type-check, beta) | `uv tool install ty` (report-only — never the gate) |
 | `shellcheck` | `brew install shellcheck` |
 | `shfmt` | `brew install shfmt` |
 

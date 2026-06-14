@@ -33,12 +33,19 @@ backends, and publishing → [references/packaging-and-project-structure.md](ref
 |-----|------|------------|
 | Env + deps + Python install + run | **uv** | pip, pip-tools, virtualenv, pyenv, poetry, pipx |
 | Lint + import-sort + format | **ruff** | flake8, isort, black, pyupgrade, autoflake |
-| Type checking | pyright or mypy (see python-typing) | — |
+| Type checking (CI gate) | pyright or mypy (see python-typing) | — |
+| Type checking (emerging, fast) | `ty` (Astral, beta) / `pyrefly` (Meta, stable v1.0) — report-only alongside the gate | — |
 
 uv replaces the whole pip/pyenv/pipx/poetry stack; ruff replaces the
 flake8/isort/black/pyupgrade stack. Two binaries, no plugin zoo. Pin both in
 the project — version-independent of CPython within 3.12–3.14 (verify against
 your toolchain) — and let `uv.lock` carry their exact versions.
+
+For type checking, **pyright or mypy remains the gate** (see python-typing); the
+Rust newcomers `ty` (Astral, beta — v0.0.49, no stable API) and `pyrefly` (Meta,
+stable v1.0) are fast report-only additions you run from the editor or
+pre-commit, not yet the gate. `uvx ty check` / `uvx pyrefly check` run either
+ephemerally without polluting the project.
 
 ## uv: Core Commands
 
@@ -101,6 +108,19 @@ uv sync --frozen                # CI: reproducible, fails on lock drift
 uv lock --check                 # CI guard: assert lock is current, no writes
 ```
 
+**`uv.lock` is uv's own format; `pylock.toml` is the standard.** PEP 751 (final)
+defines `pylock.toml` — a standardized, tool-interoperable lockfile. Keep
+`uv.lock` as the authoritative project lock, and **export** `pylock.toml` when
+another tool or a scanner needs the standard format:
+
+```bash
+uv export --format pylock.toml -o pylock.toml   # PEP 751 standard, for interop
+uv export --format requirements-txt -o requirements.txt   # legacy interop
+```
+
+Commit `uv.lock`; generate `pylock.toml` on demand (or in CI) for cross-tool
+consumers and supply-chain scanners — see the deps-audit command.
+
 ## ruff: Lint + Format
 
 ruff is both the linter and the formatter. Run `ruff check` (lint, `--fix` to
@@ -146,9 +166,12 @@ dev = ["pytest>=8", "ruff", "pyright"]
 docs = ["mkdocs-material"]
 
 [build-system]                 # only for libraries/CLIs (uv init --package)
-requires = ["uv_build>=0.9,<0.10"]   # verify the bound against your toolchain
+requires = ["uv_build>=0.11,<0.12"]   # uv_build is Production/Stable (uv 0.11.x)
 build-backend = "uv_build"
 ```
+
+The `uv_build` backend is **Production/Stable** as of the uv 0.11.x line (current
+**0.11.21**) — it is the default pure-Python backend, no longer experimental.
 
 **`[dependency-groups]` (PEP 735) over `[project.optional-dependencies]`** for
 dev/test/docs tooling: groups are not published as extras and not installable by

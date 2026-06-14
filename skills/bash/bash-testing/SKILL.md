@@ -17,10 +17,10 @@ Use this skill when:
 - Configuring `.shellcheckrc`, ShellCheck directives, or `shfmt` flags.
 - Wiring `bats`, `shellcheck`, and `shfmt` into pre-commit hooks and CI.
 
-> Version note (verify against your toolchain): examples target **bats-core 1.10+**,
-> **ShellCheck 0.9+**, and **shfmt 3.x**. Older bats lacks `bats_load_library`,
-> `run -N`/`run !`, and tags; fall back to plain `load` and manual `$status` checks
-> (see the fallback rows below).
+> Version note: examples target **bats-core 1.13**, **ShellCheck 0.11**, and
+> **shfmt 3.13** (current stable). Older bats (< 1.5 / < 1.10) lacks
+> `bats_load_library`, `run -N`/`run !`, and tags; fall back to plain `load` and
+> manual `$status` checks (see the fallback rows below).
 
 ## Core Rules
 

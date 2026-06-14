@@ -109,8 +109,10 @@ Treat 5.2 as a safe modern baseline on Linux CI; on macOS it requires Homebrew b
 
 ## Bash 5.3 Feature Catalog
 
-Bash 5.3 is recent — present in newer distros and Homebrew. **Verify against your
-`bash --version`** before depending on it; it is not yet universal.
+Bash 5.3 is **current stable** — widely shipped in distros and Homebrew by
+mid-2026. Treat it as a modern Linux baseline; the only place it is absent is
+macOS's frozen `/bin/bash` (3.2.57), so keep the macOS fallback and a version
+guard for any script that might run under the system shell.
 
 | Feature | What it does | Fallback |
 |---------|--------------|----------|
@@ -401,8 +403,8 @@ minimum environment (shell, utilities, versions) in the script header.
 - **Shebang**: `#!/usr/bin/env bash` for Bash (+ version guard); `#!/bin/sh` only
   for deliberate POSIX portability.
 - **macOS `/bin/bash` is 3.2** — assume nothing from Bash 4/5 under it.
-- **Bash 5.2** is a safe Linux baseline; **5.3** (`${ cmd; }`, `GLOBSORT`) is new —
-  verify and guard.
+- **Bash 5.2** is a safe Linux baseline; **5.3** (`${ cmd; }`, `GLOBSORT`) is
+  current stable — widely shipped, but still guard `${ cmd; }` for macOS 3.2 / POSIX.
 - **Validate POSIX scripts under `dash`**, not macOS `sh`; run `checkbashisms` and
   shellcheck with `# shellcheck shell=sh`.
 - **GNU≠BSD**: `sed -i`, `readlink -f`, `date`, `stat`, `base64 -w` all differ —

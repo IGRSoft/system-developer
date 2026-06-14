@@ -109,6 +109,7 @@ Prefer a locally installed scanner; fall back to the osv.dev API. **Never skip t
    - Conan: `osv-scanner --lockfile=conan.lock` where present.
    - FetchContent: no lockfile — fall back to the API path for each `(name, version)` pair.
 2. **Python extra check:** if uv is present, also run `uv audit --project <path>` (uv 0.10.12+ reads the lockfile and queries OSV — verify the version against your toolchain) or `uvx pip-audit` as a fallback. Reconcile its findings with osv-scanner's; report the union, de-duplicated by advisory id.
+   - **Standardized lockfile for scanners (PEP 751):** to feed a scanner that does not understand `uv.lock` natively, export the resolved set to the interoperable `pylock.toml` with `uv export --format pylock.toml --project <path> -o pylock.toml`, then point the scanner at it (e.g. `osv-scanner --lockfile=pylock.toml`). `pylock.toml` is the standardized, tool-agnostic lockfile (PEP 751, final) — prefer it when bridging to scanners or CI systems outside the uv ecosystem.
 3. **Fallback when no scanner is installed:** for each discovered `(ecosystem, name, version)`, POST to the osv.dev API via WebFetch:
    - URL: `https://api.osv.dev/v1/query`
    - Body shape: `{"package": {"ecosystem": "<PyPI|...>", "name": "<name>"}, "version": "<version>"}`
