@@ -30,10 +30,11 @@ than trusting memory.
 | [C++](#c-1) | [`cpp/SKILL.md`](cpp/SKILL.md) | 1 + 2 leaves | C++17/20/23 standard selection, RAII, ranges, concepts, coroutines, concurrency |
 | [Python](#python) | [`python/SKILL.md`](python/SKILL.md) | 1 + 5 leaves | 3.12-3.14 features, typing, concurrency, uv/ruff tooling, pytest |
 | [Bash](#bash) | [`bash/SKILL.md`](bash/SKILL.md) | 1 + 2 leaves | Defensive scripting, POSIX portability, bats/shellcheck/shfmt |
+| [Embedded](#embedded) | [`embedded/SKILL.md`](embedded/SKILL.md) | 1 + 2 leaves | Bare-metal/freestanding C & C++: MMIO, volatile, ISRs/startup, no-heap, fixed-point, linker scripts, embedded C++ subset |
 | [Tooling](#tooling) | [`tooling/SKILL.md`](tooling/SKILL.md) | 1 + 3 leaves | CMake/Meson/Make, sanitizers, gdb/lldb, profilers, FFI/interop |
 | [Shared](#shared) | [`_shared/_index.md`](_shared/_index.md) | 2 + references | Workflow integration, secure coding, versions, routing, severity |
 
-**Total: 21 SKILL.md across 6 domains, plus shared references.**
+**Total: 24 SKILL.md across 7 domains, plus shared references.**
 
 ## I need help with...
 
@@ -51,6 +52,8 @@ than trusting memory.
 | Writing or triaging pytest tests | [python/python-testing/SKILL.md](python/python-testing/SKILL.md) |
 | Hardening a Bash script or fixing a quoting bug | [bash/bash-scripting/SKILL.md](bash/bash-scripting/SKILL.md) |
 | Writing bats tests, wiring shellcheck/shfmt | [bash/bash-testing/SKILL.md](bash/bash-testing/SKILL.md) |
+| MMIO register access, ISRs, startup, linker scripts, or cross-compilation | [embedded/embedded-systems/SKILL.md](embedded/embedded-systems/SKILL.md) |
+| C++ subset for embedded (`-fno-exceptions -fno-rtti`, freestanding stdlib) | [embedded/embedded-cpp/SKILL.md](embedded/embedded-cpp/SKILL.md) |
 | Writing CMakeLists, fixing a build, choosing a package manager | [tooling/build-systems/SKILL.md](tooling/build-systems/SKILL.md) |
 | Picking a sanitizer/debugger/profiler for a symptom | [tooling/diagnostics/SKILL.md](tooling/diagnostics/SKILL.md) |
 | Binding C/C++ to Python or designing an ABI boundary | [tooling/ffi-interop/SKILL.md](tooling/ffi-interop/SKILL.md) |
@@ -114,6 +117,19 @@ Defensive Bash scripting, POSIX portability, and shell testing.
 |-------|------|-------------|
 | **bash-scripting** | [bash/bash-scripting/SKILL.md](bash/bash-scripting/SKILL.md) | Strict-mode prologue, quoting, arrays, traps, safe resource handling |
 | **bash-testing** | [bash/bash-testing/SKILL.md](bash/bash-testing/SKILL.md) | bats-core tests, sourceable scripts, PATH stubs, shellcheck/shfmt in CI |
+
+---
+
+## Embedded
+
+Bare-metal and freestanding C & C++ development.
+
+**Start here:** [embedded/SKILL.md](embedded/SKILL.md)
+
+| Skill | Path | Description |
+|-------|------|-------------|
+| **embedded-systems** | [embedded/embedded-systems/SKILL.md](embedded/embedded-systems/SKILL.md) | Language-agnostic core: freestanding, MMIO/register access, `volatile` (not atomicity, not ordering), ISRs/startup, no-heap, fixed-point, linker scripts, cross-compilation |
+| **embedded-cpp** | [embedded/embedded-cpp/SKILL.md](embedded/embedded-cpp/SKILL.md) | C++ subset: RAII without exceptions/RTTI, freestanding stdlib subset, static/placement-new, `constexpr`/`constinit` ROM-able data |
 
 ---
 
