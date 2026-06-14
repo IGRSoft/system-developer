@@ -89,6 +89,22 @@ with both costs real effort.
 This plugin's default: **pyright strict** for new projects; keep mypy where a
 required plugin (ORM models, framework descriptors) does narrowing pyright cannot.
 
+### Emerging Fast Checkers: ty and pyrefly
+
+Two Rust-based checkers are arriving fast — much faster than pyright/mypy, but
+newer. **Keep pyright/mypy as the CI gate**; treat these as additional fast
+report-only options (editor loop, pre-commit, large-repo triage) until they
+prove out on your codebase.
+
+| Checker | Author | Maturity (2026) | Position |
+|---------|--------|-----------------|----------|
+| `ty` | Astral (uv/ruff) | **Beta — v0.0.49, no stable API yet** | Very fast; not yet a CI gate. Run for the editor/inner-loop and to triage; expect behavior to change between releases. `uvx ty check` |
+| `pyrefly` | Meta | **Stable — v1.0.0**, production (default at Instagram) | 10–50× faster than mypy/pyright; production-ready. Viable as a gate where it covers your patterns; still verify parity against pyright/mypy before swapping the gate. `uvx pyrefly check` |
+
+Adoption rule: introduce ty/pyrefly *alongside* pyright/mypy, compare findings,
+and only promote one to the gate once it agrees on your real code. New-project
+default remains **pyright strict**.
+
 ```toml
 [tool.pyright]                       # pyproject.toml
 pythonVersion = "3.14"

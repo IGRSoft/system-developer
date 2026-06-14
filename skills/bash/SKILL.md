@@ -77,7 +77,7 @@ Shell task?
 | Version | Where | Headline |
 |---------|-------|----------|
 | 5.2 | most current Linux distros, Homebrew | `patsub_replacement` (`&` reuse in `${var/pat/rep}`), `varredir_close` |
-| 5.3 | recent distros / Homebrew *(verify against your `bash --version`)* | `${ cmd; }` no-fork command substitution, `GLOBSORT` ordering control |
+| 5.3 | current stable — widely shipped in distros and Homebrew | `${ cmd; }` no-fork command substitution, `GLOBSORT` ordering control |
 | 3.2 (fallback) | **macOS `/bin/bash`** (frozen) | none of the above — target POSIX sh or `#!/usr/bin/env bash` + version guard |
 
 Canonical toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).

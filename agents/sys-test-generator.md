@@ -31,12 +31,12 @@ Also invoked during the **QA** stage by `igrsoft:qa-engineer` for coverage-gap a
 
 | Language | Detect (markers) | Recommended (greenfield) | Alternative | Property-based |
 |---|---|---|---|---|
-| C++ | `gtest`/`gmock` targets, `catch2` | GoogleTest (+ GoogleMock) | Catch2 v3 | RapidCheck |
-| C | `unity.c`, `cmocka.h` | Unity (embedded/simple) | CMocka (mocking, fixtures) | theft |
+| C++ | `gtest`/`gmock` targets, `catch2` | GoogleTest 1.17 (+ GoogleMock; C++17 min, live at head) | Catch2 3.9 | RapidCheck |
+| C | `unity.c`, `cmocka.h` | Unity 2.6 (embedded/simple) | CMocka 1.1.8 (mocking, fixtures) | theft |
 | Python | `pytest` in deps, `conftest.py` | pytest | `unittest` (stdlib only) | Hypothesis |
-| Bash | `*.bats`, `bats-core` submodule | bats-core | plain `assert`+`set -e` harness | — |
+| Bash | `*.bats`, `bats-core` submodule | bats-core 1.13 | plain `assert`+`set -e` harness | — |
 
-Verify exact framework versions and assertion macros against your toolchain via Context7/Ref before generating — assertion syntax differs across major versions (e.g., Catch2 v2 `REQUIRE` headers vs v3 `<catch2/catch_test_macros.hpp>`).
+Versions are the mid-2026 floors this plugin assumes. Verify exact framework versions and assertion macros against your toolchain via Context7/Ref before generating — assertion syntax differs across major versions (e.g., Catch2 v2 `REQUIRE` headers vs v3 `<catch2/catch_test_macros.hpp>`).
 
 ## Test Categories
 

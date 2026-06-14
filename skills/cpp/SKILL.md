@@ -10,7 +10,7 @@ description: >-
 
 # C++ Skills
 
-**Standard selection and navigation for C++17/20/23 development**
+**Standard selection and navigation for C++17/20/23 development (plus emerging C++26)**
 
 ## Standard Selection Table (canonical)
 
@@ -36,8 +36,11 @@ Every C++ feature decision starts here. Pick the lowest standard that provides t
 | `std::mdspan` | C++23 | Kokkos `mdspan` reference implementation |
 | `if consteval` | C++23 | `std::is_constant_evaluated()` (C++20) |
 | Modules / `import std;` | C++20 core, C++23-era tooling | headers + PCH (still the safe default) |
+| Static reflection (P2996), contracts, `std::execution` (P2300), `std::inplace_vector`, `std::optional<T&>`, `span::at`, `submdspan` | **C++26 *(emerging — DIS 2026, not shipping)*** | stay on C++23; adopt one-by-one behind `__cpp_*` feature-test macros |
 
-**Compiler reality (2026):** current GCC and Clang releases ship a complete C++20 core and most of the C++23 library above (`std::expected`, `std::print`, deducing this); MSVC tracks closely. Library support lags compiler-core support, so gate on feature-test macros (`__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`) and verify against your toolchain rather than trusting version tables from memory.
+**Compiler reality (2026):** newest stable releases are **GCC 15.x** and **Clang 20-21.x** — both ship a complete C++20 core and most of the C++23 library above (`std::expected`, `std::print`, deducing this) and accept `-std=c++23` plus partial `-std=c++2c`; MSVC tracks closely. Library support lags compiler-core support, so gate on feature-test macros (`__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`) and verify against your toolchain rather than trusting version tables from memory.
+
+**C++26 (emerging):** C++26 (DIS 2026) — not shipping; gate on `-std=c++2c` + feature-test macros. Headline features: static reflection (P2996), contracts, `std::execution` / senders-receivers (P2300), `std::inplace_vector`, `std::hive`, hardened standard library / erroneous behavior, pack indexing, `_` placeholder, `std::optional<T&>`, `span::at`, `submdspan`. C++26 is feature-complete but **not yet shipping** — keep C++23 as the baseline and adopt features individually only behind their `__cpp_*` macros, confirmed by a CI compile probe. Per-feature toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).
 
 Per-feature toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).
 

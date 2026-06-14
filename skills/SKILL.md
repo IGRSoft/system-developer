@@ -34,7 +34,7 @@ than trusting memory.
 | [Tooling](#tooling) | [`tooling/SKILL.md`](tooling/SKILL.md) | 1 + 3 leaves | CMake/Meson/Make, sanitizers, gdb/lldb, profilers, FFI/interop |
 | [Shared](#shared) | [`_shared/_index.md`](_shared/_index.md) | 2 + references | Workflow integration, secure coding, versions, routing, severity |
 
-**Total: 24 SKILL.md across 7 domains, plus shared references.**
+**Total: 25 SKILL.md across 7 domains, plus shared references.**
 
 ## I need help with...
 
@@ -175,9 +175,9 @@ toolchain before relying on a feature.
 | Language | Baseline | Newest | Headline of the newest |
 |----------|----------|--------|------------------------|
 | C | C17 (portability baseline) | C23 | `nullptr`, `constexpr` objects, `typeof`, `<stdckdint.h>`, `_BitInt(N)`, `()` means `(void)` |
-| C++ | C++17 | C++23 | `std::expected`, `std::print`/`println`, deducing this, `if consteval`, `std::mdspan`, `std::generator` |
+| C++ | C++17 | C++23 (+ C++26 emerging) | C++23: `std::expected`, `std::print`/`println`, deducing this, `if consteval`, `std::mdspan`, `std::generator`. C++26 (DIS 2026 — emerging, not shipping): static reflection (P2996), contracts, `std::execution` (P2300), `std::inplace_vector`, `std::optional<T&>` — gate on `-std=c++2c` + feature-test macros |
 | Python | 3.12 | 3.14 | Free-threading supported (PEP 779), t-strings (PEP 750), deferred annotations (PEP 649/749), subinterpreters (PEP 734), `compression.zstd` |
-| Bash | 5.2 | 5.3 | `${ cmd; }` / `${ |cmd; }` no-fork command substitution, `GLOBSORT`, `compat` updates (verify against your toolchain) |
+| Bash | 5.2 | 5.3 (current stable) | `${ cmd; }` / `${ |cmd; }` no-fork command substitution, `GLOBSORT`, `compat` updates |
 
 > **macOS caveat:** the system `/bin/bash` is 5.x-incompatible 3.2 — install a
 > current Bash via your package manager and verify with `bash --version`. See

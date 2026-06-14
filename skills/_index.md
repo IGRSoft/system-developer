@@ -1,7 +1,7 @@
 # Skills Index
 
 Root index for all system-developer skills (C, C++, Python, Bash, embedded, and
-shared tooling). **24 SKILL.md across 7 domains, plus shared references.** Start
+shared tooling). **25 SKILL.md across 7 domains, plus shared references.** Start
 at [`SKILL.md`](SKILL.md) for the routing entry point.
 
 ## Domains
@@ -10,7 +10,7 @@ at [`SKILL.md`](SKILL.md) for the routing entry point.
 |-----------|-------|--------|-------------|
 | [_shared/](_shared/_index.md) | [`_index.md`](_shared/_index.md) | 2 + refs | Cross-cutting patterns: workflow integration, secure coding, versions, routing, severity, testing principles |
 | [c/](c/SKILL.md) | [`_index.md`](c/_index.md) | 1 + 2 leaves | C17/C23 standard selection, C23 features, memory ownership, undefined behavior, C11/C17 concurrency |
-| [cpp/](cpp/SKILL.md) | [`_index.md`](cpp/_index.md) | 1 + 2 leaves | C++17/20/23 standard selection, RAII and modern idioms, ranges, concepts, coroutines, concurrency |
+| [cpp/](cpp/SKILL.md) | [`_index.md`](cpp/_index.md) | 1 + 2 leaves | C++17/20/23 standard selection (plus C++26 emerging — DIS 2026), RAII and modern idioms, ranges, concepts, coroutines, concurrency |
 | [python/](python/SKILL.md) | [`_index.md`](python/_index.md) | 1 + 5 leaves | Python 3.12-3.14 features, typing, concurrency, uv/ruff tooling, pytest testing |
 | [bash/](bash/SKILL.md) | [`_index.md`](bash/_index.md) | 1 + 2 leaves | Defensive Bash scripting, POSIX portability, bats/shellcheck/shfmt testing |
 | [embedded/](embedded/SKILL.md) | [`_index.md`](embedded/_index.md) | 1 + 2 leaves | Bare-metal/freestanding C & C++: MMIO/registers, volatile, ISRs/startup, no-heap allocation, fixed-point, linker scripts, cross-compilation, embedded C++ subset |
@@ -95,5 +95,4 @@ at [`SKILL.md`](SKILL.md) for the routing entry point.
 | [`bash/_index.md`](bash/_index.md) | Bash entry + bash-scripting + bash-testing |
 | [`embedded/_index.md`](embedded/_index.md) | Embedded entry + embedded-systems + embedded-cpp (with references) |
 | [`tooling/_index.md`](tooling/_index.md) | Tooling entry + build-systems + diagnostics + ffi-interop |
-| [`tooling/build-systems/references/_index.md`](tooling/build-systems/references/_index.md) | build-systems deep-dive references (CMake, Meson/Make, package managers, CI) |
 | [`tooling/diagnostics/references/_index.md`](tooling/diagnostics/references/_index.md) | diagnostics deep-dive references (sanitizers, gdb/lldb, profiling tools) |

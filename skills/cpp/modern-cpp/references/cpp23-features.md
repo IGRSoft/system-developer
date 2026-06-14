@@ -55,7 +55,7 @@ Gate every C++23 feature on its feature-test macro, not on a compiler version nu
 | `std::byteswap` | library | `__cpp_lib_byteswap >= 202110L` | `__builtin_bswap32` and friends |
 | `std::out_ptr` / `inout_ptr` | library | `__cpp_lib_out_ptr >= 202106L` | temporary raw pointer + manual `reset` |
 
-Compiler reality (2026): current GCC and Clang releases ship the bulk of this table; MSVC tracks closely. The slowest adopters historically were `flat_map`/`flat_set`, `std::generator` on libc++, and `import std` tooling — check the macro before assuming, and keep the fallback row wired into your build for any target you cannot pin.
+Compiler reality (2026): newest stable releases are GCC 15.x and Clang 20-21.x — both ship the bulk of this table and accept partial `-std=c++2c`; MSVC tracks closely. The slowest adopters historically were `flat_map`/`flat_set`, `std::generator` on libc++, and `import std` tooling — check the macro before assuming, and keep the fallback row wired into your build for any target you cannot pin. For the C++26 features that supersede the gaps noted below (e.g. `submdspan`), see the **C++26 (emerging)** row in [../../SKILL.md](../../SKILL.md) — DIS 2026, not shipping; gate on `-std=c++2c` + feature-test macros.
 
 ```cpp
 #include <version>   // pulls in all feature-test macros without other headers
@@ -358,7 +358,7 @@ std::mdspan<double, std::dextents<std::size_t, 2>, std::layout_left> fortran{p, 
 Notes and limits:
 
 - `mdspan` is **non-owning** — the same lifetime discipline as `span`/`string_view` (see the lifetime trap in [../SKILL.md](../SKILL.md)). Parameters: yes. Data members or return values referencing locals: no.
-- Slicing (`submdspan`) did not make C++23; it is a C++26 feature. Until then, build strided sub-views manually with `layout_stride`, or use the Kokkos implementation which ships `submdspan` today.
+- Slicing (`submdspan`) did not make C++23; it is a C++26 feature (see the **C++26 (emerging)** row in [../../SKILL.md](../../SKILL.md) — not shipping; gate on `-std=c++2c` + feature-test macros). Until then, build strided sub-views manually with `layout_stride`, or use the Kokkos implementation which ships `submdspan` today.
 - The multidimensional subscript `m[i, j]` is a C++23 *language* change (P2128). On a C++20 compiler use `m(i, j)`-style via the Kokkos mdspan, which provides `operator()` for older standards.
 
 Pre-23 fallback: the Kokkos `mdspan` reference implementation (single-header, works on C++17, same API modulo `operator[]`). That makes migration to `std::mdspan` a namespace swap later.

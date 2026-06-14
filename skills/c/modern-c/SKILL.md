@@ -167,6 +167,8 @@ against your libc.
 ```
 
 Hardening (`-D_FORTIFY_SOURCE=3`, `-fstack-protector-strong`, PIE/RELRO):
+GCC 14+ bundles the recommended set behind the `-fhardened` umbrella flag, and
+`-ftrivial-auto-var-init=zero` zero-initializes locals. Full doctrine:
 see [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md).
 
 ## Diagnostics

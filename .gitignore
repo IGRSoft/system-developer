@@ -6,6 +6,8 @@
 
 # Build outputs (CMake/Make/Meson)
 build*/
+# ...but not the build-systems skill (build*/ would otherwise ignore it)
+!skills/tooling/build-systems/
 *.o
 
 # Python

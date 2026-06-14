@@ -19,6 +19,7 @@ description: >-
 | 3.12 | PEP 695 `type` statement and `class Foo[T]` generics; formalized f-string grammar (PEP 701); better error messages |
 | 3.13 | Experimental free-threaded build (`python3.13t`) and experimental JIT; new REPL |
 | 3.14 | Free-threading **supported** (PEP 779, still a separate build); subinterpreters in stdlib (PEP 734); t-strings (PEP 750); deferred annotations by default (PEP 649/749); `compression.zstd` (PEP 784) |
+| 3.15 | Beta (GA Oct 2026, PEP 790) — verify against release notes; free-threading-by-default is **Phase III (future, not 3.15)** |
 
 Compiler/runtime minutiae shift between point releases — for anything you pin in
 CI, verify against your interpreter (`python3 -VV`) and link the canonical

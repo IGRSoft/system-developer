@@ -5,7 +5,7 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: yellow
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(uv:*), Bash(uvx:*), Bash(python3:*), Bash(python:*), Bash(ruff:*), Bash(mypy:*), Bash(pyright:*), Bash(pytest:*), Bash(pip:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-dependency-manager), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(uv:*), Bash(uvx:*), Bash(python3:*), Bash(python:*), Bash(ruff:*), Bash(mypy:*), Bash(pyright:*), Bash(ty:*), Bash(pytest:*), Bash(pip:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-dependency-manager), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
 inherits: _base/language-agent.md
 ---
 
@@ -59,7 +59,7 @@ All environment, dependency, lint, type, and test operations go through the uv-f
 - **Environment + deps**: `uv sync` (install from lock), `uv add <pkg>` / `uv add --dev <pkg>` (edit `pyproject.toml` + relock), `uv lock` (refresh lock). Route manifest/lock/CVE work to `system-developer:sys-dependency-manager`.
 - **Run**: `uv run <cmd>` for anything needing the project environment — `uv run python -m <mod>`, `uv run pytest`, `uv run mypy`. `uvx <tool>` for one-off tools not in the project.
 - **Format + lint**: `ruff format` then `ruff check --fix`; `ruff check` in CI mode (no edits). Configure rule sets and `target-version` in `pyproject.toml`.
-- **Type-check**: `pyright` (preferred, strict) or `uv run mypy --strict` on touched modules. Both configs live in `pyproject.toml`.
+- **Type-check**: `pyright` (preferred, strict) or `uv run mypy --strict` on touched modules — one of these is the CI gate. Both configs live in `pyproject.toml`. Emerging fast checkers `ty` (Astral, beta — `uvx ty check`) and `pyrefly` (Meta, stable v1.0 — `uvx pyrefly check`) are report-only options for the inner loop; do not promote either to the gate until it agrees with pyright/mypy on real code.
 - **Test**: `uv run pytest` (full) or `uv run pytest -k <expr>` for changed-file subsets in DV. See `skill: python-testing`.
 
 When a tool is missing, print the install hint (`uv tool install ruff` / `uv tool install pyright` / `brew install uv`) and skip that step — never hard-fail.

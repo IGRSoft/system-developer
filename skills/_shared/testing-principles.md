@@ -26,10 +26,12 @@ Detect the existing framework first — never introduce a second framework into 
 
 | Language | Unit framework | Property / fuzz | Coverage tool | Focused run |
 |----------|----------------|-----------------|---------------|-------------|
-| C | Unity, CMocka | libFuzzer, AFL++ | gcov + lcov | `ctest -R <regex>` |
-| C++ | GoogleTest, Catch2 v3 | libFuzzer, rapidcheck | llvm-cov / gcovr | `ctest -R <regex>` |
+| C | Unity 2.6, CMocka 1.1.8 | libFuzzer, AFL++ | gcov + lcov | `ctest -R <regex>` |
+| C++ | GoogleTest 1.17 (C++17 min), Catch2 3.9 | libFuzzer, rapidcheck | llvm-cov / gcovr | `ctest -R <regex>` |
 | Python | pytest | Hypothesis | coverage.py (`pytest --cov`) | `pytest -k <expr>` |
-| Bash | bats-core | — | kcov | `bats -f <regex>` |
+| Bash | bats-core 1.13 | — | kcov | `bats -f <regex>` |
+
+Versions are the floors this plugin assumes (mid-2026); confirm against your toolchain. GoogleTest 1.17 follows a "live at head" policy and requires C++17 as its minimum standard.
 
 Registration is part of test generation: `add_test()`/`gtest_discover_tests()`/`catch_discover_tests()` (CMake), `conftest.py` discovery (pytest), `setup()`/`teardown()` files (bats). A test that is not registered does not exist.
 

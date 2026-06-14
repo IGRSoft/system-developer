@@ -44,9 +44,10 @@ Floors this plugin assumes. Compiler and tool support shift between minor releas
 
 | Tool | Assumed floor | Why |
 |------|---------------|-----|
-| CMake | 3.28+ baseline (3.23+ for presets workflow only) | `FILE_SET CXX_MODULES`; preset configure/build/test flow |
+| CMake | 4.x (≈4.3.x) baseline; legacy 3.28+ for `FILE_SET CXX_MODULES`, 3.23+ for presets-only | preset configure/build/test flow; `cmake_minimum_required` below 3.5 is a hard error on 4.x — silence legacy policy warnings with `CMAKE_POLICY_VERSION_MINIMUM` |
 | Ninja | current stable | generator for fast incremental + `compile_commands.json` |
-| Meson | 1.x | stable `setup`/`compile`/`test` verbs |
+| Meson | 1.11 | stable `setup`/`compile`/`test` verbs |
+| Conan | 2.29 (`CMakeConfigDeps` generator) | the only supported Conan; `CMakeConfigDeps` replaces `CMakeDeps` in Conan 2.x |
 | GCC / Clang | see version-feature-matrix per standard | C23 / C++23 library bits land across minor releases *(verify)* |
 | sanitizers | ship with GCC/Clang | ASan/UBSan/TSan/LSan; MSan clang-only *(verify)* |
 | gdb / lldb | current stable | gdb Linux-first, lldb macOS-first |

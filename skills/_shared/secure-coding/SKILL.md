@@ -68,6 +68,8 @@ Full doctrine, `posix_spawn` examples, environment scrubbing, and why dynamic co
 
 Combination rules: ASan + UBSan compose; TSan and MSan are mutually exclusive with ASan and with each other. Sanitizers find bugs only on paths you execute — pair with fuzzing/tests. Flag sets and dedupe workflow: [diagnostics](../../tooling/diagnostics/SKILL.md).
 
+**Build-time hardening (C/C++):** ship release builds with the recommended hardening set — `-D_FORTIFY_SOURCE=3` (needs `-O2`), `-fstack-protector-strong`, PIE/RELRO, and `-ftrivial-auto-var-init=zero` to zero-initialize locals. GCC 14+ bundles the recommended set behind the `-fhardened` umbrella flag as a convenience; C++ adds `-D_GLIBCXX_ASSERTIONS` (libstdc++) or `_LIBCPP_HARDENING_MODE` (libc++) for hardened standard-library bounds checks.
+
 ## Integer Safety
 
 Overflow in size/index/offset arithmetic is the root of most OOB. Use checked arithmetic at every untrusted boundary.

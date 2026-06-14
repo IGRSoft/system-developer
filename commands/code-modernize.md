@@ -1,6 +1,6 @@
 ---
-description: Modernize C++ (17->20->23), Python (->3.14), or Bash to a newer standard one jump at a time, gating each migration class on a green build and test run
-argument-hint: [path (default .)] --target cpp20|cpp23|py314|bash [--dry-run]
+description: Modernize C (17->23), C++ (17->20->23), Python (->3.14), or Bash to a newer standard one jump at a time, gating each migration class on a green build and test run
+argument-hint: [path (default .)] --target c23|cpp20|cpp23|py314|bash [--dry-run]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 estimated-cost:
   min-tokens: 4000
@@ -26,7 +26,7 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 2. **One migration class per commit.** Each ledger row is applied, verified, and committed on its own. Never batch unrelated classes into one diff. The commit subject names the class (e.g. `refactor: adopt std::span over pointer+size`).
 3. **Verify after every class.** After applying a class, run `/system-developer:build-test` (build + tests). If it is not green, the class is NOT committed — revert or fix before moving on. A red build halts the run; report it and stop.
 4. **`--dry-run` produces the ledger only.** In `--dry-run`, write `.context/.modernize/plan.md` and stop. Make ZERO source edits and ZERO commits. This is the review-the-plan mode.
-5. **Mechanical vs semantic routing.** Pure mechanical rewrites (clang-tidy `modernize-*` fixes, `ruff check --select UP --fix`, `shfmt`) delegate to `system-developer:sys-code-fixer`. Rewrites needing judgment (SFINAE -> concepts where the constraint must be designed, error-code -> `std::expected` API changes, free-threading readiness) delegate to `system-developer:cpp-developer` / `system-developer:python-developer`. Never hand a semantic migration to the code-fixer.
+5. **Mechanical vs semantic routing.** Pure mechanical rewrites (clang-tidy `modernize-*` fixes, `ruff check --select UP --fix`, `shfmt`) delegate to `system-developer:sys-code-fixer`. Rewrites needing judgment (SFINAE -> concepts where the constraint must be designed, error-code -> `std::expected` API changes, `#define` -> typed `constexpr`, free-threading readiness) delegate to `system-developer:c-developer` / `system-developer:cpp-developer` / `system-developer:python-developer`. Never hand a semantic migration to the code-fixer.
 6. **Gate features on the toolchain, not the calendar.** Before adopting a standard's feature, confirm the project's compiler/CPython supports it (see `skill: version-feature-matrix`). Prefer feature-test macros (`__cpp_lib_*`, `__has_include`) over compiler-version checks. If the toolchain cannot guarantee the target standard, report the gap and stop — do not write code that will not compile.
 7. **Single-command Bash invocations.** Use each tool's own path/recursion flags. Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
 8. **Tool-missing never hard-fails.** If a required tool is absent, print the install hint, skip that class (or language), and continue. Report what was skipped.
@@ -37,6 +37,9 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 ```bash
 # Preview the C++23 migration ledger without touching any source
 /system-developer:code-modernize . --target cpp23 --dry-run
+
+# Modernize a C17 project to C23 idioms (one jump)
+/system-developer:code-modernize src/ --target c23
 
 # Modernize a C++17 project to C++20 (one jump)
 /system-developer:code-modernize src/ --target cpp20
@@ -53,10 +56,10 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 | Option | Default | Effect |
 |--------|---------|--------|
 | `path` | `.` | Directory or file to modernize. Inventory and detection are rooted here. |
-| `--target cpp20\|cpp23\|py314\|bash` | required | The destination standard / hardening profile. For C++, the command auto-inserts the intermediate jump if the source is more than one level below the target. |
+| `--target c23\|cpp20\|cpp23\|py314\|bash` | required | The destination standard / hardening profile. For C++, the command auto-inserts the intermediate jump if the source is more than one level below the target. `cpp26` is a recognized future stub — see the note below. |
 | `--dry-run` | off | Produce `.context/.modernize/plan.md` (the migration ledger) and stop. No edits, no commits. |
 
-`--target` is required — there is no default standard, because the right destination depends on the deployment toolchain. C targets are not yet a separate profile; C17->C23 work routes through `system-developer:c-developer` directly (see Error Handling).
+`--target` is required — there is no default standard, because the right destination depends on the deployment toolchain. `c23` modernizes a C17 codebase to C23 idioms (single jump — see the `--target c23` playbook). `cpp26` is recognized but **not yet a working profile** (C++26 is at DIS 2026 — not shipping); the command reports the stub and stops (see Error Handling). For C++26 features today, adopt them one-by-one behind `__cpp_*` feature-test macros via `system-developer:cpp-developer` rather than a bulk modernization pass.
 
 ## Inventory
 
@@ -64,6 +67,7 @@ Before building the ledger, establish the *current* standard so the jump count i
 
 | Language | Where the current standard lives | Read |
 |----------|----------------------------------|------|
+| C | `CMAKE_C_STANDARD` / `target_compile_features(... c_std_NN)` in `CMakeLists.txt`; `c_std=` in `meson.build`; `-std=c17`/`-std=c23`/`-std=c2x` in a `Makefile`/compile flags | the highest pinned `NN` (C17 is the safe baseline) |
 | C++ | `CMAKE_CXX_STANDARD` / `target_compile_features(... cxx_std_NN)` in `CMakeLists.txt`; `cpp_std=` in `meson.build`; `-std=c++NN` in a `Makefile`/compile flags | the highest pinned `NN` |
 | Python | `requires-python` in `pyproject.toml`; `python_requires` in `setup.py`; `.python-version` | the floor version; modernize to `--target` only if the floor allows it |
 | Bash | shebangs (`#!/usr/bin/env bash` vs `#!/bin/sh`), presence of `set -euo pipefail`, `[[ ]]` vs `[ ]`, arrays | how far from the strict-mode baseline |
@@ -78,7 +82,7 @@ The inventory's output is `.context/.modernize/plan.md`: an ordered checklist of
 
 ```markdown
 # Modernization Ledger
-Target: {cpp20|cpp23|py314|bash} | Current: {detected} | Path: {path}
+Target: {c23|cpp20|cpp23|py314|bash} | Current: {detected} | Path: {path}
 Toolchain gate: {compiler/CPython + min version from version-feature-matrix} — {PASS | GAP: ...}
 
 ## Jump 1: {from} -> {to}
@@ -99,6 +103,26 @@ Status transitions per row: `pending -> applied -> verified -> committed` (or `r
 ## Per-Target Playbooks
 
 Each playbook is an ordered list of migration classes. Mechanical classes lead (cheap, deterministic, low-risk); semantic classes follow. Every feature claim carries a standard marker and a fallback row from `skill: version-feature-matrix`.
+
+### `--target c23` (from C17)
+
+Toolchain gate: `-std=c23` is the canonical spelling from **GCC 14 / Clang 18** (older toolchains use `-std=c2x`); newest stable mid-2026 is **GCC 15.x / Clang 20-21.x**. GCC 15 defaults to `-std=gnu23` for C — always pin `-std`. Treat MSVC as C17-only unless a feature is verified. Per `skill: version-feature-matrix` (C section). Gate each feature with `__has_include`/`__STDC_VERSION__ >= 202311L` or a feature probe, never a bare compiler version. Single jump — C17->C23 has no intermediate standard.
+
+C17->C23 ledger (mechanical-first):
+
+| Order | Class | Kind | Notes |
+|-------|-------|------|-------|
+| 1 | `clang-tidy -checks='modernize-*,readability-*' -fix` (C pass) | mechanical | Picks up C-applicable modernize/readability fixes. Delegate to `sys-code-fixer`. |
+| 2 | `NULL` -> **`nullptr`** | mechanical | C23 `nullptr` (and `nullptr_t`); type-safe null pointer constant. |
+| 3 | `K&R` / empty `()` prototypes -> **`(void)`** semantics | mechanical-ish | In C23 an empty `()` now means `(void)` (no args), not "unspecified args" — audit declarations that relied on the old meaning before relying on it. |
+| 4 | macro/enum constants -> **`constexpr` objects** | semantic | C23 `constexpr` for object definitions; replace `#define`d numeric constants where a typed `constexpr` reads better. Route to `c-developer` for judgment. |
+| 5 | hand-rolled overflow checks -> **`<stdckdint.h>`** (`ckd_add`/`ckd_sub`/`ckd_mul`) | semantic | Checked integer arithmetic; replaces error-prone manual overflow guards. |
+| 6 | embedded binary blobs -> **`#embed`** | semantic | `#embed` resource inclusion — **GCC 15+ / Clang 19+** (verify against your toolchain; keep the xxd/objcopy fallback where the toolchain lags). |
+| 7 | `typeof` / `typeof_unqual` | mechanical-ish | C23 standardizes `typeof`; replace GNU `__typeof__` reliance where portability now allows. |
+| 8 | wide-fixed-width arithmetic -> **`_BitInt(N)`** | semantic | Precise-width integers; adopt only where a fixed bit width is a real requirement. |
+| 9 | diagnostics/attributes -> **`[[nodiscard]]` / `[[maybe_unused]]` / `[[deprecated]]`** | mechanical-ish | C23 standard attribute syntax (was compiler-specific `__attribute__`); apply on APIs whose return must be checked or that are being retired. |
+
+Hardening cross-ref: pair the jump with `-fhardened` (GCC 14+) and `-ftrivial-auto-var-init=zero` where appropriate (`skill: secure-coding`). Adopt features one-by-one behind a feature probe; if the toolchain cannot reach C23, keep `-std=c17` as the safe baseline and report the gap.
 
 ### `--target cpp20` (from C++17)
 
@@ -153,12 +177,13 @@ Toolchain gate: none beyond the gate trio (`shellcheck`, `shfmt`). Exit criterio
 ### Phase 1: Inventory & Ledger (Bash + Read)
 
 1. Confirm `path` exists; if not, emit the Error Handling "path not found" message and stop.
-2. Validate `--target` is one of `cpp20|cpp23|py314|bash`; if missing/invalid, emit the "missing target" message and stop.
-3. Detect the current standard per the Inventory table (read `CMAKE_CXX_STANDARD`/`cxx_std_NN`, `requires-python`, shebangs). Resolve the toolchain gate via `skill: version-feature-matrix`. If the gate is a GAP (toolchain cannot reach `--target`), report it and stop (Rule 6).
-4. If current already meets/exceeds `--target`, report "already at or above target" and stop.
-5. For C++: if `--target` is more than one level above current, split the ledger into ordered Jumps (Rule 1).
-6. Write `.context/.modernize/plan.md` from the matching playbook(s), all rows `pending`.
-7. **If `--dry-run`: stop here.** Report the ledger path and the planned classes. Make no edits, no commits.
+2. If `--target cpp26`, emit the "C++26 future stub" message and stop (Error Handling).
+3. Validate `--target` is one of `c23|cpp20|cpp23|py314|bash`; if missing/invalid, emit the "missing target" message and stop.
+4. Detect the current standard per the Inventory table (read `CMAKE_CXX_STANDARD`/`cxx_std_NN`, `requires-python`, shebangs). Resolve the toolchain gate via `skill: version-feature-matrix`. If the gate is a GAP (toolchain cannot reach `--target`), report it and stop (Rule 6).
+5. If current already meets/exceeds `--target`, report "already at or above target" and stop.
+6. For C++: if `--target` is more than one level above current, split the ledger into ordered Jumps (Rule 1).
+7. Write `.context/.modernize/plan.md` from the matching playbook(s), all rows `pending`.
+8. **If `--dry-run`: stop here.** Report the ledger path and the planned classes. Make no edits, no commits.
 
 ### Phase 2: Apply Classes In Order (delegated)
 
@@ -169,6 +194,9 @@ Walk the ledger top-down, one row at a time. For each `pending` row:
    - **mechanical** ->
      **Use Task tool with subagent_type="system-developer:sys-code-fixer"**
      Prompt: "Apply ONLY the migration class **{class}** for `{path}` (target {target}, jump {from}->{to}). Run the exact mechanical transform: {e.g. `clang-tidy -p {path}/build -checks='modernize-*' -fix {files}` / `ruff check --select UP --target-version py314 --fix {path}` / `shfmt -w {files}`}. Do NOT apply any other class. Make minimal, deterministic edits. Report every file and rule/check touched. Do not run the test suite."
+   - **semantic (C)** ->
+     **Use Task tool with subagent_type="system-developer:c-developer"**
+     Prompt: "Perform ONLY the migration class **{class}** for `{path}` (C17->C23). {e.g. Replace `#define`d constants with typed `constexpr` objects / convert hand-rolled overflow checks to `<stdckdint.h>` ckd_* / adopt `#embed` for binary blobs with an xxd/objcopy fallback / introduce `_BitInt(N)` only where a fixed width is required}. Gate every adopted feature with `__STDC_VERSION__ >= 202311L`/`__has_include`/a feature probe; if a feature is unavailable on the project toolchain (e.g. `#embed` needs GCC 15+/Clang 19+), keep the fallback and report it. Do not touch other classes. Return the diff and the feature-probe rationale."
    - **semantic (C++)** ->
      **Use Task tool with subagent_type="system-developer:cpp-developer"**
      Prompt: "Perform ONLY the migration class **{class}** for `{path}` ({from}->{to}). {e.g. Replace SFINAE/enable_if constraints with designed concepts / convert pointer+size signatures to std::span watching lifetime / convert error-code returns to std::expected}. Gate every adopted feature with the relevant `__cpp_*`/`__cpp_lib_*` macro; if a feature is unavailable on the project toolchain, keep the fallback and report it. Do not touch other classes. Return the diff and the feature-test rationale."
@@ -227,7 +255,7 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 ```markdown
 ## Code Modernization Report
 
-**Target:** {cpp20 | cpp23 | py314 | bash}
+**Target:** {c23 | cpp20 | cpp23 | py314 | bash}
 **Current standard:** {detected}
 **Path:** {path}
 **Mode:** dry-run | apply
@@ -274,15 +302,26 @@ Suggestion: Pass a directory or file that exists, e.g. /system-developer:code-mo
 
 ### Missing or invalid --target
 ```
-Error: --target is required and must be one of: cpp20, cpp23, py314, bash.
+Error: --target is required and must be one of: c23, cpp20, cpp23, py314, bash.
 Suggestion: /system-developer:code-modernize . --target cpp23 --dry-run
 ```
 
-### C source given (no C profile)
+### C++26 requested (future stub)
 ```
-Note: --target has no C profile. C17->C23 modernization (nullptr, constexpr
-objects, <stdckdint.h>, typeof) routes through system-developer:c-developer
-directly. Delegate that work, or pin -std=c17 as the safe baseline.
+Note: --target cpp26 is not yet a working profile — C++26 is at DIS 2026
+(not shipping). Adopt C++26 features one-by-one behind __cpp_* feature-test
+macros via system-developer:cpp-developer rather than a bulk modernization
+pass. Re-run with --target cpp23 for a supported jump.
+```
+See `skill: version-feature-matrix` (C++ section) for the C++26 emerging row and the feature-test-macro gating guidance.
+
+### C source modernization
+```
+Note: C17->C23 modernization is the --target c23 profile (nullptr, constexpr
+objects, <stdckdint.h>, #embed, typeof, _BitInt(N), () means (void),
+[[nodiscard]]/[[maybe_unused]]/[[deprecated]]). Semantic classes route through
+system-developer:c-developer; pin -std=c17 as the safe baseline if the
+toolchain cannot reach C23.
 ```
 See `skill: version-feature-matrix` (C section) for the C23 feature/fallback table.
 
@@ -314,6 +353,7 @@ Print the install hint from Tool Availability, skip the class (or language), con
 
 - `skill: version-feature-matrix` — canonical standard/version -> toolchain-floor + feature/fallback tables (gate every adopted feature here).
 - `skill: language-detection` — marker -> language -> agent routing (keep per-file detection in sync).
+- `skill: modern-c` — C17/C23 standard selection, the C23 quick-wins ledger (nullptr, constexpr objects, `<stdckdint.h>`, `#embed`, `typeof`, `_BitInt(N)`, attributes), and hygiene flags.
 - `skill: modern-cpp` — RAII/Rule-of-Zero, vocabulary types, the constexpr spectrum, and the version-ref playbooks (`cpp17/20/23-features`, ranges, error-handling).
 - `skill: modern-python` — t-strings, PEP 649 deferred annotations, the `from __future__` removal, except*/add_note.
 - `skill: bash-scripting` — strict-mode prologue, the honest `set -e` caveat matrix, portability and version guards.

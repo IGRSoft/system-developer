@@ -24,9 +24,10 @@ Jump to:
 - Pre-commit Hook
 - CI Wiring
 
-> Version markers below assume **ShellCheck 0.9+** and **shfmt 3.x**; verify against
-> your toolchain (`shellcheck --version`, `shfmt --version`). Optional checks and a
-> handful of codes are newer — fallback notes are inline.
+> Version markers below assume **ShellCheck 0.11** and **shfmt 3.13** (current
+> stable); older toolchains still work — verify with `shellcheck --version` /
+> `shfmt --version`. Optional checks and a handful of codes are newer — fallback
+> notes are inline.
 
 ## Installation and Versions
 
