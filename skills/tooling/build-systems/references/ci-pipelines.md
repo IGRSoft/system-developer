@@ -174,7 +174,7 @@ Fast checks that should gate every PR. Run in report-or-fail mode; do not auto-f
 
 | Tool | Gate role | Note |
 |------|-----------|------|
-| **clang-tidy / clang-format** (22.1.x) | C/C++ lint + format gate | clang-tidy needs `compile_commands.json` (`-p build/...`). |
+| **clang-tidy / clang-format** (20-21.x) | C/C++ lint + format gate | clang-tidy needs `compile_commands.json` (`-p build/...`). |
 | **ruff** | Python lint + format gate | Single fast tool for both. |
 | **ty** (Astral, beta) | Python type check — **report-only** | Fast, no stable API yet; surface findings, do not block on it. Keep pyright/mypy as the gate. |
 | **shellcheck** (0.11) / **shfmt** (3.13) | Bash lint + format gate | `shfmt -d` diffs; `shellcheck` catches quoting/injection classes. |

@@ -177,12 +177,13 @@ Toolchain gate: none beyond the gate trio (`shellcheck`, `shfmt`). Exit criterio
 ### Phase 1: Inventory & Ledger (Bash + Read)
 
 1. Confirm `path` exists; if not, emit the Error Handling "path not found" message and stop.
-2. Validate `--target` is one of `c23|cpp20|cpp23|py314|bash`; if missing/invalid, emit the "missing target" message and stop. If `--target cpp26`, emit the "C++26 future stub" message and stop (Error Handling).
-3. Detect the current standard per the Inventory table (read `CMAKE_CXX_STANDARD`/`cxx_std_NN`, `requires-python`, shebangs). Resolve the toolchain gate via `skill: version-feature-matrix`. If the gate is a GAP (toolchain cannot reach `--target`), report it and stop (Rule 6).
-4. If current already meets/exceeds `--target`, report "already at or above target" and stop.
-5. For C++: if `--target` is more than one level above current, split the ledger into ordered Jumps (Rule 1).
-6. Write `.context/.modernize/plan.md` from the matching playbook(s), all rows `pending`.
-7. **If `--dry-run`: stop here.** Report the ledger path and the planned classes. Make no edits, no commits.
+2. If `--target cpp26`, emit the "C++26 future stub" message and stop (Error Handling).
+3. Validate `--target` is one of `c23|cpp20|cpp23|py314|bash`; if missing/invalid, emit the "missing target" message and stop.
+4. Detect the current standard per the Inventory table (read `CMAKE_CXX_STANDARD`/`cxx_std_NN`, `requires-python`, shebangs). Resolve the toolchain gate via `skill: version-feature-matrix`. If the gate is a GAP (toolchain cannot reach `--target`), report it and stop (Rule 6).
+5. If current already meets/exceeds `--target`, report "already at or above target" and stop.
+6. For C++: if `--target` is more than one level above current, split the ledger into ordered Jumps (Rule 1).
+7. Write `.context/.modernize/plan.md` from the matching playbook(s), all rows `pending`.
+8. **If `--dry-run`: stop here.** Report the ledger path and the planned classes. Make no edits, no commits.
 
 ### Phase 2: Apply Classes In Order (delegated)
 
