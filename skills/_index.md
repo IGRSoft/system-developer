@@ -1,8 +1,8 @@
 # Skills Index
 
-Root index for all system-developer skills (C, C++, Python, Bash, and shared
-tooling). **21 SKILL.md across 6 domains, plus shared references.** Start at
-[`SKILL.md`](SKILL.md) for the routing entry point.
+Root index for all system-developer skills (C, C++, Python, Bash, embedded, and
+shared tooling). **24 SKILL.md across 7 domains, plus shared references.** Start
+at [`SKILL.md`](SKILL.md) for the routing entry point.
 
 ## Domains
 
@@ -13,6 +13,7 @@ tooling). **21 SKILL.md across 6 domains, plus shared references.** Start at
 | [cpp/](cpp/SKILL.md) | [`_index.md`](cpp/_index.md) | 1 + 2 leaves | C++17/20/23 standard selection, RAII and modern idioms, ranges, concepts, coroutines, concurrency |
 | [python/](python/SKILL.md) | [`_index.md`](python/_index.md) | 1 + 5 leaves | Python 3.12-3.14 features, typing, concurrency, uv/ruff tooling, pytest testing |
 | [bash/](bash/SKILL.md) | [`_index.md`](bash/_index.md) | 1 + 2 leaves | Defensive Bash scripting, POSIX portability, bats/shellcheck/shfmt testing |
+| [embedded/](embedded/SKILL.md) | [`_index.md`](embedded/_index.md) | 1 + 2 leaves | Bare-metal/freestanding C & C++: MMIO/registers, volatile, ISRs/startup, no-heap allocation, fixed-point, linker scripts, cross-compilation, embedded C++ subset |
 | [tooling/](tooling/SKILL.md) | [`_index.md`](tooling/_index.md) | 1 + 3 leaves | Build systems, sanitizers, debuggers, profilers, FFI/interop |
 
 ## All Skills
@@ -64,6 +65,14 @@ tooling). **21 SKILL.md across 6 domains, plus shared references.** Start at
 | **bash-scripting** | [`bash/bash-scripting/SKILL.md`](bash/bash-scripting/SKILL.md) | Defensive scripting: strict-mode prologue, quoting, arrays, traps, safe resource handling |
 | **bash-testing** | [`bash/bash-testing/SKILL.md`](bash/bash-testing/SKILL.md) | bats-core tests, sourceable/testable scripts, PATH stubs, shellcheck/shfmt in CI |
 
+### embedded
+
+| Skill | Path | Description |
+|-------|------|-------------|
+| **embedded** (entry) | [`embedded/SKILL.md`](embedded/SKILL.md) | Embedded/bare-metal skills navigation: freestanding vs hosted, registers, ISRs, no-heap, fixed-point, linkers, cross-compilation, the C++ subset |
+| **embedded-systems** | [`embedded/embedded-systems/SKILL.md`](embedded/embedded-systems/SKILL.md) | Language-agnostic core: freestanding, MMIO/register access, `volatile` (and why it is not concurrency), ISRs/startup, no-heap allocation, fixed-point, linker scripts, cross-compilation |
+| **embedded-cpp** | [`embedded/embedded-cpp/SKILL.md`](embedded/embedded-cpp/SKILL.md) | C++ subset for embedded: RAII without exceptions/RTTI (`-fno-exceptions -fno-rtti -ffreestanding`), freestanding stdlib subset, static/placement-new construction, `constexpr`/`constinit` ROM-able data |
+
 ### tooling
 
 | Skill | Path | Description |
@@ -84,6 +93,7 @@ tooling). **21 SKILL.md across 6 domains, plus shared references.** Start at
 | [`python/_index.md`](python/_index.md) | Python entry + 5 leaf skills |
 | [`python/python-concurrency/references/_index.md`](python/python-concurrency/references/_index.md) | Concurrency deep-dive references (asyncio, free-threading, subinterpreters) |
 | [`bash/_index.md`](bash/_index.md) | Bash entry + bash-scripting + bash-testing |
+| [`embedded/_index.md`](embedded/_index.md) | Embedded entry + embedded-systems + embedded-cpp (with references) |
 | [`tooling/_index.md`](tooling/_index.md) | Tooling entry + build-systems + diagnostics + ffi-interop |
 | [`tooling/build-systems/references/_index.md`](tooling/build-systems/references/_index.md) | build-systems deep-dive references (CMake, Meson/Make, package managers, CI) |
 | [`tooling/diagnostics/references/_index.md`](tooling/diagnostics/references/_index.md) | diagnostics deep-dive references (sanitizers, gdb/lldb, profiling tools) |

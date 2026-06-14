@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Plugin version | 1.0.0 |
+| Plugin version | 1.1.0 |
 | igrsoft compatibility | v3.17.0 |
 | Claude Code min required | 2.1.169 |
-| Last updated | 2026-06-12 |
+| Last updated | 2026-06-14 |
 
 Version strings move together (plugin.json, marketplace.json metadata, README
 header, this table) per the igrsoft `/cc-update` convention.
@@ -88,3 +88,14 @@ following stay orchestrator-owned and are deliberately **not** implemented here:
   contract is read whole by participating agents — fragmenting it across a references/
   dir would add a lookup hop on load-bearing handoff detail. The warnings are
   advisory (validator exits 0).
+- **Shared `skills/embedded/` domain (v1.0.0 → 1.1.0 content addition)** — added a
+  new seventh domain `skills/embedded/` with an entry skill (`embedded-skills`), two
+  leaf skills (`embedded-systems`, `embedded-cpp`), and five reference files. Chosen
+  as a shared domain (not sub-skills under `c/` or `cpp/`) because the bare-metal
+  core (MMIO, volatile, ISRs, startup, no-heap, fixed-point, linker scripts,
+  cross-compilation) is language-agnostic; the C++ subset leaf is C++-specific but
+  cross-links cleanly from `cpp/SKILL.md`. Total SKILL.md count: 24 across 7 domains.
+  Registered in `marketplace.json`; cross-linked from `c/SKILL.md` and `cpp/SKILL.md`
+  selection tables, decision trees, and related-skills footers. Pre-existing
+  `tooling/build-systems/` phantom link (referenced by ~22 files plugin-wide, absent
+  from disk and `marketplace.json`) noted as a backlog item — out of scope for this run.

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Systems development toolkit with specialized agents for C, C++, Python, and Bash.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
@@ -54,7 +54,10 @@
         "./skills/bash/bash-testing",
         "./skills/tooling",
         "./skills/tooling/diagnostics",
-        "./skills/tooling/ffi-interop"
+        "./skills/tooling/ffi-interop",
+        "./skills/embedded",
+        "./skills/embedded/embedded-systems",
+        "./skills/embedded/embedded-cpp"
       ],
       "agents": [
         "./agents/system-developer.md",

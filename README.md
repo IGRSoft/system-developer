@@ -2,13 +2,13 @@
 
 Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.17.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.0.0 | **igrsoft Compatibility**: v3.17.0 | **claude-code min version**: "2.1.169"
+**Version**: 1.1.0 | **igrsoft Compatibility**: v3.17.0 | **claude-code min version**: "2.1.169"
 
-## What's in 1.0.0
+## What's in 1.1.0
 
 - **11 agents** — a `system-developer` router, four language developers (`c-developer`, `cpp-developer`, `python-developer`, `bash-developer`), `system-architector`, and five Tier-2 specialists (`sys-test-generator`, `sys-performance-engineer`, `sys-security-auditor`, `sys-code-fixer`, `sys-dependency-manager`). All inherit `agents/_base/language-agent.md`.
 - **8 commands** — language-aware review, build/test, test generation, sanitizer runs, lint/format, profiling, standard modernization, and dependency auditing, each with restrictive `allowed-tools` and an `estimated-cost` band.
-- **Complete skills tree** — 20 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
+- **Complete skills tree** — 24 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, `embedded`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
 - **Plugin-scoped advisory hooks** — `audit-tooluse`, `audit-subagent`, `precompact-checkpoint`, wired in `plugin.json` with igrsoft-compatible dedupe keys. Advisory only: never merges `state.json` (orchestrator-owned). See [`hooks/README.md`](hooks/README.md).
 - **CC capabilities adopted** — tiered `maxTurns` runaway-loop backstops, `disallowed-tools: Write, Edit` on the two review-only auditors, fully-qualified `Task(system-developer:<agent>)` delegations, and scoped `Bash(cmd:*)` allowlists per toolchain.
 
@@ -45,7 +45,7 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 
 All commands degrade gracefully when a tool is missing: they print an install hint (for example `brew install llvm shellcheck shfmt hyperfine`, `uv tool install ruff`), skip that language, and never hard-fail.
 
-## Skills (20)
+## Skills (24)
 
 ### Shared
 
@@ -88,6 +88,14 @@ All commands degrade gracefully when a tool is missing: they print an install hi
 | `bash-skills` | Bash and POSIX shell navigation — Bash vs POSIX sh, strict mode and traps, when a task has outgrown shell, Bash 5.2/5.3 features, shellcheck/shfmt/bats. |
 | `bash-scripting` | Defensive scripting — strict-mode prologue, quoting, arrays, traps, safe resource handling, and resolving shellcheck warnings. |
 | `bash-testing` | Testing Bash with bats-core and keeping scripts lint-clean with ShellCheck and shfmt; sourceable/testable design, PATH-stub mocking, CI wiring. |
+
+### Embedded
+
+| Skill | Description |
+|-------|-------------|
+| `embedded-skills` | Embedded/bare-metal navigation — routes freestanding vs hosted, register access, ISRs, no-heap, fixed-point, linker scripts, cross-compilation, and the embedded C++ subset symptoms to exactly one target. |
+| `embedded-systems` | Language-agnostic bare-metal core: freestanding (`-ffreestanding`, `__STDC_HOSTED__`), MMIO/register access, `volatile` (not atomicity, not ordering), ISRs/vector tables/startup/crt0, no-heap allocation, fixed-point arithmetic, linker scripts, cross-compilation toolchains (arm-none-eabi, newlib/newlib-nano). |
+| `embedded-cpp` | C++ subset for embedded: RAII without exceptions/RTTI (`-fno-exceptions -fno-rtti -ffreestanding`), freestanding stdlib subset (available/unavailable/costly table), static/placement-new construction, `constexpr`/`constinit` ROM-able data, hidden-allocation and dynamic-dispatch avoidance. |
 
 ### Tooling
 

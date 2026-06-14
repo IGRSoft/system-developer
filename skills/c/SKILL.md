@@ -23,6 +23,7 @@ Modern C development: C17 baseline, C23 adoption, memory discipline, concurrency
 | Triage a crash or undefined behavior | [c-memory-ownership/references/undefined-behavior-catalog.md](c-memory-ownership/references/undefined-behavior-catalog.md) |
 | Custom allocators, arenas, pools | [c-memory-ownership/references/allocators-and-arenas.md](c-memory-ownership/references/allocators-and-arenas.md) |
 | Sanitizers, gdb/lldb, valgrind workflow | [diagnostics](${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md) |
+| Bare-metal/freestanding: registers, ISRs, no-heap, linker scripts | [embedded-systems](${CLAUDE_SKILL_DIR}/embedded/embedded-systems/SKILL.md) |
 | Input validation, command execution safety | [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md) |
 | Cross-language C/C++ or Python bindings | [ffi-interop](${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md) |
 
@@ -41,6 +42,9 @@ C task?
 ├── Concurrency
 │   ├── <threads.h>, _Atomic, memory orders → modern-c/references/c-concurrency-atomics.md
 │   └── Data race triage → TSan via ${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md
+├── Bare-metal / embedded (no OS, freestanding)
+│   ├── Registers/MMIO, volatile, ISRs, no-heap, linkers → ${CLAUDE_SKILL_DIR}/embedded/embedded-systems/SKILL.md
+│   └── volatile vs atomics for ISR/main sharing → ${CLAUDE_SKILL_DIR}/embedded/embedded-systems/SKILL.md > volatile
 └── Build, lint, package → ${CLAUDE_SKILL_DIR}/tooling/build-systems/SKILL.md
 ```
 
@@ -73,6 +77,7 @@ explicitly in the build system.
 ## Related Skills
 
 - [cpp-skills](${CLAUDE_SKILL_DIR}/cpp/SKILL.md) — C++ standard selection and interop with C headers
+- [embedded-skills](${CLAUDE_SKILL_DIR}/embedded/SKILL.md) — bare-metal/freestanding C: MMIO, ISRs, startup, no-heap, fixed-point, linker scripts, cross-compilation
 - [version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md) — canonical standard/toolchain minimums
 - [diagnostics](${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md) — sanitizers, debuggers, profilers
 - [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md) — input validation and injection defense

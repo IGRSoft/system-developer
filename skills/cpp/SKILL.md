@@ -50,6 +50,7 @@ Per-feature toolchain minimums: [version-feature-matrix](../_shared/version-feat
 | Decide exceptions vs `std::expected` | [modern-cpp/references/error-handling.md](modern-cpp/references/error-handling.md) |
 | Build ranges pipelines | [modern-cpp/references/ranges.md](modern-cpp/references/ranges.md) |
 | Use threads, atomics, or coroutines | [cpp-concurrency/SKILL.md](cpp-concurrency/SKILL.md) |
+| Run C++ on a microcontroller: `-fno-exceptions -fno-rtti`, no heap, ROM-able data | [embedded-cpp](../embedded/embedded-cpp/SKILL.md) |
 | Configure CMake/vcpkg/Conan | [build-systems](../tooling/build-systems/SKILL.md) |
 | Run sanitizers or debuggers | [diagnostics](../tooling/diagnostics/SKILL.md) |
 | Bind C++ to Python | [ffi-interop](../tooling/ffi-interop/SKILL.md) |
@@ -68,6 +69,10 @@ C++ task?
 ├── Threads, atomics, memory ordering → cpp-concurrency/SKILL.md
 │   ├── Coroutines / std::generator → cpp-concurrency/references/coroutines.md
 │   └── Memory model deep-dive → cpp-concurrency/references/atomics-and-memory-model.md
+├── Bare-metal / microcontroller C++ → ../embedded/embedded-cpp/SKILL.md
+│   ├── -fno-exceptions -fno-rtti, RAII without unwinding, no heap → ../embedded/embedded-cpp/SKILL.md
+│   ├── Freestanding stdlib subset (what's available/costly) → ../embedded/embedded-cpp/references/freestanding-stdlib-subset.md
+│   └── Registers, ISRs, startup, linker scripts (language-agnostic) → ../embedded/embedded-systems/SKILL.md
 ├── Build, packaging, dependencies → ../tooling/build-systems/SKILL.md
 ├── Crashes, leaks, races → ../tooling/diagnostics/SKILL.md
 └── Migrating standards (17→20→23) → /system-developer:code-modernize
@@ -85,5 +90,6 @@ C++ task?
 ## Related Skills
 
 - [modern-c](../c/modern-c/SKILL.md) — C17/C23 for C-only translation units and `extern "C"` boundaries
+- [embedded-cpp](../embedded/embedded-cpp/SKILL.md) — the C++ subset for bare-metal: no exceptions/RTTI, no heap, ROM-able data
 - [secure-coding](../_shared/secure-coding/SKILL.md) — input validation and injection-safe process execution
 - [version-feature-matrix](../_shared/version-feature-matrix.md) — toolchain minimums per standard
