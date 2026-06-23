@@ -172,6 +172,8 @@ Run the project's full build and test suite via the shared workhorse:
 
 Emit the Output Format "Upgrade Step" block with from→to, the gate result, and the next recommended dependency (but do not start it).
 
+> Lockfile/pin changes (vcpkg baseline + `overrides[]`, `conan.lock`, FetchContent `GIT_TAG`, `uv.lock`) feed the RE stage — leave them gate-ready (exact-pinned, build+test-green) for the FN finalization gate.
+
 ## Mode 3: Add (new pinned dependency)
 
 ### Phase 1: Resolve manager & manifest

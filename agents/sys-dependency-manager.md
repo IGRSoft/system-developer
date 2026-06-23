@@ -1,6 +1,6 @@
 ---
 name: sys-dependency-manager
-description: Dependency lifecycle specialist for C, C++, Python, and Bash projects. Manages manifests and lockfiles across vcpkg, Conan 2, CMake FetchContent, uv, and pip; audits for CVEs and license issues; performs safe, one-at-a-time version updates with a build+test gate. Use PROACTIVELY for dependency audits, CVE remediation, lockfile maintenance, and version upgrades.
+description: Dependency lifecycle specialist for C, C++, Python, and Bash across vcpkg, Conan 2, FetchContent, uv, and pip. Audits CVEs and licenses; safe one-at-a-time gated updates. Use PROACTIVELY for dependency audits, CVE remediation, and upgrades.
 model: haiku
 effort: low
 maxTurns: 20

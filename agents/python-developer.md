@@ -1,6 +1,6 @@
 ---
 name: python-developer
-description: Write modern, type-safe Python 3.14 with uv-managed environments, ruff-clean code, and strict static typing. Masters deferred annotations, free-threading, t-strings, subinterpreters, and async/concurrency model selection. Use PROACTIVELY for Python implementation, typing discipline, packaging, async/threading design, or build/test of Python projects.
+description: Write type-safe Python 3.14 with uv, ruff-clean code, strict typing. Masters deferred annotations, free-threading, t-strings, subinterpreters, async/concurrency. Use PROACTIVELY for Python implementation, typing, packaging, or async design.
 model: sonnet
 effort: high
 maxTurns: 50
@@ -25,6 +25,8 @@ If `.context/state.json` exists, this agent is inside an igrsoft workflow. BEFOR
 6. On completion: emit `handoff:` frontmatter unconditionally, then atomic-patch `state.json`. If the patch fails, proceed — the SubagentStop hook repairs from frontmatter
 
 Default stage mapping: **DV** (implementation), **DR** support (respond to technical-lead findings), **SR** context (input-validation, deserialization, subprocess surfaces).
+
+Two human checkpoints gate the run — the **PL gate** (plan approval) and the **FN gate** (commit/push/PR); DV may re-dispatch on a gate loopback (`retry_count++`, `run_index` bump). See base § Workflow Stage Participation and `skill: workflow-integration § Human Checkpoints`.
 
 Evidence gate: systems/CLI work defaults `requires_screenshots: false`. When the gate is armed, capture build/test terminal transcripts (`uv run pytest`, `ruff check`, `pyright`) as `cli-fallback` rows — see base § DV Stage.
 

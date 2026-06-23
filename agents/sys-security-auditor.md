@@ -1,6 +1,6 @@
 ---
 name: sys-security-auditor
-description: Audit C, C++, Python, and Bash code for security vulnerabilities — memory safety (CWE-787/416/119/190), injection (command/SQL/path/format-string, CWE-78/89/22/134), unsafe deserialization (CWE-502), secrets, supply-chain CVEs, and hardening-flag verification. Use PROACTIVELY for security review, sanitizer triage, CWE mapping, or SR-stage context.
+description: Audit C, C++, Python, and Bash for security defects — memory safety, injection, unsafe deserialization, secrets, supply-chain CVEs, hardening flags. Use PROACTIVELY for security review, sanitizer triage, CWE mapping, or SR context.
 model: sonnet
 effort: high
 maxTurns: 50
@@ -20,7 +20,7 @@ If `.context/state.json` exists, this agent is inside an igrsoft workflow. BEFOR
 
 1. Load `skill: workflow-integration` for the 11-stage context and the BINDING handoff contract
 2. Read `.context/state.json` for upstream context; read `development-N.md` (newest `development-*.md`) for the SR security-surface table and files changed
-3. Default stage: **SR context provider** — `igrsoft:security-reviewer` owns `.context/security-review.md`; this agent supplies systems-specific findings (memory safety, injection, secrets, supply chain, privilege, hardening) as input for that agent to merge
+3. Default stage: **SR context provider** — the SR owner `igrsoft:security-reviewer` (runs on **opus** at **effort xhigh** — Fable 5 is available on the runtime but SR pins opus) owns `.context/security-review.md`; this agent supplies systems-specific findings (memory safety, injection, secrets, supply chain, privilege, hardening) as input for that agent to merge
 4. Return a **compressed summary (≤500 tokens)** — findings grouped by severity, each with CWE + `file:line` — for the parent SR agent
 5. Do NOT patch `state.json` and do NOT write `security-review.md` — the parent SR agent owns stage status and the report file
 

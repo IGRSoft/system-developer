@@ -4,17 +4,17 @@
 
 | Field | Value |
 |-------|-------|
-| Plugin version | 1.2.0 |
-| igrsoft compatibility | v3.17.0 |
-| Claude Code min required | 2.1.169 |
-| Last updated | 2026-06-14 |
+| Plugin version | 1.3.0 |
+| igrsoft compatibility | v3.27.1 |
+| Claude Code min required | 2.1.170 |
+| Last updated | 2026-06-23 |
 
 Version strings move together (plugin.json, marketplace.json metadata, README
 header, this table) per the igrsoft `/cc-update` convention.
 
 ## CC Features Adopted at 1.0.0
 
-The plugin is born on the igrsoft v3.17.0 / CC 2.1.169 baseline, so it adopts the
+The plugin is born on the igrsoft v3.27.1 / CC 2.1.170 baseline, so it adopts the
 current capability set from the start rather than migrating into it:
 
 - **Tiered `maxTurns`** — every agent declares a runaway-loop backstop sized to
@@ -129,3 +129,14 @@ Bash 5.2, or mypy/pyright guidance removed):
   IWYU 0.26.
 - **`code-modernize` C23 target profile** added (C17→C23 ledger) plus a `cpp26`
   future stub; **`marketplace.json` keyword sync** to a superset of `plugin.json`.
+
+## Refresh Log (v1.3.0 — 2026-06-23)
+
+- **Worktask alignment to igrsoft v3.27.1** — version co-move 1.2.0 → 1.3.0 and
+  igrsoft compatibility v3.17.0 → v3.27.1 (CC min 2.1.169 → 2.1.170) across
+  plugin.json, marketplace.json, README, this file, and the skill-index labels.
+  README Workflow Integration section refreshed: the two human checkpoints (PL plan
+  gate + FN finalization gate, both on `PL0.metadata`, independently bypassable),
+  `/megatask` dependency-DAG multi-issue batches, PL0 `metadata.skipped_stages`
+  self-documentation, and SR/ET on `opus` (xhigh) with Fable 5 available. Keywords
+  `fn-gate`, `fable-5`, `skipped-stages` added. No C/C++/Python/Bash guidance changed.

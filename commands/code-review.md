@@ -139,7 +139,7 @@ Launch every eligible reviewer **simultaneously** (one per detected language) pl
 
 1. **Collect** every reviewer's findings (language reviewers + security pass).
 2. **Deduplicate** — the security pass and a language reviewer will overlap (e.g. both flag a buffer overflow). Merge duplicates at the same `{file, line}`, keeping the higher severity and the clearer fix; credit both lenses in `why`.
-3. **Filter** — drop speculative claims with no concrete evidence and drop pure style nits unless they hide a real defect. Per Rule 7, do not backfill.
+3. **Filter** — drop speculative claims with no concrete evidence and drop pure style nits unless they hide a real defect. Per Rule 7, do not backfill. Source-comment hygiene is in scope: flag comments that violate `igrsoft:code-comment-standard` (the compact code-documentation standard) — comment the non-obvious WHY and the contract only; do not restate the code, narrate design provenance/history/before-after, or enumerate call sites.
 4. **Normalize** every survivor to `{file, line, category, severity, why, fix, confidence}` (severity from `skill: severity-matrix` P0-P3; confidence = high/medium/low).
 5. **Rank** into P0-P3. With `--security-focus`, security findings win severity ties.
 6. **Emit** the Output Format report.
@@ -241,6 +241,7 @@ If detection cannot classify a file (e.g. extensionless), apply `skill: language
 - `skill: language-detection` — canonical marker → language → agent routing (keep this command's detection in sync).
 - `skill: severity-matrix` — P0-P3 definitions used by the synthesis ranking.
 - `skill: secure-coding` — input-validation and injection patterns the security pass draws on.
+- `igrsoft:code-comment-standard` — the compact code-documentation standard the synthesis checks source comments against (WHY/contract-only; no design provenance/history/call-site enumeration).
 - `/system-developer:lint-fix` — run formatters/linters first to clear P3 noise before review.
 - `/system-developer:build-test` — confirm the change builds and tests green before or after review.
 - `/system-developer:sanitize-check` — escalate a memory/UB finding to ASan/UBSan/TSan confirmation.

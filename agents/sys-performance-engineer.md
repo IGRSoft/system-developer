@@ -1,6 +1,6 @@
 ---
 name: sys-performance-engineer
-description: Profile and optimize C, C++, Python, and Bash performance with code-first review backed by perf, valgrind, py-spy, hyperfine, and platform-native tracers. Review-only — fixes route to sys-code-fixer. Use PROACTIVELY for performance review, hot-path analysis, allocation profiling, and benchmark regressions.
+description: Profile and optimize C, C++, Python, and Bash via code-first review backed by perf, valgrind, py-spy, hyperfine. Review-only — fixes route to sys-code-fixer. Use PROACTIVELY for performance review, hot-path analysis, allocation profiling.
 model: sonnet
 effort: high
 maxTurns: 50
