@@ -36,7 +36,7 @@ Violations must be flagged and corrected before code is complete.
 | Section banners (`/* ===== */`, `# --- section ---`) | Allowed but use sparingly — only when a file has ≥3 logical sections. |
 | `// TODO:` / `# FIXME:` | Allowed when leaving deliberate follow-ups; include a ticket reference or owner. |
 
-Apply this policy in DV stage output and when responding to DR findings. Reviewers (DR, SR) should flag policy violations alongside other issues.
+Apply this policy in DV stage output and when responding to DR findings. Reviewers (DR, SR) should flag policy violations alongside other issues. This policy aligns with `skill: igrsoft:code-comment-standard` — comment the non-obvious *why* and the contract only; route rationale, history, and before/after narrative to the PR / `.context/development-N.md` / ADR, not to source comments.
 
 ## Tool Priority
 
@@ -75,7 +75,9 @@ Apply this policy in DV stage output and when responding to DR findings. Reviewe
 
 ## Workflow Stage Participation
 
-Language agents participate in the igrsoft 11-stage workflow system (v3.17.0+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
+Language agents participate in the igrsoft 11-stage workflow system (v3.27.1+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
+
+**Two human checkpoints** gate the pipeline: the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). On a gate loopback, DV (and DR/QA) may re-run with `retry_count++` and a `run_index` bump — see `skill: workflow-integration § Human Checkpoints`.
 
 ### Handoff Contract (BINDING)
 
@@ -92,7 +94,7 @@ All cross-plugin invocations follow `skills/_shared/workflow-integration/SKILL.m
 - Include security-surface summary in `.context/development-N.md` for DR and SR.
 - On retry, append narrative to `.context/errors/{agent-basename}.md`.
 - **Evidence gate (replaces the UI screenshot gate)**: systems/CLI work defaults `requires_screenshots: false` — PL0 should set it explicitly, and DV writes the skip-rationale manifest (`> Skipped: metadata.requires_screenshots = false. Rationale: <one line>`). When gate metadata still demands evidence (`metadata.requires_screenshots: true`), capture terminal transcripts of the decisive runs (build, tests, sanitizers) as `source: cli-fallback` rows (manifest `Adapter` column: `cli_fallback`) in `.context/images/<worktask_id>/screenshots.md` **before returning** — render via the cli-fallback chain (`silicon` → ImageMagick → `.txt` placeholder; `company-workflow:skills/dv-screenshot-capture/references/cli-fallback.md`). If the manifest is missing while the gate is armed, igrsoft's `dv-screenshot-gate.sh` blocks `SubagentStop` with `hookSpecificOutput.additionalContext` and re-dispatches.
-- **Consuming rework remediation (v3.12.0+)**: on a re-dispatch after a failed DR/QA gate (`metadata.retry_count > 0`), read the prepended `REMEDIATION (from <DR|QA> gate…)` block plus `metadata.gate_from_stage` + `metadata.gate_blockers[]`, and fix those exact findings first (do not re-scope or re-infer). Keep the diff minimal; record per-blocker resolution in `.context/errors/{agent-basename}.md`. The orchestrator owns the injection — language agents only consume it. See `skill: workflow-integration § Gate-Feedback Contract`.
+- **Consuming rework remediation**: on a re-dispatch after a failed DR/QA gate (`metadata.retry_count > 0`), read the prepended `REMEDIATION (from <DR|QA> gate…)` block plus `metadata.gate_from_stage` + `metadata.gate_blockers[]`, and fix those exact findings first (do not re-scope or re-infer). Keep the diff minimal; record per-blocker resolution in `.context/errors/{agent-basename}.md`. The orchestrator owns the injection — language agents only consume it. See `skill: workflow-integration § Gate-Feedback Contract`.
 
 ### DR Stage (Developer Review) - Provide Context
 
@@ -101,7 +103,7 @@ Technical-lead (`igrsoft:technical-lead`) reviews DV output against systems-spec
 - Flagging known trade-offs in `development-N.md` under "DR Focus" section
 - Responding to DR findings by routing to `system-developer:sys-code-fixer` (minimal-diff application) or `system-developer:system-architector` (pattern consult)
 - Re-running build/test via the native toolchain (single scoped command) after each fix group
-- **Gate-feedback (v3.12.0+)**: DR writes a `## blockers` list of concrete, individually-actionable strings; the orchestrator forwards it verbatim as `metadata.gate_blockers[]` (with `gate_from_stage: "DR"`) on the DV re-dispatch. Write blockers so a developer can act on each one without re-opening the review. See `skill: workflow-integration § Gate-Feedback Contract`.
+- **Gate-feedback**: DR writes a `## blockers` list of concrete, individually-actionable strings; the orchestrator forwards it verbatim as `metadata.gate_blockers[]` (with `gate_from_stage: "DR"`) on the DV re-dispatch. Write blockers so a developer can act on each one without re-opening the review. See `skill: workflow-integration § Gate-Feedback Contract`.
 
 See `skills/_shared/workflow-integration/templates/dr-review.md` for review criteria and output templates.
 
@@ -128,7 +130,7 @@ Document systems-specific security concerns:
 
 ### IR Stage (Emergency) - Hotfix Constraints
 
-For `emergency:` workflow trigger:
+On the emergency (incident) pipeline (`/worktask --emergency`):
 - **Minimal changes only** - Touch only necessary code
 - **No new features** - Fix the issue, nothing else
 - **Use feature flags** - Enable rollback where possible

@@ -1,6 +1,6 @@
 ---
 name: system-architector
-description: Select and apply software architecture patterns for C, C++, Python, and Bash systems — layered libraries, hexagonal/ports-adapters, plugin/registry, pipeline/dataflow, concurrency models, and ownership models. Covers API/ABI design, symbol visibility, and semver. Use PROACTIVELY for architecture decisions, pattern selection, structural review, and migration planning across systems and scripting codebases.
+description: Architecture patterns for C, C++, Python, and Bash systems — layered, hexagonal, plugin/registry, pipeline, concurrency and ownership models, API/ABI design, semver. Use PROACTIVELY for pattern selection, structural review, migration.
 model: opus
 effort: xhigh
 maxTurns: 60
@@ -77,7 +77,7 @@ When analyzing existing code, look for:
 | Security boundary review of the architecture | `system-developer:sys-security-auditor` (via the router) |
 | Library / standard documentation, ABI specifics | Context7 or Ref MCP tools |
 
-## Workflow Stage Participation (igrsoft v3.17.0)
+## Workflow Stage Participation (igrsoft v3.27.1)
 
 See `_base/language-agent.md § Workflow Stage Participation` for the binding handoff contract.
 
@@ -93,7 +93,7 @@ See `_base/language-agent.md § Workflow Stage Participation` for the binding ha
 
 1. Resolve the plan file (`task.metadata.plan_file` → newest `.context/planning-*.md`) and the active stage from `.context/state.json`.
 2. Run the Core Workflow (Fast Path → Quick Recommendation or Deep Refactor → Guardrails → Verification) to select the pattern, ownership model, and ABI/API contract.
-3. Write the canonical AR artifact `analyzing-N.md` (`N = run_index` from `task.metadata.run_index`; e.g., `analyzing-0.md`) with `handoff:` frontmatter conforming to `skill: workflow-integration § Output Frontmatter Schema` — emit the frontmatter **unconditionally**, it is the merge input regardless of filename. Readers fall back to newest-glob (`analyzing-*.md`).
+3. Write the canonical AR artifact `analyzing-N.md` (`N = run_index` from `task.metadata.run_index`; e.g., `analyzing-0.md`) with `handoff:` frontmatter conforming to `skill: workflow-integration § Handoff Frontmatter` — emit the frontmatter **unconditionally**, it is the merge input regardless of filename. Readers fall back to newest-glob (`analyzing-*.md`).
 4. Atomic-patch `state.json` (`stages.AR`, `handoffs[AR→…]`) per the handoff protocol; if the patch fails, log and proceed — the SubagentStop hook repairs from frontmatter.
 
 ## Output Formats

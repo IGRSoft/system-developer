@@ -1,8 +1,12 @@
 # System Developer Plugin
 
-Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.17.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
+Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.27.1 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.2.0 | **igrsoft Compatibility**: v3.17.0 | **claude-code min version**: "2.1.169"
+**Version**: 1.3.0 | **igrsoft Compatibility**: v3.27.1 | **claude-code min version**: "2.1.170"
+
+## What's new in 1.3.0
+
+- **Worktask refresh to igrsoft v3.27.1** — workflow integration realigned to the current igrsoft worktask behaviour: launch is `/worktask`-only (no message-prefix triggers), two human checkpoints (the PL plan gate and the FN finalization gate, both carried on `PL0.metadata` and independently bypassable), `/megatask` for dependency-ordered multi-issue batches, PL0 dynamic sizing that stamps `metadata.skipped_stages`, and SR/ET running on `opus` (xhigh) with Fable 5 available as the top reasoning tier. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in 1.2.0
 
@@ -56,7 +60,7 @@ All commands degrade gracefully when a tool is missing: they print an install hi
 | Skill | Description |
 |-------|-------------|
 | `secure-coding` | Non-negotiable security rules and bug-class defenses across all four languages — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene. |
-| `workflow-integration` | Guide for integrating with the igrsoft 11-stage workflow system (v3.17.0), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
+| `workflow-integration` | Guide for integrating with the igrsoft 11-stage workflow system (v3.27.1), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
 
 ### C
 
@@ -159,9 +163,15 @@ Register the marketplace as a directory source and enable the plugin:
 
 After editing `settings.json`, run `/plugins` (or restart the session) to load the plugin.
 
-## Workflow Integration (igrsoft v3.17.0)
+## Workflow Integration (igrsoft v3.27.1)
 
-This plugin collaborates with the **igrsoft** (company-workflow) plugin v3.17.0 for 11-stage workflow orchestration. igrsoft owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `igrsoft:developer` routes to the appropriate system-developer specialist based on file/marker detection.
+This plugin collaborates with the **igrsoft** (company-workflow) plugin v3.27.1 for 11-stage workflow orchestration. igrsoft owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `igrsoft:developer` routes to the appropriate system-developer specialist based on file/marker detection.
+
+**Two human checkpoints**: igrsoft worktasks stop at the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). Both carriers live independently on `PL0.metadata` (`plan_gate` / `fn_gate`, default `checkpoint`) and are bypassed by `--auto-plan` / `--auto-finalization` respectively (and both by `--emergency`). system-developer agents run as invoked specialists *between* the gates and do not own gate logic, though DV/DR/QA may re-run on a gate loopback.
+
+**Multi-issue batches**: `/megatask <milestone#>` (or `/megatask --issues 12,15,18`) orders many worktasks by a dependency/blocker DAG, each issue in its own isolated worktree.
+
+**Reasoning tier**: the security-review (SR) and ethics-review (ET) stages run on `opus` at effort `xhigh`; Fable 5 is available as the top reasoning tier on CC ≥ 2.1.170, but the shipped igrsoft stage agents pin `opus`. system-developer's own agents keep their existing models.
 
 | Stage | system-developer Role | Contribution |
 |-------|----------------------|--------------|

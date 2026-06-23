@@ -1,6 +1,6 @@
 ---
 name: workflow-integration
-description: Guide for integrating with igrsoft 11-stage workflow system (v3.17.0). Use when participating in structured workflow stages.
+description: Guide for integrating with igrsoft 11-stage workflow system (v3.27.1). Use when participating in structured workflow stages.
 ---
 
 # Workflow Integration Guide
@@ -29,16 +29,31 @@ PL → AR → TL → DV → DR → SR → QA → DC → RE → FN → ST
 | FN | Finalization | project-manager | — |
 | ST | Stakeholder | stakeholder | — |
 
-## Worktask Triggers (v3.17.0)
+## Worktask Invocation (v3.27.1)
 
-| Trigger | Stages | Use Case |
-|---------|--------|----------|
-| `micro:` | Plan → approve → edit | Single-file fixes, typos |
-| `quick:` | PL → DV → DR → QA | Small features, bug fixes |
-| `worktask:` | Full 9-stage (PL→AR→TL→DV→DR→QA→DC→FN→ST) | Multi-file features |
-| `fworktask:` | Full 9-stage, auto-continue | Trusted full runs |
-| `--secure` / `--full` | 11-stage (adds SR, RE) | Security-critical work |
-| `emergency:` | IR→DV→DR→QA→RE→FN | Hotfixes, incidents (DR enforces minimal-diff) |
+Launch is **only** via the `/worktask` slash command (or `Skill igrsoft:worktask`) plus flags. Message-prefix triggers (`micro:`/`quick:`/`worktask:`/`fworktask:`/`emergency:`) are **removed**. PL0 dynamic sizing selects which of the 9 stages run.
+
+| Flag | Effect |
+|------|--------|
+| `--secure` / `--full` | 11-stage pipeline (adds SR + RE) |
+| `--emergency` | Incident pipeline IR→DV→DR→QA→RE→FN (DR enforces minimal-diff) |
+| `--auto-plan` | Bypass the PL plan gate |
+| `--auto-finalization` | Bypass the FN gate |
+| `--ethics-review` | Add ET after PL |
+| `--sequential` | DC waits for QA |
+
+Multi-issue batches: `/megatask <milestone#>` or `/megatask --issues 12,15,18` — dependency-DAG ordered, isolated per-issue worktrees.
+
+## Human Checkpoints — PL & FN Gates
+
+Two independent human checkpoints, both carried on PL0 metadata:
+
+| Gate | Carrier | Default | Bypassed by |
+|------|---------|---------|-------------|
+| PL gate | `PL0.metadata.plan_gate` | `checkpoint` (post-PL0 plan approval) | `--auto-plan` or `--emergency` |
+| FN gate | `PL0.metadata.fn_gate` | `checkpoint` (pre-finalization commit/push/PR) | `--auto-finalization` or `--emergency` |
+
+system-developer agents are **invoked specialists that run between the gates** — they do not own gate logic. On a gate loop-back, DV/DR/QA may re-run (`retry_count++`, `run_index` bump).
 
 ## DV Contract for Systems Work
 
@@ -55,6 +70,8 @@ The DV agent writes `.context/development-N.md`. Mandatory H2 anchors are fixed 
 | Follow-ups | `## follow-ups` | Deferred work, flagged risks |
 
 Build Evidence is non-negotiable: a DV artifact without a compiler/standard line, a warning count, and a test transcript path under `.context/logs/` is incomplete. Tee raw build/test output to `.context/logs/<tool>-<worktask_id>.log`.
+
+Source comments follow the compact code-documentation standard (`igrsoft:code-comment-standard` / igrsoft `skills/shared/code-documentation.md`): comment the non-obvious WHY and the contract only — never the WHAT, history, or call sites; rationale lives in the PR / `.context/development-N.md`. DR flags violations.
 
 Copy-paste template: [templates/dv-development.md](templates/dv-development.md).
 
@@ -97,6 +114,7 @@ technical-lead reads `development-N.md` + error files and produces `developer-re
 | Error-handling discipline | No bare `except:` (Python); no swallowed `errno` / unchecked return values (C); `set -euo pipefail` present and its caveats handled (Bash); no `\|\| true` masking failures |
 | Unsafe constructs | `strcpy`/`strcat`/`sprintf`/`gets` (C); `eval`, unquoted expansions (Bash); `pickle.loads` on untrusted data, `subprocess(..., shell=True)`, `yaml.load` without `SafeLoader` (Python); `system()` with user input |
 | Build hygiene | 0 warnings at `-Wall -Wextra` (ruff/shellcheck clean for Python/Bash); no committed build artifacts; lockfiles updated with manifest changes; `compile_commands.json` regenerated when targets change |
+| Comment hygiene | Comments follow the compact code-documentation standard (`igrsoft:code-comment-standard`): WHY/contract only, no design provenance, history, or call-site enumeration; no restated code |
 
 Template: [templates/dr-review.md](templates/dr-review.md).
 
@@ -114,7 +132,7 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 - **SR** — sys-security-auditor provides platform context to igrsoft's security-reviewer: sanitizer evidence, CWE Top 25 mapping, injection review (command/SQL/path/format-string), secrets scan, supply-chain audit (`pip-audit`, `osv-scanner`), hardening flags (`-D_FORTIFY_SOURCE=3`, RELRO, PIE — verified via `checksec`/`readelf`/`otool`). Review-only: findings route to sys-code-fixer for application.
 - **RE** — release-engineer owns the stage; system-developer contributes packaging: sys-dependency-manager freezes lockfiles/pins (vcpkg baselines, Conan lockfiles, `uv.lock`), and the language agents produce release artifacts (tarballs, wheels/sdists via `uv build`, version bumps, changelog entries) recorded in `release-N.md`.
 
-## Artifact Filename Contract (v3.17.0)
+## Artifact Filename Contract (v3.27.1)
 
 **Numbered `<stage>-N.md` names are canonical** per igrsoft's authoritative `handoff-protocol.md#stage-artifact-map`. N is allocated by PL0 (same value as `planning-N.md`), shared across all stages within a run, and propagated via `task.metadata.run_index`; it bumps on gate loop-back re-dispatch. Readers fall back to newest-glob (`<basename>-*.md`).
 
@@ -136,7 +154,7 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 
 **Emit `handoff:` frontmatter unconditionally — it is the merge input regardless of filename.** state.json reconciliation is three-layered: Layer 1 (agent atomic self-patch per `handoff-protocol.md#atomic-write`), Layer 2 (orchestrator re-reads artifact frontmatter after `Task()` returns), Layer 3 (`SubagentStop` hook auto-merge). Attempt Layer 1; if it fails, proceed — Layers 2 and 3 repair from frontmatter. An artifact without `handoff:` YAML breaks the safety net (degrades to F3 fallback: orchestrator derives a minimal handoff and logs WARN).
 
-## Handoff Frontmatter (v3.17.0 schema)
+## Handoff Frontmatter (v3.27.1 schema)
 
 Every stage artifact MUST start with a YAML block between `---` markers. Budgets: ≤200 tokens, ≤30 lines. Base required fields: `stage`, `verdict`, `summary` (≤200 chars), `refs`. Per-stage additions (from `handoff-protocol.md#frontmatter-schema`):
 
@@ -148,7 +166,7 @@ Every stage artifact MUST start with a YAML block between `---` markers. Budgets
 
 `key_decisions[].anchor` and `refs.*` MUST resolve to a real `## <kebab-case>` heading in the target file (anchor-lint enforces this at DR and via PostToolUse hook). Copy-paste blocks: `templates/` in this directory.
 
-## Gate-Feedback Contract (v3.17.0)
+## Gate-Feedback Contract (v3.27.1)
 
 When DR returns `verdict: fail` or QA returns `verdict: no-go`, the orchestrator re-dispatches DV (`run_index` bumped, `retry_count`++) and carries the upstream remediation **verbatim** into the retry prompt (igrsoft `worktask/SKILL.md` step 4.6). system-developer agents **consume** this contract; the injection is orchestrator-owned.
 
@@ -203,7 +221,7 @@ Task metadata carries qualified names:
 4. **Architecture document**: newest `.context/analyzing-*.md` — or the anchors named in upstream `next_stage_focus`.
 5. **Task System**: TaskList/TaskGet; inspect `task.metadata.{plan_file, agent, model, run_index, error_file, gate_from_stage, gate_blockers, requires_screenshots, workspace_path}`.
 
-## Dynamic Worktask Sizing (v3.17.0)
+## Dynamic Worktask Sizing (v3.27.1)
 
 PL0 assesses complexity (0-50) and creates only the stages needed:
 
@@ -216,6 +234,8 @@ PL0 assesses complexity (0-50) and creates only the stages needed:
 | 41-50 | Critical | AR0, TL0, DV0, DR0, SR0, QA0, DC0, RE0, FN0, ST0 |
 
 Security-sensitive features (authentication, payment, PII, cryptography, secrets, file uploads) auto-include SR0 regardless of score.
+
+PL0 stamps `metadata.skipped_stages = [{stage, reason}]` for every stage dropped from the full 9-stage pipeline (PL→AR→TL→DV→DR→QA→DC→FN→ST), so `state.json` self-documents the drops.
 
 ## MCP Dynamic Inheritance
 

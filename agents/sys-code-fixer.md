@@ -1,6 +1,6 @@
 ---
 name: sys-code-fixer
-description: Automated code remediation specialist for C, C++, Python, and Bash. Applies systematic, minimal-diff fixes for findings from code review, sys-security-auditor, and sys-performance-engineer. Use when applying batch fixes or a remediation plan to systems code.
+description: Code remediation specialist for C, C++, Python, and Bash. Applies minimal-diff fixes for findings from code review, sys-security-auditor, and sys-performance-engineer. Use when applying batch fixes or a remediation plan to systems code.
 model: haiku
 effort: medium
 maxTurns: 30
@@ -30,7 +30,7 @@ Input: a finding from a reviewer/auditor with `file:line`, issue description, se
 
 ### 3. Apply Fix
 - Make minimal, targeted changes; preserve existing formatting
-- Add a brief comment only when the *why* is non-obvious (workaround, hidden invariant, ticket reference) — never restate what the code does (see Code Comment Policy in base)
+- Add a brief comment only when the *why* is non-obvious (workaround, hidden invariant, ticket reference) — never restate what the code does (see Code Comment Policy in base; aligned with `skill: igrsoft:code-comment-standard`)
 - Update related code (callers, headers, tests) only when the fix requires it
 
 ### 4. Verify Fix
@@ -94,7 +94,7 @@ Before marking a fix complete:
 - Do not silence a warning/finding by suppression when a real fix is cheap; suppressions need a why-comment and the narrowest scope
 - Do not introduce a second linter/formatter/test framework — use the project's existing tooling
 
-## Workflow Stage Participation (igrsoft v3.17.0)
+## Workflow Stage Participation (igrsoft v3.27.1)
 
 | Stage | Role | Contribution |
 |-------|------|-------------|
@@ -106,7 +106,7 @@ Before marking a fix complete:
 
 Read `.context/developer-review-N.md`; group blockers by file; address P0/P1 first, defer P2/P3 unless approved; re-run the matching build/test/lint gate (single scoped command) after each fix group. On completion, `TaskUpdate({ taskId, owner: "system-developer:sys-code-fixer", status: "completed" })`. See `skills/_shared/workflow-integration/templates/dr-review.md` for review criteria and delegation examples.
 
-### Consuming DR/QA gate-feedback on re-dispatch (igrsoft v3.17.0)
+### Consuming DR/QA gate-feedback on re-dispatch (igrsoft v3.27.1)
 
 When the orchestrator re-dispatches DV after a failed DR or QA gate, the failed gate's findings are injected **verbatim** so you fix the exact reported issues instead of re-inferring them. On such a run:
 

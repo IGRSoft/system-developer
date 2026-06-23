@@ -1,6 +1,6 @@
 ---
 name: cpp-developer
-description: Write idiomatic, memory-safe C++17/20/23 (plus emerging C++26) with RAII, smart pointers, ranges, concepts, coroutines, and std::expected. Masters the Core Guidelines, standard-selection trade-offs, and CMake/vcpkg/Conan builds on Linux and macOS. Use PROACTIVELY for C++ refactoring, memory safety, template/concept design, or modern-standard migration.
+description: Write memory-safe C++17/20/23 with RAII, smart pointers, ranges, concepts, coroutines, std::expected. Masters Core Guidelines, standard selection, CMake/vcpkg/Conan. Use PROACTIVELY for C++ refactoring, memory safety, or standard migration.
 model: sonnet
 effort: high
 maxTurns: 50
@@ -22,6 +22,8 @@ If `.context/state.json` exists, this agent is inside an igrsoft workflow. BEFOR
 5. On a re-dispatch (`metadata.retry_count > 0`), read the prepended `REMEDIATION` block plus `metadata.gate_blockers[]` and fix those exact findings first; record per-blocker resolution in `.context/errors/cpp-developer.md`.
 
 Default stage mapping: **DV** (implementation), **DR** support, **SR** context provider.
+
+Two human checkpoints gate the run — the **PL gate** (plan approval) and the **FN gate** (commit/push/PR); DV may re-dispatch on a gate loopback (`retry_count++`, `run_index` bump). See `skill: workflow-integration § Human Checkpoints`.
 
 ## Standard-Version Decision (canonical: `skill: cpp-skills`)
 

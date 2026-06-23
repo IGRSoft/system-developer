@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
 per the igrsoft `/cc-update` convention.
 
+## [1.3.0] — 2026-06-23
+
+igrsoft worktask-behaviour currency refresh to v3.27.1; additive — existing
+C/C++/Python/Bash guidance preserved.
+
+### Changed
+
+- **workflow-integration skill** — replaced the removed message-prefix trigger
+  table (`micro:`/`quick:`/`worktask:`/`fworktask:`/`emergency:`) with the
+  `/worktask` + flags invocation model; documented the two human checkpoints (PL
+  & FN gates); added the `metadata.skipped_stages` note; bumped all v3.17.0
+  labels to v3.27.1.
+- **Corrected stage-model facts** — SR (`security-reviewer`) and ET
+  (`ethics-reviewer`) run on opus at effort xhigh; Fable 5 (`fable`) noted as the
+  available top tier (stage agents pin opus).
+- **Base Code Comment Policy and agents** now cross-reference igrsoft's new
+  compact code-documentation standard (`igrsoft:code-comment-standard`).
+- **Refreshed igrsoft compatibility** to v3.27.1 / CC 2.1.170 across
+  `plugin.json`, `marketplace.json`, `README.md`, `MEMORY.md`, and the 3
+  skill-index labels.
+
+### Notes
+
+- The `requires_screenshots: false` / cli-fallback evidence norm and the
+  DV/DR/QA handoff schema are unchanged.
+
 ## [1.2.0] — 2026-06-14
 
 2026 best-practices currency refresh plus targeted structural fixes. All changes

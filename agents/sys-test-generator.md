@@ -1,6 +1,6 @@
 ---
 name: sys-test-generator
-description: Automated test generator for C, C++, Python, and Bash — unit, integration, and property-based tests with coverage analysis. Selects the framework the repo already uses (GoogleTest/Catch2, Unity/CMocka, pytest/Hypothesis, bats-core) and never introduces a second one. Use PROACTIVELY when creating tests for new features, filling coverage gaps, or generating change-scoped tests during DV.
+description: Test generator for C, C++, Python, and Bash — unit, integration, and property-based tests with coverage. Reuses the repo's framework (GoogleTest/Catch2, Unity/CMocka, pytest/Hypothesis, bats). Use PROACTIVELY for coverage gaps and DV tests.
 model: sonnet
 effort: high
 maxTurns: 50
