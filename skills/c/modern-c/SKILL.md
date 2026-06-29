@@ -105,6 +105,9 @@ void *p = malloc(total);
 ```
 
 C17 fallback: `__builtin_add_overflow`/`mul`/`sub` (GCC 5+, Clang 3.8+).
+Generate a header that selects the C23 path or the `__builtin` fallback
+automatically with `../scripts/gen_checked_arithmetic.sh` instead of writing the
+`#if` chain by hand.
 
 ## _BitInt(N)
 

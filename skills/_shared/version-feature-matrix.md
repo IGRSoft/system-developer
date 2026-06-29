@@ -7,6 +7,8 @@ description: Canonical lookup mapping language standards and versions (C17/C23, 
 
 Canonical lookup for "which toolchain do I need for this standard, and what do I get". Every version-specific claim in this plugin's skills should link here rather than restate minimums. Compiler-support tables shift between minor releases — for entries marked *(verify)*, confirm against your toolchain (`gcc --version`, `clang --version`, `python3 -VV`, `bash --version`) and the vendor's C/C++ status pages before relying on a feature in CI.
 
+Probe a specific feature instead of guessing: `scripts/check_feature_support.sh --feature NAME` (run `--list` for the names) checks the compiler's feature-test macro or compiles a probe for C/C++, and compares the interpreter version for Python/Bash — exit 0 = supported. It consolidates the per-feature availability checks below; keep its feature map in sync with these tables.
+
 ## C
 
 | Standard | GCC | Clang | MSVC | What you get (one line) |
@@ -63,6 +65,11 @@ fi
 ```
 
 ## Build / Toolchain Floor Quick Reference
+
+Probe the local toolchain against these floors with
+`scripts/check_toolchain_versions.sh` (relative to this file) — it prints an
+`ok`/`below`/`missing` table and, with `--strict`, fails a CI image that is below
+floor. The script mirrors this table; keep the two in sync.
 
 | Tool | Floor assumed by this plugin | Reason |
 |------|------------------------------|--------|

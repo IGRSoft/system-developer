@@ -54,6 +54,11 @@ rm $file
 
 Full doctrine, `posix_spawn` examples, environment scrubbing, and why dynamic code exec is banned: [references/command-execution-and-injection.md](references/command-execution-and-injection.md).
 
+Scan a tree for these banned constructs before review:
+`../scripts/injection_audit.sh --lang {c|cpp|python|bash} --path .` flags each hit
+as `path:line` (heuristic — confirm in context). Exits non-zero on findings, so it
+drops straight into a DR/SR or CI gate.
+
 ## Memory-Corruption Bug Classes (C / C++) → which sanitizer catches it
 
 | Bug class | What it is | Caught by | Notes |

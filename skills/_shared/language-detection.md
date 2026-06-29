@@ -49,16 +49,22 @@ File-level extension map (for per-file routing inside a mixed repo):
 6. **Lockfile beats stray files.** One `tools/helper.py` in a `vcpkg.json` repo does not make it a Python project; `uv.lock` outranks a vendored `*.c` file.
 7. **Still ambiguous → router.** When two tiers conflict irreconcilably (e.g. equal C++ and Python volume, no dominant manifest), dispatch `system-developer:system-developer` and let it split the work.
 
-## Census Snippet
+## Automated Detection
 
-When manifests are absent, count tracked sources (never `node_modules`, `build/`, `.venv/`, vendored dirs):
+`scripts/detect_language.py` (relative to this file) applies this whole document —
+priority order, the marker/extension tables, every tie-break, and the >70% census —
+and prints the qualified agent. Prefer it over re-deriving the rules by hand:
 
 ```bash
-git ls-files | grep -E '\.(c|cc|cpp|cxx|h|hpp|py|sh|bash|bats)$' \
-  | sed 's/.*\.//' | sort | uniq -c | sort -rn
+scripts/detect_language.py --path /repo          # -> system-developer:cpp-developer
+scripts/detect_language.py --path /repo --json   # full verdict: language, confidence, reason, signals
 ```
 
-Route to the dominant language's agent if it holds >70% of source files; otherwise use the router.
+It counts tracked sources via `git ls-files` (never `node_modules`, `build*/`,
+`.venv/`, vendored dirs), falling back to a pruned filesystem walk outside a git
+checkout. It routes to the dominant language's agent only when that language holds
+>70% of source files; otherwise to the router (tie-break 7). The script **mirrors**
+this file — keep the two in sync when a rule changes.
 
 ## Related Skills
 

@@ -1,0 +1,45 @@
+name: scripts
+
+# Lints the bundled skill scripts and runs their bats + pytest suites on both
+# GNU (Linux) and BSD (macOS) coreutils, so the macOS-3.2-safe / portability
+# guarantees are actually exercised.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    name: lint + test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tooling (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck jq
+          sudo npm install -g bats   # apt's bats can be too old for BATS_TEST_TMPDIR
+
+      - name: Install tooling (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck bats-core jq
+
+      - name: Install uv (provides pytest via uvx)
+        uses: astral-sh/setup-uv@v5
+
+      # Release gate: errors only. The repo has known pre-existing WARN-level
+      # findings, so --strict is intentionally not used here.
+      - name: Validate plugin (manifests, frontmatter, links)
+        run: scripts/validate.sh
+
+      # Script suite: shellcheck + bats + pytest. --strict fails if any tool is
+      # missing, so a broken CI image is caught rather than silently skipped.
+      - name: Test bundled scripts
+        run: scripts/test.sh --strict

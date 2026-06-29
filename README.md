@@ -202,6 +202,26 @@ This plugin collaborates with the **igrsoft** (company-workflow) plugin v3.27.1 
 Use the system-developer agent to design a plugin/registry architecture for a C++ codec library
 ```
 
+## Development
+
+Skills bundle small executable helpers under `skills/<domain>/scripts/` and
+`skills/_shared/scripts/` (e.g. `detect_language.py`, `sanitizer_flags.sh`,
+`scaffold_pyproject.sh`). They keep `SKILL.md` prose lean: the model runs the
+script instead of reading and re-deriving the boilerplate it would otherwise
+inline. Each is self-documenting (`<script> --help`), stdout-by-default, and adds
+no runtime dependency beyond what the skill already assumes.
+
+```bash
+scripts/validate.sh            # release gate: manifests, frontmatter, link integrity
+scripts/test.sh                # shellcheck + bats + pytest over the bundled scripts
+scripts/test.sh --strict       # CI mode: a missing tool fails instead of skipping
+```
+
+`scripts/test.sh` degrades gracefully when `bats`/`pytest`/`shellcheck` are
+absent (it SKIPs and prints an install hint); CI runs it `--strict` on Linux and
+macOS via [`.github/workflows/test.yml`](.github/workflows/test.yml) to exercise
+both the GNU and BSD coreutils paths.
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.

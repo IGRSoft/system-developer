@@ -61,8 +61,9 @@ target_link_libraries(app PRIVATE core)              # app uses core; nobody lin
 - **Never `include_directories()` / `link_libraries()` globally.** They leak to every
   target and defeat incremental, cache-correct builds. Use the `target_*` forms.
 - **CMakePresets v6+** — put configure/build/test settings in `CMakePresets.json` so
-  every machine and CI runner configures identically. See
-  [cmake-modern.md](references/cmake-modern.md) > Presets.
+  every machine and CI runner configures identically. Scaffold one with
+  `../../_shared/scripts/scaffold_cmake_preset.sh --name default --std 23` (`--vcpkg`
+  adds the toolchain); see [cmake-modern.md](references/cmake-modern.md) > Presets.
 - **Out-of-source builds always.** Configure into `build/`, never the source tree.
 
 ```bash
