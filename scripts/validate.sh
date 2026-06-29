@@ -299,9 +299,9 @@ if [[ -d skills ]]; then
 	while IFS= read -r f; do
 		rel="${f#./}"
 		fdir="$(dirname "${f}")"
-		# Extract backticked tokens containing references/ or templates/.
+		# Extract backticked tokens containing references/, templates/, or scripts/.
 		# shellcheck disable=SC2016 # backticks are literal markdown delimiters here
-		refs="$(grep -oE '`[^`]*(references|templates)/[A-Za-z0-9._/-]+`' "${f}" 2>/dev/null | tr -d '`' | sort -u || true)"
+		refs="$(grep -oE '`[^`]*(references|templates|scripts)/[A-Za-z0-9._/-]+`' "${f}" 2>/dev/null | tr -d '`' | sort -u || true)"
 		while IFS= read -r ref; do
 			[[ -z "${ref}" ]] && continue
 			# A backticked path may be relative to the file's own directory,

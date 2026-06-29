@@ -79,7 +79,7 @@ Wider scope = faster but shared; never let a wider-scoped fixture hold mutable s
 
 ### conftest.py Placement
 
-`conftest.py` makes fixtures available to every test **at or below** its directory — no import needed. Put broad fixtures (`tmp config`, fakes) in the top `tests/conftest.py`; put narrow ones in the subpackage's `conftest.py`. Closer files override farther ones by name.
+`conftest.py` makes fixtures available to every test **at or below** its directory — no import needed. Put broad fixtures (`tmp config`, fakes) in the top `tests/conftest.py`; put narrow ones in the subpackage's `conftest.py`. Closer files override farther ones by name. Scaffold a starting `conftest.py` (scoped fixtures; `--with-async` for a pytest-asyncio fixture) with `../scripts/scaffold_conftest.sh`.
 
 ## Parametrization
 

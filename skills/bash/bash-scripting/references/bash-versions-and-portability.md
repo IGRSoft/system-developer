@@ -281,7 +281,8 @@ consumer < "$tmp"
 ## GNU vs BSD Coreutils Divergence
 
 Linux ships GNU coreutils; macOS/BSD ship the BSD variants. The same command name
-takes different flags. Common traps:
+takes different flags. `../../scripts/probe_toolchain.sh` reports your flavor, and
+`--wrappers` emits ready-made `sed_i` / `canonical` / epoch shims. Common traps:
 
 | Task | GNU (Linux) | BSD (macOS) | Portable approach |
 |------|-------------|-------------|-------------------|
@@ -323,27 +324,9 @@ edit_in_place() {                 # edit_in_place 's/a/b/' file
 
 ## Portable Patterns for the Common Divergences
 
-Abstract the divergence behind a function chosen once at startup:
-
-```bash
-# Portable in-place sed
-case "$(uname -s)" in
-  Darwin*) sed_i() { sed -i '' "$@"; } ;;   # BSD: empty backup suffix
-  *)       sed_i() { sed -i "$@"; } ;;       # GNU
-esac
-sed_i 's/foo/bar/' "$file"
-
-# Portable canonical path
-canonical() {
-  if command -v realpath >/dev/null 2>&1; then realpath -- "$1"
-  else (cd -- "$(dirname -- "$1")" && printf '%s/%s\n' "$(pwd -P)" "${1##*/}")
-  fi
-}
-
-# Portable epoch arithmetic (avoid date -d / date -v entirely)
-now=$(date +%s)
-tomorrow=$((now + 86400))
-```
+Abstract the divergence behind functions chosen once at startup —
+`../../scripts/probe_toolchain.sh --wrappers` emits ready-made `sed_i`, `canonical`,
+and epoch shims you can source directly (`eval "$(probe_toolchain.sh --wrappers)"`).
 
 Better yet, where the operation is one-shot, prefer the OS-neutral form: write to
 a temp file and `mv` instead of `sed -i`; use `wc -c < f` for size instead of

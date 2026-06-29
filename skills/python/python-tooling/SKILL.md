@@ -148,27 +148,24 @@ ruff format . --check           # CI: fail if unformatted
 
 Add rule families incrementally (`RUF`, `C4`, `PTH`, `A`, `PT`) once the starter
 set is clean. `UP` with `target-version = "py314"` drives modernization (see the
-code-modernize command and the modern-python skill).
+code-modernize command and the modern-python skill). For a modernization-only
+pass, `../scripts/ruff_modernize.sh [--fix]` runs the `UP,B,SIM,C4,PIE,RUF` set at
+a target version without touching the project config.
 
 ## pyproject.toml: Single Source of Truth
 
-One file holds metadata, dependencies, groups, and every tool's config.
+One file holds metadata, dependencies, groups, and every tool's config. Scaffold a
+correct starting point with `../scripts/scaffold_pyproject.sh` rather than hand-writing
+it:
 
-```toml
-[project]
-name = "my-pkg"
-version = "0.1.0"
-requires-python = ">=3.14"
-dependencies = ["httpx>=0.27", "pydantic>=2"]
-
-[dependency-groups]            # PEP 735 — dev-only, never published
-dev = ["pytest>=8", "ruff", "pyright"]
-docs = ["mkdocs-material"]
-
-[build-system]                 # only for libraries/CLIs (uv init --package)
-requires = ["uv_build>=0.11,<0.12"]   # uv_build is Production/Stable (uv 0.11.x)
-build-backend = "uv_build"
+```bash
+../scripts/scaffold_pyproject.sh --package my-pkg                  # library/CLI: src layout + uv_build backend
+../scripts/scaffold_pyproject.sh --app my-svc --python-version 3.12  # application, no [build-system]
 ```
+
+It emits `[project]`, PEP 735 `[dependency-groups]` (dev-only, never published), the
+`[tool.ruff]` config, and — for `--package` — the `uv_build` `[build-system]`; then edit
+metadata and add deps.
 
 The `uv_build` backend is **Production/Stable** as of the uv 0.11.x line (current
 **0.11.21**) — it is the default pure-Python backend, no longer experimental.

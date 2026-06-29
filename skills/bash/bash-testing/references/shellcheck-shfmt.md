@@ -45,6 +45,10 @@ shfmt --version
 
 ## Running ShellCheck
 
+For the canonical invocation (and the same for shfmt/ruff/mypy/clang-tools), the
+shared wrapper `../../../_shared/scripts/wrap_lint_command.sh shellcheck [PATH...]`
+applies these flags for you; `--fix` where a tool supports it. The raw forms:
+
 ```bash
 shellcheck script.sh                      # one file
 shellcheck bin/*.sh lib/*.sh              # multiple files
@@ -134,7 +138,9 @@ Etiquette rules:
 
 ## .shellcheckrc
 
-Project-root config so everyone (and CI) shares one ruleset:
+Scaffold this and `.editorconfig` (and `--with-precommit` the hook) with
+`../../scripts/shellcheck_shfmt_scaffold.sh` rather than copying by hand. The
+canonical contents follow. Project-root config so everyone (and CI) shares one ruleset:
 
 ```ini
 # Dialect for extensionless / sourced files
@@ -205,40 +211,13 @@ result=$(long_command_one \
 
 ## .editorconfig
 
-Make editors and shfmt agree so formatting doesn't ping-pong in reviews. shfmt reads `.editorconfig` when no `-i/-ci/-bn` flags are passed:
-
-```ini
-root = true
-
-[*.{sh,bash,bats}]
-indent_style = space
-indent_size = 2
-switch_case_indent = true     # = shfmt -ci
-binary_next_line = true       # = shfmt -bn
-```
-
-With this file present, `shfmt -d .` (no flags) honors the same settings as the explicit flag set — keep both consistent.
+Make editors and shfmt agree so formatting doesn't ping-pong in reviews. shfmt reads `.editorconfig` when no `-i/-ci/-bn` flags are passed. `shellcheck_shfmt_scaffold.sh` emits one mapping `switch_case_indent`/`binary_next_line` to the `-ci`/`-bn` flags above, so `shfmt -d .` (no flags) honors the same settings — keep both consistent.
 
 ## Pre-commit Hook
 
-Catch issues before they reach CI. With the `pre-commit` framework:
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
-    hooks:
-      - id: shellcheck
-        args: [--severity=warning, --external-sources]
-  - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.10.0-2
-    hooks:
-      - id: shfmt
-        args: [-i, "2", -ci, -bn, -d]
-```
-
-Plain git hook (no framework):
+Catch issues before they reach CI. `shellcheck_shfmt_scaffold.sh --with-precommit`
+emits a `.pre-commit-config.yaml` wiring the `shellcheck-precommit` and
+`pre-commit-shfmt` hooks with the flags above (pinned `rev`s). Plain git hook (no framework):
 
 ```bash
 #!/usr/bin/env bash

@@ -45,57 +45,28 @@ Skip if the problem is at build/link time — that is [build-systems](../build-s
 - **Slowdown budget:** ASan ~2x, TSan ~5-15x, MSan ~5-15x (figures are order-of-magnitude; *verify against your toolchain*).
 - Never sanitize or profile a stripped `Release` build. Use a debug-info-bearing build (`RelWithDebInfo` for profiling).
 
-## Copy-Paste Flag Sets
+## Sanitizer Flag Sets
+
+Don't hand-assemble these — the bundled script emits the exact compile flags,
+the runtime `*_OPTIONS`, or a CMakePresets/Makefile fragment, applying the Ground
+Rules above so the set is always correct and never retyped:
 
 ```bash
-# ASan + UBSan (the default crash/UB hunt)
-clang -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined \
-      -fno-sanitize-recover=all prog.c -o prog
-
-# TSan (run alone)
-clang -g -O1 -fno-omit-frame-pointer -fsanitize=thread prog.c -o prog
-
-# MSan (Clang only; expect to instrument deps too)
-clang -g -O1 -fno-omit-frame-pointer -fsanitize=memory \
-      -fsanitize-memory-track-origins prog.c -o prog
+# compile flags (default) — the asan+ubsan crash/UB hunt
+../../_shared/scripts/sanitizer_flags.sh --lang cpp --sanitizer asan+ubsan
+# runtime *_OPTIONS, ready to source
+eval "$(../../_shared/scripts/sanitizer_flags.sh --lang c --sanitizer asan+ubsan --output env)"
+# a CMakePresets.json v6 entry (or --output make for a Makefile fragment)
+../../_shared/scripts/sanitizer_flags.sh --lang cpp --sanitizer asan+ubsan --output cmake
 ```
 
-### Debug-sanitize CMake preset
-
-```json
-{
-  "version": 6,
-  "configurePresets": [
-    {
-      "name": "asan-ubsan",
-      "displayName": "Debug + ASan/UBSan",
-      "binaryDir": "${sourceDir}/build/asan",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_FLAGS": "-g -fno-omit-frame-pointer -fsanitize=address,undefined",
-        "CMAKE_CXX_FLAGS": "-g -fno-omit-frame-pointer -fsanitize=address,undefined",
-        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
-      }
-    }
-  ]
-}
-```
-
-```bash
-cmake --preset asan-ubsan && cmake --build build/asan && ctest --test-dir build/asan
-```
-
-### Runtime options
-
-```bash
-# Make UBSan abort with a stack trace; surface fast, deterministic failures
-export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-
-# ASan: stronger checks, symbolized frames, leak detection at exit
-export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:symbolize=1:strict_string_checks=1
-```
-
-If frames show as `??`, ensure `llvm-symbolizer` (Clang) is on `PATH`, or set `ASAN_SYMBOLIZER_PATH`.
+`--sanitizer` ∈ {`asan`, `ubsan`, `asan+ubsan`, `tsan`, `msan`}; `--output` ∈
+{`flags`, `env`, `cmake`, `make`}; `--lang` ∈ {`c`, `cpp`, `python`} (python emits
+`CFLAGS`/`CXXFLAGS` for the native-extension build). Run with `--help` for the full
+contract. The path is relative to this skill's directory —
+`_shared/scripts/sanitizer_flags.sh`. The script warns when a set must run alone
+(TSan, MSan) and reminds you to keep `llvm-symbolizer` on `PATH`, or frames show
+as `??`.
 
 ## gdb / lldb Quickstart
 

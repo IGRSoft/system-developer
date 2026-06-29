@@ -71,41 +71,10 @@ Set `CMAKE_EXPORT_COMPILE_COMMANDS=ON` so clang-tidy / clangd / IDEs see real fl
 `CMakePresets.json` removes per-machine guesswork: configure, build, and test settings
 travel with the repo. Use `"version": 6` or higher (CMake 3.25+ reads v6).
 
-```json
-{
-  "version": 6,
-  "cmakeMinimumRequired": { "major": 3, "minor": 28, "patch": 0 },
-  "configurePresets": [
-    {
-      "name": "default",
-      "displayName": "Default (Ninja, RelWithDebInfo)",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/default",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_STANDARD": "23"
-      }
-    },
-    {
-      "name": "vcpkg",
-      "inherits": "default",
-      "binaryDir": "${sourceDir}/build/vcpkg",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-    }
-  ],
-  "buildPresets": [
-    { "name": "default", "configurePreset": "default" }
-  ],
-  "testPresets": [
-    {
-      "name": "default",
-      "configurePreset": "default",
-      "output": { "outputOnFailure": true }
-    }
-  ]
-}
-```
+Generate a starting file with `../../../_shared/scripts/scaffold_cmake_preset.sh`
+(`--name`, `--std`, `--build-type`, `--vcpkg`) rather than hand-writing the JSON — it
+emits `configurePresets` / `buildPresets` / `testPresets` with `CMAKE_EXPORT_COMPILE_COMMANDS=ON`,
+a Ninja generator, and an out-of-source `binaryDir`. Then:
 
 ```bash
 cmake --preset default          # configure

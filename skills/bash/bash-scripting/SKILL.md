@@ -24,7 +24,9 @@ Python instead — see [bash-skills](../SKILL.md) > When to Use Bash At All.
 ## Canonical Prologue
 
 Every non-trivial Bash script starts with this. Target `#!/usr/bin/env bash`,
-not `#!/bin/bash` (macOS `/bin/bash` is 3.2).
+not `#!/bin/bash` (macOS `/bin/bash` is 3.2). Generate it — with an optional
+version guard, INT/TERM traps, or inline comments — using
+`../scripts/prologue_generator.sh` instead of retyping the variants:
 
 ```bash
 #!/usr/bin/env bash
