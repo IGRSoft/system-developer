@@ -108,7 +108,7 @@ def _is_pruned(rel: Path) -> bool:
     if any(part in PRUNE_DIRS for part in rel.parts):
         return True
     # build, build-asan, build/ ... (the .gitignore convention is build*/)
-    return any(part.startswith("build") for part in rel.parts)
+    return any(part.startswith("build") for part in rel.parts[:-1])
 
 
 def list_source_files(root: Path) -> list[Path]:
