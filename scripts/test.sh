@@ -117,7 +117,7 @@ fi
 # --- Summary ----------------------------------------------------------------
 printf '\nSummary: %d ran, %d failed, %d skipped%s\n' \
 	"${RAN_COUNT}" "${FAIL_COUNT}" "${SKIP_COUNT}" \
-	"$([[ "${STRICT}" -eq 1 ]] && printf ' (strict)' || true)"
+	"$(if [[ "${STRICT}" -eq 1 ]]; then printf ' (strict)'; fi)"
 
 [[ "${FAIL_COUNT}" -eq 0 ]] || exit 1
 exit 0

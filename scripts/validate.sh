@@ -438,7 +438,7 @@ check_subagent_refs agents
 
 printf '\n'
 printf 'Summary: %d error(s), %d warning(s)%s\n' "${ERR_COUNT}" "${WARN_COUNT}" \
-	"$([[ "${STRICT}" -eq 1 ]] && printf ' (strict)' || true)"
+	"$(if [[ "${STRICT}" -eq 1 ]]; then printf ' (strict)'; fi)"
 
 if [[ "${ERR_COUNT}" -gt 0 ]]; then
 	exit 1

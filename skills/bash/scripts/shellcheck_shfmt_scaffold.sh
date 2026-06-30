@@ -74,7 +74,7 @@ done
 
 [[ "${WRITE}" -eq 0 || -d "${DIR}" ]] || die "--dir is not a directory: ${DIR}"
 
-# shellcheck disable=SC2329 # invoked indirectly via write_file "$2"
+# shellcheck disable=SC2329,SC2317 # invoked indirectly via write_file "$2"
 shellcheckrc() {
 	cat <<'EOF'
 # Dialect for extensionless / sourced files
@@ -97,7 +97,7 @@ disable=SC1091
 EOF
 }
 
-# shellcheck disable=SC2329 # invoked indirectly via write_file "$2"
+# shellcheck disable=SC2329,SC2317 # invoked indirectly via write_file "$2"
 editorconfig() {
 	cat <<'EOF'
 root = true
@@ -110,7 +110,7 @@ binary_next_line = true       # = shfmt -bn
 EOF
 }
 
-# shellcheck disable=SC2329 # invoked indirectly via write_file "$2"
+# shellcheck disable=SC2329,SC2317 # invoked indirectly via write_file "$2"
 precommit() {
 	cat <<'EOF'
 repos:
