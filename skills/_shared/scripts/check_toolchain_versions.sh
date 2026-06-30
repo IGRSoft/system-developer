@@ -130,7 +130,7 @@ EOF
 
 printf '\nSummary: %d ok, %d below, %d missing%s\n' \
 	"${OK_COUNT}" "${BELOW_COUNT}" "${MISSING_COUNT}" \
-	"$([[ "${STRICT}" -eq 1 ]] && printf ' (strict)' || true)" >&2
+	"$(if [[ "${STRICT}" -eq 1 ]]; then printf ' (strict)'; fi)" >&2
 
 if [[ "${STRICT}" -eq 1 && $((BELOW_COUNT + MISSING_COUNT)) -gt 0 ]]; then
 	exit 1
