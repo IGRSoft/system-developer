@@ -77,7 +77,7 @@ When analyzing existing code, look for:
 | Security boundary review of the architecture | `system-developer:sys-security-auditor` (via the router) |
 | Library / standard documentation, ABI specifics | Context7 or Ref MCP tools |
 
-## Workflow Stage Participation (igrsoft v3.27.1)
+## Workflow Stage Participation (igrsoft v3.33.0)
 
 See `_base/language-agent.md § Workflow Stage Participation` for the binding handoff contract.
 

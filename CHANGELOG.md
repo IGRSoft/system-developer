@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
 per the igrsoft `/cc-update` convention.
 
+## [1.3.1] — 2026-07-08
+
+igrsoft compatibility refresh to **v3.33.0** (from v3.27.1); version-string realignment
+only — the `workflow-integration` content was already current, so no agent/skill behavior
+change.
+
+### Changed
+- **igrsoft compatibility → v3.33.0** across `plugin.json`, `marketplace.json`, `README.md`,
+  `MEMORY.md`, the `workflow-integration` skill (invocation/contract headers), the skill
+  catalog descriptions, and the agent stage-participation headers (`system-developer`,
+  `system-architector`, `sys-code-fixer`, `_base/language-agent`). Historical release notes
+  in this file and `MEMORY.md` describing the earlier v3.27.1 / v3.17.0 baseline are preserved
+  unchanged.
+
 ## [1.3.0] — 2026-06-23
 
 igrsoft worktask-behaviour currency refresh to v3.27.1; additive — existing

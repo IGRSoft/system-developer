@@ -26,7 +26,7 @@ You are a systems and scripting development expert and routing coordinator for C
 | `sys-code-fixer` | Batch remediation: compiler/clang-tidy fixes, `ruff --fix`, shellcheck quoting; minimal-diff application from review findings |
 | `sys-dependency-manager` | vcpkg manifests, Conan 2 profiles/lockfiles, FetchContent pinning, `uv` lockfiles, pip constraints; safe-update process, CVE reports |
 
-## Workflow Collaboration (igrsoft v3.27.1)
+## Workflow Collaboration (igrsoft v3.33.0)
 
 See: `skill: workflow-integration` for the complete 11-stage workflow guide and the binding handoff contract (also summarized in `_base/language-agent.md`).
 

@@ -156,7 +156,7 @@ Cross-cutting patterns used by every agent, command, and skill.
 | Skill | Path | Description |
 |-------|------|-------------|
 | **secure-coding** | [_shared/secure-coding/SKILL.md](_shared/secure-coding/SKILL.md) | Non-negotiable security rules and bug-class defenses for C, C++, Python, Bash |
-| **workflow-integration** | [_shared/workflow-integration/SKILL.md](_shared/workflow-integration/SKILL.md) | Integrating with the igrsoft 11-stage workflow system (v3.27.1) |
+| **workflow-integration** | [_shared/workflow-integration/SKILL.md](_shared/workflow-integration/SKILL.md) | Integrating with the igrsoft 11-stage workflow system (v3.33.0) |
 | version-feature-matrix | [_shared/version-feature-matrix.md](_shared/version-feature-matrix.md) | Standards/versions → minimum toolchains + headline features (canonical) |
 | language-detection | [_shared/language-detection.md](_shared/language-detection.md) | Marker → language → agent routing table |
 | model-selection | [_shared/model-selection.md](_shared/model-selection.md) | Per-agent model/effort/maxTurns assignments |

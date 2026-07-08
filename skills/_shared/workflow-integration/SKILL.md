@@ -1,6 +1,6 @@
 ---
 name: workflow-integration
-description: Guide for integrating with igrsoft 11-stage workflow system (v3.27.1). Use when participating in structured workflow stages.
+description: Guide for integrating with igrsoft 11-stage workflow system (v3.33.0). Use when participating in structured workflow stages.
 ---
 
 # Workflow Integration Guide
@@ -29,7 +29,7 @@ PL → AR → TL → DV → DR → SR → QA → DC → RE → FN → ST
 | FN | Finalization | project-manager | — |
 | ST | Stakeholder | stakeholder | — |
 
-## Worktask Invocation (v3.27.1)
+## Worktask Invocation (v3.33.0)
 
 Launch is **only** via the `/worktask` slash command (or `Skill igrsoft:worktask`) plus flags. Message-prefix triggers (`micro:`/`quick:`/`worktask:`/`fworktask:`/`emergency:`) are **removed**. PL0 dynamic sizing selects which of the 9 stages run.
 
@@ -132,7 +132,7 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 - **SR** — sys-security-auditor provides platform context to igrsoft's security-reviewer: sanitizer evidence, CWE Top 25 mapping, injection review (command/SQL/path/format-string), secrets scan, supply-chain audit (`pip-audit`, `osv-scanner`), hardening flags (`-D_FORTIFY_SOURCE=3`, RELRO, PIE — verified via `checksec`/`readelf`/`otool`). Review-only: findings route to sys-code-fixer for application.
 - **RE** — release-engineer owns the stage; system-developer contributes packaging: sys-dependency-manager freezes lockfiles/pins (vcpkg baselines, Conan lockfiles, `uv.lock`), and the language agents produce release artifacts (tarballs, wheels/sdists via `uv build`, version bumps, changelog entries) recorded in `release-N.md`.
 
-## Artifact Filename Contract (v3.27.1)
+## Artifact Filename Contract (v3.33.0)
 
 **Numbered `<stage>-N.md` names are canonical** per igrsoft's authoritative `handoff-protocol.md#stage-artifact-map`. N is allocated by PL0 (same value as `planning-N.md`), shared across all stages within a run, and propagated via `task.metadata.run_index`; it bumps on gate loop-back re-dispatch. Readers fall back to newest-glob (`<basename>-*.md`).
 
@@ -154,7 +154,7 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 
 **Emit `handoff:` frontmatter unconditionally — it is the merge input regardless of filename.** state.json reconciliation is three-layered: Layer 1 (agent atomic self-patch per `handoff-protocol.md#atomic-write`), Layer 2 (orchestrator re-reads artifact frontmatter after `Task()` returns), Layer 3 (`SubagentStop` hook auto-merge). Attempt Layer 1; if it fails, proceed — Layers 2 and 3 repair from frontmatter. An artifact without `handoff:` YAML breaks the safety net (degrades to F3 fallback: orchestrator derives a minimal handoff and logs WARN).
 
-## Handoff Frontmatter (v3.27.1 schema)
+## Handoff Frontmatter (v3.33.0 schema)
 
 Every stage artifact MUST start with a YAML block between `---` markers. Budgets: ≤200 tokens, ≤30 lines. Base required fields: `stage`, `verdict`, `summary` (≤200 chars), `refs`. Per-stage additions (from `handoff-protocol.md#frontmatter-schema`):
 
@@ -166,7 +166,7 @@ Every stage artifact MUST start with a YAML block between `---` markers. Budgets
 
 `key_decisions[].anchor` and `refs.*` MUST resolve to a real `## <kebab-case>` heading in the target file (anchor-lint enforces this at DR and via PostToolUse hook). Copy-paste blocks: `templates/` in this directory.
 
-## Gate-Feedback Contract (v3.27.1)
+## Gate-Feedback Contract (v3.33.0)
 
 When DR returns `verdict: fail` or QA returns `verdict: no-go`, the orchestrator re-dispatches DV (`run_index` bumped, `retry_count`++) and carries the upstream remediation **verbatim** into the retry prompt (igrsoft `worktask/SKILL.md` step 4.6). system-developer agents **consume** this contract; the injection is orchestrator-owned.
 
@@ -221,7 +221,7 @@ Task metadata carries qualified names:
 4. **Architecture document**: newest `.context/analyzing-*.md` — or the anchors named in upstream `next_stage_focus`.
 5. **Task System**: TaskList/TaskGet; inspect `task.metadata.{plan_file, agent, model, run_index, error_file, gate_from_stage, gate_blockers, requires_screenshots, workspace_path}`.
 
-## Dynamic Worktask Sizing (v3.27.1)
+## Dynamic Worktask Sizing (v3.33.0)
 
 PL0 assesses complexity (0-50) and creates only the stages needed:
 

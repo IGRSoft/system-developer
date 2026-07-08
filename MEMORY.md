@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Plugin version | 1.3.0 |
-| igrsoft compatibility | v3.27.1 |
+| Plugin version | 1.3.1 |
+| igrsoft compatibility | v3.33.0 |
 | Claude Code min required | 2.1.170 |
-| Last updated | 2026-06-23 |
+| Last updated | 2026-07-08 |
 
 Version strings move together (plugin.json, marketplace.json metadata, README
 header, this table) per the igrsoft `/cc-update` convention.
@@ -129,6 +129,16 @@ Bash 5.2, or mypy/pyright guidance removed):
   IWYU 0.26.
 - **`code-modernize` C23 target profile** added (C17→C23 ledger) plus a `cpp26`
   future stub; **`marketplace.json` keyword sync** to a superset of `plugin.json`.
+
+## Refresh Log (v1.3.1 — 2026-07-08)
+
+- **igrsoft compatibility refresh v3.27.1 → v3.33.0** — version-string realignment only; the
+  `workflow-integration` content was already current (`/worktask`-only launch, two-gate model),
+  so no agent/skill behavior changed. Bumped the compat headline across `plugin.json`,
+  `marketplace.json`, `README.md`, the version table above, the `workflow-integration` skill
+  contract headers, the skill-catalog descriptions, and the agent stage-participation headers
+  (`system-developer`, `system-architector`, `sys-code-fixer`, `_base/language-agent`).
+  Historical release notes below (the v3.17.0 → v3.27.1 baseline) are preserved unchanged.
 
 ## Refresh Log (v1.3.0 — 2026-06-23)
 
