@@ -6,7 +6,7 @@ Quick navigation for cross-cutting references shared by all system-developer age
 
 | File | Description |
 |------|-------------|
-| `workflow-integration/SKILL.md` | Guide for integrating with igrsoft 11-stage workflow system (v3.33.0) — DV/DR/QA contracts, screenshot cli-fallback, gate feedback |
+| `workflow-integration/SKILL.md` | Guide for integrating with igrsoft 11-stage workflow system (v3.36.0) — DV/DR/QA contracts, screenshot cli-fallback, gate feedback |
 | `workflow-integration/templates/dv-development.md` | Copy-paste `development-N.md` artifact template (Build Evidence, anchors, frontmatter) |
 | `workflow-integration/templates/dr-review.md` | Copy-paste `developer-review-N.md` template with systems review checklist |
 | `workflow-integration/templates/qa-testing.md` | Copy-paste `testing-N.md` template with sanitizer-gate evidence |

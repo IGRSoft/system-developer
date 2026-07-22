@@ -1,8 +1,15 @@
 # System Developer Plugin
 
-Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.33.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
+Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.36.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.3.1 | **igrsoft Compatibility**: v3.33.0 | **claude-code min version**: "2.1.170"
+**Version**: 1.4.0 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+
+## What's new in 1.4.0
+
+- **igrsoft v3.36.0 sync** — compatibility headline realigned v3.33.0 → v3.36.0 across the manifests, README, `MEMORY.md`, the `workflow-integration` skill, and the agent stage-participation headers; the PL0 stamp note now also names `metadata.test_mode` and `metadata.ui_visual_check` (the latter N/A for CLI work, left `false`), with the Dynamic Worktask Sizing table already current (DR0 at every tier).
+- **state-patch pointer form** — the manual `read → merge → temp → fsync → rename` atomic-write prose is replaced by the two-mode `state-patch.sh --stage <CODE> --prev <PREV>` contract (run when its path is supplied, else silently skip; Layers 2/3 repair from the unconditional `handoff:` frontmatter).
+- **CLI evidence-freshness rule** — every `cli-fallback` transcript must be produced this run from the actual build/test invocation, never reused; the systems analog of igrsoft's QA direct-read evidence-integrity check.
+- **Output budgets + Complexity Triage** — benchmark-driven `Output Budget` blocks on the DV (`_base`), AR, DV-support, and DR-support agents (Build Evidence stays exempt), plus a `Complexity Triage` gate on `system-architector` that self-limits scope at Low complexity; `section-lint` and `desc-lint` are wired into `scripts/test.sh`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's new in 1.3.0
 
@@ -60,7 +67,7 @@ All commands degrade gracefully when a tool is missing: they print an install hi
 | Skill | Description |
 |-------|-------------|
 | `secure-coding` | Non-negotiable security rules and bug-class defenses across all four languages — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene. |
-| `workflow-integration` | Guide for integrating with the igrsoft 11-stage workflow system (v3.33.0), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
+| `workflow-integration` | Guide for integrating with the igrsoft 11-stage workflow system (v3.36.0), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
 
 ### C
 
@@ -163,9 +170,9 @@ Register the marketplace as a directory source and enable the plugin:
 
 After editing `settings.json`, run `/plugins` (or restart the session) to load the plugin.
 
-## Workflow Integration (igrsoft v3.33.0)
+## Workflow Integration (igrsoft v3.36.0)
 
-This plugin collaborates with the **igrsoft** (company-workflow) plugin v3.33.0 for 11-stage workflow orchestration. igrsoft owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `igrsoft:developer` routes to the appropriate system-developer specialist based on file/marker detection.
+This plugin collaborates with the **igrsoft** (company-workflow) plugin v3.36.0 for 11-stage workflow orchestration. igrsoft owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `igrsoft:developer` routes to the appropriate system-developer specialist based on file/marker detection.
 
 **Two human checkpoints**: igrsoft worktasks stop at the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). Both carriers live independently on `PL0.metadata` (`plan_gate` / `fn_gate`, default `checkpoint`) and are bypassed by `--auto-plan` / `--auto-finalization` respectively (and both by `--emergency`). system-developer agents run as invoked specialists *between* the gates and do not own gate logic, though DV/DR/QA may re-run on a gate loopback.
 

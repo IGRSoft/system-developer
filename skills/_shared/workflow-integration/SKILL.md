@@ -1,6 +1,6 @@
 ---
 name: workflow-integration
-description: Guide for integrating with igrsoft 11-stage workflow system (v3.33.0). Use when participating in structured workflow stages.
+description: Guide for integrating with igrsoft 11-stage workflow system (v3.36.0). Use when participating in structured workflow stages.
 ---
 
 # Workflow Integration Guide
@@ -29,7 +29,7 @@ PL → AR → TL → DV → DR → SR → QA → DC → RE → FN → ST
 | FN | Finalization | project-manager | — |
 | ST | Stakeholder | stakeholder | — |
 
-## Worktask Invocation (v3.33.0)
+## Worktask Invocation (v3.36.0)
 
 Launch is **only** via the `/worktask` slash command (or `Skill igrsoft:worktask`) plus flags. Message-prefix triggers (`micro:`/`quick:`/`worktask:`/`fworktask:`/`emergency:`) are **removed**. PL0 dynamic sizing selects which of the 9 stages run.
 
@@ -85,8 +85,11 @@ igrsoft's `dv-screenshot-gate.sh` blocks `SubagentStop` when `metadata.requires_
    - Write `.context/images/<worktask_id>/screenshots.md` with one row per capture, `source: cli-fallback`, and a `notes` cell explaining why (e.g. "CLI tool, no UI; transcript capture").
    - Frontmatter `screenshot_count` MUST equal the number of table rows.
 3. **Never** fabricate image files or return without either the `false` flag or a cli-fallback manifest — the gate re-dispatches DV until one exists.
+4. **Evidence freshness**: every `cli-fallback` transcript row must be produced *this run* from the actual build/test invocation — never reuse a transcript from a prior run or another workdir. igrsoft QA direct-reads the evidence files and cross-checks them against the log paths recorded in the DV artifact's `### build-evidence` section; a stale or duplicated transcript is flagged and re-opens DV. This is the text-evidence corollary of rule 3 — the "never fabricate" integrity bar applies to reused transcripts as much as to invented image files.
 
 Manifest row format mirrors igrsoft's `dv-screenshot-capture` output: `| name | path | source | design_ref | notes |` with `source` ∈ {`cli-fallback`} for systems work; `design_ref` stays blank (no mockups for CLI).
+
+`ui_visual_check` (the v3.36.0 DV metadata contract field) is **not applicable** to systems/CLI work — leave it `false`; it gates live-driven UI-capture provenance on UI platforms, which have no analog here.
 
 ## Per-Agent Error Files
 
@@ -132,7 +135,7 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 - **SR** — sys-security-auditor provides platform context to igrsoft's security-reviewer: sanitizer evidence, CWE Top 25 mapping, injection review (command/SQL/path/format-string), secrets scan, supply-chain audit (`pip-audit`, `osv-scanner`), hardening flags (`-D_FORTIFY_SOURCE=3`, RELRO, PIE — verified via `checksec`/`readelf`/`otool`). Review-only: findings route to sys-code-fixer for application.
 - **RE** — release-engineer owns the stage; system-developer contributes packaging: sys-dependency-manager freezes lockfiles/pins (vcpkg baselines, Conan lockfiles, `uv.lock`), and the language agents produce release artifacts (tarballs, wheels/sdists via `uv build`, version bumps, changelog entries) recorded in `release-N.md`.
 
-## Artifact Filename Contract (v3.33.0)
+## Artifact Filename Contract (v3.36.0)
 
 **Numbered `<stage>-N.md` names are canonical** per igrsoft's authoritative `handoff-protocol.md#stage-artifact-map`. N is allocated by PL0 (same value as `planning-N.md`), shared across all stages within a run, and propagated via `task.metadata.run_index`; it bumps on gate loop-back re-dispatch. Readers fall back to newest-glob (`<basename>-*.md`).
 
@@ -152,9 +155,9 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 | IR | `incident-N.md` | incident-responder |
 | ET | `ethics-review-N.md` | ethics-reviewer |
 
-**Emit `handoff:` frontmatter unconditionally — it is the merge input regardless of filename.** state.json reconciliation is three-layered: Layer 1 (agent atomic self-patch per `handoff-protocol.md#atomic-write`), Layer 2 (orchestrator re-reads artifact frontmatter after `Task()` returns), Layer 3 (`SubagentStop` hook auto-merge). Attempt Layer 1; if it fails, proceed — Layers 2 and 3 repair from frontmatter. An artifact without `handoff:` YAML breaks the safety net (degrades to F3 fallback: orchestrator derives a minimal handoff and logs WARN).
+**Emit `handoff:` frontmatter unconditionally — it is the merge input regardless of filename.** state.json reconciliation is three-layered: Layer 1 (agent runs `state-patch.sh --stage <CODE> --prev <PREV>` when its path is supplied, else skips — never a hand-rolled `jq`/manual merge), Layer 2 (orchestrator re-reads artifact frontmatter after `Task()` returns), Layer 3 (`SubagentStop` hook auto-merge). Attempt Layer 1; if the script or its path is absent, proceed — Layers 2 and 3 repair from frontmatter. An artifact without `handoff:` YAML breaks the safety net (degrades to F3 fallback: orchestrator derives a minimal handoff and logs WARN).
 
-## Handoff Frontmatter (v3.33.0 schema)
+## Handoff Frontmatter (v3.36.0 schema)
 
 Every stage artifact MUST start with a YAML block between `---` markers. Budgets: ≤200 tokens, ≤30 lines. Base required fields: `stage`, `verdict`, `summary` (≤200 chars), `refs`. Per-stage additions (from `handoff-protocol.md#frontmatter-schema`):
 
@@ -166,7 +169,7 @@ Every stage artifact MUST start with a YAML block between `---` markers. Budgets
 
 `key_decisions[].anchor` and `refs.*` MUST resolve to a real `## <kebab-case>` heading in the target file (anchor-lint enforces this at DR and via PostToolUse hook). Copy-paste blocks: `templates/` in this directory.
 
-## Gate-Feedback Contract (v3.33.0)
+## Gate-Feedback Contract (v3.36.0)
 
 When DR returns `verdict: fail` or QA returns `verdict: no-go`, the orchestrator re-dispatches DV (`run_index` bumped, `retry_count`++) and carries the upstream remediation **verbatim** into the retry prompt (igrsoft `worktask/SKILL.md` step 4.6). system-developer agents **consume** this contract; the injection is orchestrator-owned.
 
@@ -221,7 +224,7 @@ Task metadata carries qualified names:
 4. **Architecture document**: newest `.context/analyzing-*.md` — or the anchors named in upstream `next_stage_focus`.
 5. **Task System**: TaskList/TaskGet; inspect `task.metadata.{plan_file, agent, model, run_index, error_file, gate_from_stage, gate_blockers, requires_screenshots, workspace_path}`.
 
-## Dynamic Worktask Sizing (v3.33.0)
+## Dynamic Worktask Sizing (v3.36.0)
 
 PL0 assesses complexity (0-50) and creates only the stages needed:
 
@@ -235,7 +238,7 @@ PL0 assesses complexity (0-50) and creates only the stages needed:
 
 Security-sensitive features (authentication, payment, PII, cryptography, secrets, file uploads) auto-include SR0 regardless of score.
 
-PL0 stamps `metadata.skipped_stages = [{stage, reason}]` for every stage dropped from the full 9-stage pipeline (PL→AR→TL→DV→DR→QA→DC→FN→ST), so `state.json` self-documents the drops.
+PL0 stamps `metadata.skipped_stages = [{stage, reason}]` for every stage dropped from the full 9-stage pipeline (PL→AR→TL→DV→DR→QA→DC→FN→ST), so `state.json` self-documents the drops. It also stamps `metadata.test_mode` (`build-only` / `scoped` / `full` — defaulted by score and marker coverage) and `metadata.ui_visual_check` (the UI-capture provenance gate, left `false` for systems/CLI work). The stage table above, the `test_mode` defaults, and these stamps are all defined by igrsoft `estimation-methodology § PL0 Stage-Set` (the source of truth) — keep them in lockstep with it so the next sync is a mechanical copy.
 
 ## MCP Dynamic Inheritance
 

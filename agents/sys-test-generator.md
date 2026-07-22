@@ -115,6 +115,10 @@ When invoked as a subagent, return a compressed summary, not full file contents 
 - Coverage delta if measured; key gaps left for manual or integration tests
 - Final run status (pass/fail) and any escalation
 
+### Output Budget (DV support)
+
+Never paste full generated test files into chat — Write them into the project's test tree and cite the path + case names in the return (the files are on disk). Final return ≤250 tok. Target ≤60 tool calls/run: re-run only the failed subset per § Test Execution Loop (step 3 — `ctest -R`, `pytest -k`, `bats -f`), never re-Read a file unchanged since your last Read, and keep narration lean. Full-suite regression is QA's, not DV's — § Test Execution Loop step 5 is skipped under DV.
+
 ## Skills References
 
 - `skill: testing-principles` — test design, coverage strategy, and the pyramid

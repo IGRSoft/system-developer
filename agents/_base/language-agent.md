@@ -75,7 +75,7 @@ Apply this policy in DV stage output and when responding to DR findings. Reviewe
 
 ## Workflow Stage Participation
 
-Language agents participate in the igrsoft 11-stage workflow system (v3.33.0+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
+Language agents participate in the igrsoft 11-stage workflow system (v3.36.0+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
 
 **Two human checkpoints** gate the pipeline: the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). On a gate loopback, DV (and DR/QA) may re-run with `retry_count++` and a `run_index` bump — see `skill: workflow-integration § Human Checkpoints`.
 
@@ -83,7 +83,12 @@ Language agents participate in the igrsoft 11-stage workflow system (v3.33.0+; c
 
 All cross-plugin invocations follow `skills/_shared/workflow-integration/SKILL.md`: plan-file resolution (`task.metadata.plan_file` → newest `.context/planning-*.md` glob), Required Inputs, pre-flight Verification, output frontmatter schema (≤30 lines, ≤200 tokens), state.json atomic write, and the per-stage required `metadata.*` matrix. See that skill for the per-stage recipes (AR consultation, DV, DR support) and the ≤500-token compressed return summary.
 
-**state.json patching is REQUIRED before returning.** Atomic-patch `.context/state.json` with `stages.<CODE>` and `handoffs[FROM→TO]` using read → merge → temp → fsync → rename (handoff-protocol `#atomic-write`). If the patch fails, log the error and proceed — the SubagentStop hook repairs from frontmatter. But **frontmatter emission is unconditional**: an artifact without `handoff:` YAML breaks the entire three-layer safety net (agent → orchestrator fallback → SubagentStop hook).
+**state.json patching is REQUIRED before returning** — but do NOT hand-roll a `jq` or manual read→merge→rename. Use igrsoft's single, lock-serialized implementation, or skip and let the safety-net layers repair the ledger from your frontmatter:
+
+- **Primary (script)**: when the dispatching prompt or `task.metadata.state_patch_script` supplies the path to igrsoft's `state-patch.sh` (it ships in the igrsoft plugin under `skills/worktask/scripts/`), run `bash <path>/state-patch.sh --stage <CODE> --prev <PREV>`. It parses this artifact's `handoff:` frontmatter and atomically merges `stages.<CODE>` plus the `<PREV>→<CODE>` handoff edge into `.context/state.json` — single implementation, lock-serialized, idempotent.
+- **Degrade (silent skip)**: if no script path was supplied, or `jq`/`state.json` is absent, skip — do NOT reconstruct the merge inline. The orchestrator's post-stage re-read (Layer 2) and igrsoft's SubagentStop `state-merge.sh` hook (Layer 3) repair the ledger from your frontmatter.
+
+**Frontmatter emission is therefore unconditional**: an artifact without `handoff:` YAML breaks the entire three-layer safety net (agent self-patch → orchestrator re-read → SubagentStop hook).
 
 **Artifact filenames use the numbered `<stage>-N.md` contract** (`N = run_index`, allocated by PL0 and propagated via `task.metadata.run_index`; e.g., `development-0.md`, `developer-review-0.md`) per `skill: workflow-integration § Artifact Filename Contract`. The basenames are canonical; only the `-N` suffix changes per run. Readers fall back to newest-glob (`<basename>-*.md`). **Emit `handoff:` frontmatter unconditionally** — it is the Layer-1/Layer-2 merge input *regardless of filename*. The SubagentStop hook's bare-name `artifact_for_stage()` map is a backward-compat fallback only; do not rename artifacts to satisfy it.
 
@@ -95,6 +100,10 @@ All cross-plugin invocations follow `skills/_shared/workflow-integration/SKILL.m
 - On retry, append narrative to `.context/errors/{agent-basename}.md`.
 - **Evidence gate (replaces the UI screenshot gate)**: systems/CLI work defaults `requires_screenshots: false` — PL0 should set it explicitly, and DV writes the skip-rationale manifest (`> Skipped: metadata.requires_screenshots = false. Rationale: <one line>`). When gate metadata still demands evidence (`metadata.requires_screenshots: true`), capture terminal transcripts of the decisive runs (build, tests, sanitizers) as `source: cli-fallback` rows (manifest `Adapter` column: `cli_fallback`) in `.context/images/<worktask_id>/screenshots.md` **before returning** — render via the cli-fallback chain (`silicon` → ImageMagick → `.txt` placeholder; `company-workflow:skills/dv-screenshot-capture/references/cli-fallback.md`). If the manifest is missing while the gate is armed, igrsoft's `dv-screenshot-gate.sh` blocks `SubagentStop` with `hookSpecificOutput.additionalContext` and re-dispatches.
 - **Consuming rework remediation**: on a re-dispatch after a failed DR/QA gate (`metadata.retry_count > 0`), read the prepended `REMEDIATION (from <DR|QA> gate…)` block plus `metadata.gate_from_stage` + `metadata.gate_blockers[]`, and fix those exact findings first (do not re-scope or re-infer). Keep the diff minimal; record per-blocker resolution in `.context/errors/{agent-basename}.md`. The orchestrator owns the injection — language agents only consume it. See `skill: workflow-integration § Gate-Feedback Contract`.
+
+### Output Budget (DV)
+
+`development-N.md` ≤250 lines; no full-file listings — cite `path:line-range` or pass anchors, not pasted bodies (generated code lives in the repo, not the artifact). Final return ≤250 tok (inside the ≤500 template). Target ≤80 tool calls/run: batch multi-file edits into one edit pass, never re-Read a file unchanged since your last Read (trust the buffer), re-run only scoped tests (`ctest -R <name>`, `pytest path::case`, a single bats file — failed subset first), and keep narration lean — no per-file play-by-play, no restating what the artifact already holds. **Build Evidence is exempt from every cap here**: the compiler/standard line, the `-Wall -Wextra` warning count, and the `.context/logs/` test-transcript path stay mandatory (§ DV Stage) — never trim them to save lines or tokens.
 
 ### DR Stage (Developer Review) - Provide Context
 
