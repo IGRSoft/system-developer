@@ -116,3 +116,7 @@ When the orchestrator re-dispatches DV after a failed DR or QA gate, the failed 
 4. **Enforce minimal-diff across rework cycles** — change only what the blockers require; the diff must not grow with each retry. Re-run the native build/test/lint gate after each fix group.
 
 You **consume** this contract — the injection itself is orchestrator-owned (igrsoft `worktask/SKILL.md`). See `skills/_shared/workflow-integration/SKILL.md § Gate-Feedback Contract`.
+
+### Output Budget (DR support)
+
+Fix log ≤2 lines per finding: `path:line` + what changed — no before/after code listings (the diff is in the tree). Final return ≤200 tok. Cite each blocker's `file:line` resolution; do not restate the review or paste patched bodies.
