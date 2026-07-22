@@ -114,6 +114,22 @@ else
 	skip "pytest" "uv tool install pytest, or pip install pytest"
 fi
 
+# --- 4. markdown prose lints ------------------------------------------------
+# desc-lint is FATAL (ambient agent/command/skill description caps). section-lint
+# is WARN-ONLY: a pre-existing prose-debt baseline, burn-down tracked in the
+# CHANGELOG — it must not fail the suite, even under --strict.
+if command -v python3 >/dev/null 2>&1; then
+	if scripts/desc-lint.sh; then
+		pass "desc-lint"
+	else
+		fail "desc-lint"
+	fi
+	sec_summary="$(scripts/section-lint.sh 2>/dev/null | tail -n1 || true)"
+	printf 'WARN  section-lint (warn-only): %s\n' "${sec_summary:-no summary}"
+else
+	skip "prose-lints" "install python3 (required for desc-lint/section-lint)"
+fi
+
 # --- Summary ----------------------------------------------------------------
 printf '\nSummary: %d ran, %d failed, %d skipped%s\n' \
 	"${RAN_COUNT}" "${FAIL_COUNT}" "${SKIP_COUNT}" \
