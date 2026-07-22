@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|-------|
 | Plugin version | 1.3.1 |
-| igrsoft compatibility | v3.33.0 |
+| igrsoft compatibility | v3.36.0 |
 | Claude Code min required | 2.1.170 |
 | Last updated | 2026-07-08 |
 

@@ -75,7 +75,7 @@ Apply this policy in DV stage output and when responding to DR findings. Reviewe
 
 ## Workflow Stage Participation
 
-Language agents participate in the igrsoft 11-stage workflow system (v3.33.0+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
+Language agents participate in the igrsoft 11-stage workflow system (v3.36.0+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
 
 **Two human checkpoints** gate the pipeline: the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). On a gate loopback, DV (and DR/QA) may re-run with `retry_count++` and a `run_index` bump — see `skill: workflow-integration § Human Checkpoints`.
 
