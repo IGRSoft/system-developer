@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Plugin version | 1.3.1 |
+| Plugin version | 1.4.0 |
 | igrsoft compatibility | v3.36.0 |
 | Claude Code min required | 2.1.170 |
-| Last updated | 2026-07-08 |
+| Last updated | 2026-07-22 |
 
 Version strings move together (plugin.json, marketplace.json metadata, README
 header, this table) per the igrsoft `/cc-update` convention.
@@ -129,6 +129,35 @@ Bash 5.2, or mypy/pyright guidance removed):
   IWYU 0.26.
 - **`code-modernize` C23 target profile** added (C17→C23 ledger) plus a `cpp26`
   future stub; **`marketplace.json` keyword sync** to a superset of `plugin.json`.
+
+## Refresh Log (v1.4.0 — 2026-07-22)
+
+igrsoft v3.36.0 port — three workflow-contract learnings plus repo-structure linters; no
+C/C++/Python/Bash guidance changed.
+
+- **Contract sync v3.33.0 → v3.36.0** — version headline realigned across `plugin.json`,
+  `marketplace.json`, `README.md`, this file, the `workflow-integration` skill, and the agent
+  stage-participation headers. The PL0 stamp note now also names `metadata.test_mode` and
+  `metadata.ui_visual_check` (the latter **N/A** for systems/CLI work — left `false`), citing
+  igrsoft `estimation-methodology § PL0 Stage-Set`; the Dynamic Worktask Sizing table was
+  already current (DR0 at every tier).
+- **CLI evidence freshness** — `cli-fallback` transcripts must be produced this run from the
+  actual build/test invocation, never reused; the systems analog of igrsoft's ov151
+  evidence-integrity gate (QA direct-reads evidence and cross-checks `### build-evidence` log
+  paths, re-opening DV on a stale/duplicated transcript).
+- **state-patch pointer form** — replaced the manual `read → merge → temp → fsync → rename`
+  atomic-write prose with the two-mode `state-patch.sh --stage <CODE> --prev <PREV>` contract
+  (run when its path is supplied, else silently skip; Layers 2/3 repair from frontmatter).
+- **Benchmark-driven output budgets + architector Complexity Triage** — `Output Budget` blocks
+  on DV/`_base`, AR, DV-support, and DR-support agents (Build Evidence exempt) and a
+  `Complexity Triage` gate that self-limits `system-architector` at Low complexity.
+- **Structure linters** — `section-lint.sh` + `desc-lint.sh` wired into `scripts/test.sh`.
+  section-lint baseline: 491 sections over cap across 101 files (warn-only, burn-down tracked
+  separately; scope includes references/).
+
+Follow-ups: the skills `description` cap (600) is a regression brake, not a target — worst
+today is 514 (`embedded-cpp`); tightening waits on eval evidence that a shorter description
+still fires the right skill. The section-lint burn-down is tracked separately.
 
 ## Refresh Log (v1.3.1 — 2026-07-08)
 

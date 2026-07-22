@@ -6,6 +6,55 @@ adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
 per the igrsoft `/cc-update` convention.
 
+## [1.4.0] — 2026-07-22
+
+igrsoft compatibility port to **v3.36.0** (from v3.33.0). Beyond the version-string
+realignment, this release ports three igrsoft v3.36.0 workflow-contract learnings — the
+`state-patch.sh` pointer form, a CLI evidence-freshness rule, and benchmark-driven output
+budgets with an architector complexity gate — and wires two structure linters into the
+test harness. No C/C++/Python/Bash language guidance changed.
+
+### Changed
+
+- **igrsoft compatibility → v3.36.0** across `plugin.json`, `marketplace.json`,
+  `README.md`, `MEMORY.md`, the `workflow-integration` skill (invocation/contract headers
+  + skill-catalog descriptions), and the agent stage-participation headers
+  (`system-developer`, `system-architector`, `sys-code-fixer`, `_base/language-agent`).
+  The Dynamic Worktask Sizing table was already current (DR0 at every tier); the PL0 stamp
+  note now also names `metadata.test_mode` (`build-only`/`scoped`/`full`) and
+  `metadata.ui_visual_check`, citing igrsoft `estimation-methodology § PL0 Stage-Set` as
+  the source of truth.
+- **state.json patching → `state-patch.sh` pointer form** — replaced the manual
+  `read → merge → temp → fsync → rename` atomic-write prose in `_base/language-agent.md`,
+  the `workflow-integration` skill (three-layer reconciliation), `system-architector.md`,
+  and the DV template with the two-mode contract: run `state-patch.sh --stage <CODE> --prev
+  <PREV>` when its path is supplied, else silently skip (never hand-roll a `jq`/manual
+  merge) — Layers 2/3 repair the ledger from the unconditional `handoff:` frontmatter.
+
+### Added
+
+- **CLI evidence-freshness rule** — every `cli-fallback` transcript row must be produced
+  *this run* from the actual build/test invocation; a stale or duplicated transcript
+  re-opens DV. The systems analog of igrsoft's QA direct-read evidence-integrity check
+  (`workflow-integration/SKILL.md § Screenshot Gate for CLI Work`). Also documents that
+  `ui_visual_check` exists in the DV metadata contract but is **not applicable** to
+  systems/CLI work (left `false`).
+- **`Output Budget` blocks (benchmark-driven)** — added to DV (`_base/language-agent.md`),
+  AR (`system-architector.md`), DV-support (`sys-test-generator.md`), and DR-support
+  (`sys-code-fixer.md`): tighter artifact/return/tool-call caps *within* the existing
+  ≤500-token return and ≤200-token frontmatter contract. **Build Evidence lines
+  (compiler/standard, warning count, transcript path) are exempt from all caps.**
+- **`Complexity Triage` (0–50)** — a gate on `system-architector` that self-limits scope
+  at Low complexity (Quick Recommendation Mode mandatory, no Deep-Refactor artifacts);
+  `model-selection.md` records the self-limit.
+- **Structure linters** — `section-lint.sh` (≤1000-char section cap) and `desc-lint.sh`
+  (two-tier frontmatter `description` cap) wired into `scripts/test.sh` alongside bats.
+
+### Notes
+
+- section-lint baseline: 491 sections over cap across 101 files — warn-only, burn-down
+  tracked separately; scope includes references/.
+
 ## [1.3.1] — 2026-07-08
 
 igrsoft compatibility refresh to **v3.33.0** (from v3.27.1); version-string realignment

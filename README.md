@@ -2,7 +2,14 @@
 
 Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.36.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.3.1 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+**Version**: 1.4.0 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+
+## What's new in 1.4.0
+
+- **igrsoft v3.36.0 sync** — compatibility headline realigned v3.33.0 → v3.36.0 across the manifests, README, `MEMORY.md`, the `workflow-integration` skill, and the agent stage-participation headers; the PL0 stamp note now also names `metadata.test_mode` and `metadata.ui_visual_check` (the latter N/A for CLI work, left `false`), with the Dynamic Worktask Sizing table already current (DR0 at every tier).
+- **state-patch pointer form** — the manual `read → merge → temp → fsync → rename` atomic-write prose is replaced by the two-mode `state-patch.sh --stage <CODE> --prev <PREV>` contract (run when its path is supplied, else silently skip; Layers 2/3 repair from the unconditional `handoff:` frontmatter).
+- **CLI evidence-freshness rule** — every `cli-fallback` transcript must be produced this run from the actual build/test invocation, never reused; the systems analog of igrsoft's QA direct-read evidence-integrity check.
+- **Output budgets + Complexity Triage** — benchmark-driven `Output Budget` blocks on the DV (`_base`), AR, DV-support, and DR-support agents (Build Evidence stays exempt), plus a `Complexity Triage` gate on `system-architector` that self-limits scope at Low complexity; `section-lint` and `desc-lint` are wired into `scripts/test.sh`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's new in 1.3.0
 
