@@ -155,7 +155,7 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 | IR | `incident-N.md` | incident-responder |
 | ET | `ethics-review-N.md` | ethics-reviewer |
 
-**Emit `handoff:` frontmatter unconditionally — it is the merge input regardless of filename.** state.json reconciliation is three-layered: Layer 1 (agent atomic self-patch per `handoff-protocol.md#atomic-write`), Layer 2 (orchestrator re-reads artifact frontmatter after `Task()` returns), Layer 3 (`SubagentStop` hook auto-merge). Attempt Layer 1; if it fails, proceed — Layers 2 and 3 repair from frontmatter. An artifact without `handoff:` YAML breaks the safety net (degrades to F3 fallback: orchestrator derives a minimal handoff and logs WARN).
+**Emit `handoff:` frontmatter unconditionally — it is the merge input regardless of filename.** state.json reconciliation is three-layered: Layer 1 (agent runs `state-patch.sh --stage <CODE> --prev <PREV>` when its path is supplied, else skips — never a hand-rolled `jq`/manual merge), Layer 2 (orchestrator re-reads artifact frontmatter after `Task()` returns), Layer 3 (`SubagentStop` hook auto-merge). Attempt Layer 1; if the script or its path is absent, proceed — Layers 2 and 3 repair from frontmatter. An artifact without `handoff:` YAML breaks the safety net (degrades to F3 fallback: orchestrator derives a minimal handoff and logs WARN).
 
 ## Handoff Frontmatter (v3.36.0 schema)
 
