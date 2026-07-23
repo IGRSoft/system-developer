@@ -6,7 +6,7 @@
     "name": "IGRSoft",
     "email": "support@igrsoft.com"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "c",
     "cpp",
