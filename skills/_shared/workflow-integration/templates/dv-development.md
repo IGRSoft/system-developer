@@ -45,10 +45,19 @@ handoff:
 
 ### build-evidence
 
+<!-- Keep only the rows for the language(s) actually changed. -->
+<!-- C/C++ -->
 - Compiler + standard: <e.g. clang 18, -std=c++23 — verify against your toolchain>
-- Warnings at `-Wall -Wextra`: 0 (`-Werror` enforced)
-- Sanitizers: ASan+UBSan clean on changed components (or "not run — pure Python/Bash change")
-- Lint: <clang-tidy / ruff / shellcheck result>
+- Warnings at `-Wall -Wextra`: 0 (`-Werror` enforced); `clang-tidy`: <result>
+- Sanitizers: ASan+UBSan clean on changed components
+<!-- Python -->
+- Interpreter: <e.g. python3 3.14.0 via uv 0.9>
+- `ruff check`: 0 findings; type check: <pyright / mypy / ty result>
+- Sanitizers: <only if a native extension was touched; otherwise omit this row>
+<!-- Bash -->
+- Shell: <e.g. bash 5.3; macOS /bin/bash floor is 3.2>
+- `shellcheck`: 0 findings; `shfmt`: clean
+<!-- All languages -->
 - Test transcript: .context/logs/<tool>-<worktask_id>.log
 
 ## deviations
@@ -67,3 +76,4 @@ handoff:
 - Frontmatter budget: ≤200 tokens, ≤30 lines. Emit it unconditionally — it is the state.json merge input regardless of filename.
 - **state.json patch**: on completion run `state-patch.sh --stage DV --prev <PREV>` when its path is supplied (`task.metadata.state_patch_script`; ships under igrsoft `skills/worktask/scripts/`) to merge `stages.DV` + the `<PREV>→DV` edge from this frontmatter; if the script/`jq`/`state.json` is absent, skip — never hand-roll the merge; Layers 2/3 repair from the frontmatter. See `workflow-integration/SKILL.md § Artifact Filename Contract`.
 - Tee raw build/test output to `.context/logs/` — the Build Evidence transcript path must exist on disk.
+- **Build Evidence rows are per-language.** A pure Python or Bash change has no compiler and no `-Wall -Wextra` count; record the interpreter/shell version and the `ruff`/`shellcheck` result instead. Never fabricate a compiler row to fill the template. See `workflow-integration/SKILL.md § DV Contract for Systems Work`.

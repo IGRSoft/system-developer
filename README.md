@@ -2,7 +2,14 @@
 
 Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.36.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.5.0 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+**Version**: 1.6.0 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+
+## What's new in 1.6.0
+
+- **Cross-language correctness audit** — swept the plugin for one defect class: a rule true for a single language stated as universal in a document serving all four. The headline fix is the DV **Build Evidence** contract, which demanded a compiler line and a `-Wall -Wextra` warning count from *every* DV artifact and so was unsatisfiable for a pure Python or Bash change; it is now a per-language table.
+- **Meson is executable, not just documented** — the shared agent base tells every language agent to build with `meson compile -C`, but no agent's scoped Bash allowlist granted the binary. `Bash(meson:*)` added to the four building agents, with matching Meson paths in `/sanitize-check`, `/gen-tests`, and `/fix-performance`, which had all hard-coded CMake.
+- **Advertised flags now have code paths** — `/analyze-tech-debt --focus` is implemented rather than merely echoed, `/fix-modernize --target bash` has an owner for its semantic migration classes, `/sanitize-check` gained the missing `MSAN_OPTIONS` row, and `unity` joined the `/gen-tests --framework` set it was already resolvable from.
+- **Python and Bash are no longer gated on C/C++ mechanics** — `/debug` no longer requires a debug rebuild for interpreted targets, `/fix-performance` has a real Bash collection path, and `/arch-select`'s ownership axis is answerable outside C and C++. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's new in 1.5.0
 

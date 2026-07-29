@@ -117,8 +117,10 @@ For C/C++, default to a thread pool for CPU work and a reactor for I/O fan-out. 
 | **RAII / smart pointers** | Default for C++; deterministic cleanup, Rule of Zero | `skill: modern-cpp` |
 | **Refcount** | Shared graphs with no single clear owner — `shared_ptr`, manual refcounts in C | `skill: c-memory-ownership` |
 | **GC-boundary** | Python objects crossing into native code; who owns the `PyObject*` reference | `skill: ffi-interop § c-api-boundaries` |
+| **Managed runtime** | Pure Python — interpreter owns memory; decide context-manager discipline for files, sockets, locks | `skill: python-skills` |
+| **Process-scoped** | Bash — `trap cleanup EXIT` for temp files, locks, fds | `skill: bash-scripting` |
 
-State who frees, when, and on which error path — including the unwinding path.
+State who frees, when, and on which error path. Only C/C++ answer this axis with a *memory* model; the last two rows satisfy Rule 2 elsewhere.
 
 ## Version & Portability Markers
 
@@ -216,7 +218,7 @@ Emit the Output Format. Unless `--no-write`, write it to `.context/arch-selectio
 |------|--------|-----|
 | Structure | {layered / hexagonal / plugin-registry / pipeline} | {1 reason} |
 | Concurrency | {event-loop / thread-pool / process-pool / single-threaded} | {1 reason} |
-| Ownership | {arena / RAII / refcount / GC-boundary} | {1 reason} |
+| Ownership | {arena / RAII / refcount / GC-boundary / managed-runtime / process-scoped} | {1 reason} |
 
 **Fit:** {fit | mismatch}{, on mismatch: closest fit + trade-off}
 **Detected today:** {current pattern with file:line evidence, or "greenfield"}

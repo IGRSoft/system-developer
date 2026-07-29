@@ -5,7 +5,7 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: green
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(gcc:*), Bash(clang:*), Bash(cc:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ctest:*), Bash(gdb:*), Bash(lldb:*), Bash(valgrind:*), Bash(pkg-config:*), Bash(man:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-dependency-manager), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(meson:*), Bash(gcc:*), Bash(clang:*), Bash(cc:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ctest:*), Bash(gdb:*), Bash(lldb:*), Bash(valgrind:*), Bash(pkg-config:*), Bash(man:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-dependency-manager), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
 inherits: _base/language-agent.md
 ---
 
@@ -86,6 +86,7 @@ All build/test/lint go through `skill: build-systems` (CMake-first; Make/Ninja/M
 - Generate `compile_commands.json` (`-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`) so `clang-tidy`/`clang-format` work.
 - Test: `ctest --test-dir build` (or `ctest --test-dir build -R <pattern>` for changed-file subsets in DV).
 - Makefile projects: `make -C <dir>` with `CFLAGS += -Wall -Wextra -Werror`.
+- Meson projects: `meson setup builddir` / `meson compile -C builddir` / `meson test -C builddir` — do not re-configure them with CMake.
 - Memory check: `valgrind --leak-check=full --error-exitcode=1` (Linux) or ASan+LSan as the cross-platform default.
 
 When a tool is missing, print the install hint (`brew install llvm` / `apt install valgrind clang-tidy`) and skip that step — never hard-fail.

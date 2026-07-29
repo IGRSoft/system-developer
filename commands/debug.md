@@ -26,7 +26,7 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 
 1. **Dispatch before anything else.** Resolve the mode from the first token of `$ARGUMENTS` (see Mode Dispatch), state which mode you chose and why, then execute only that mode's phases.
 2. **Sanitizer before debugger.** For a crash/segfault, wrong-value, leak, or suspected-race symptom in C/C++, the first move is `/system-developer:sanitize-check`, not gdb. Only escalate to a debugger when the sanitizer is clean or the symptom is a logic bug/hang.
-3. **Enforce the debug build.** Interactive debugging requires `-O0 -g` (plus `-fno-omit-frame-pointer`). If the target was built optimized, say so and rebuild before setting breakpoints — do not read values out of an optimized frame.
+3. **Enforce the debug build — C/C++ only.** Interactive debugging of a compiled target requires `-O0 -g` (plus `-fno-omit-frame-pointer`). If the target was built optimized, say so and rebuild before setting breakpoints — do not read values out of an optimized frame. Python and Bash have no compiled artifact and no debug build: never gate `pdb`/`py-spy`/`bash -x` work on a rebuild, and never report a missing debug build as a defect for them.
 4. **Triage does not fix.** Triage mode produces a root cause with evidence. It MUST NOT edit source to "fix" the bug — route the fix to the owning language agent or `/system-developer:review-code --fix`.
 5. **Capture to a log.** Every debugger, trace, and reproduction run tees to `.context/logs/debug-<timestamp>.log`. The log is the source of truth; do not rely on scrollback.
 6. **Resolve the language before delegating.** Use `skill: language-detection` for the marker→language→agent map. Ambiguous trees go to `system-developer:system-developer` (router), never to a guessed language agent.
@@ -87,6 +87,8 @@ Read the first token of `$ARGUMENTS`:
 | Data race / intermittent wrong results | `/system-developer:sanitize-check tsan` | debugger only to inspect the state TSan named |
 | Slow, not wrong | `/system-developer:fix-performance` | not a debugging problem — profile, don't breakpoint |
 | Syscall/env failure (`ENOENT`, bad path, missing fd) | `strace` / `dtruss` | `ltrace` for library-call level |
+| Script exits early / wrong exit status (Bash) | `bash -x` (or `PS4` + `BASH_XTRACEFD` to a log) | `shellcheck` for the blind spots `set -e` does not catch |
+| Unset variable / word-splitting surprise (Bash) | `set -u` + `bash -x` | `shellcheck` (SC2086/SC2154), then `bash-developer` |
 
 A sanitizer names the defect at its origin; a debugger only shows where the process finally died. That is why Rule 2 puts the sanitizer first for the top three rows.
 
@@ -190,7 +192,7 @@ Pair `trap ERR` with `set -euo pipefail` — without strict mode the script sail
 
 ### Phase 2: Configure mode — scaffold
 
-1. Ensure a debug build configuration exists with `-O0 -g -fno-omit-frame-pointer` (a CMake `Debug` config / preset, Meson `--buildtype debug`, or the Makefile's debug target). Verify it builds via `/system-developer:build-test . --type Debug`.
+1. **C/C++ only** — ensure a debug build configuration exists with `-O0 -g -fno-omit-frame-pointer` (a CMake `Debug` config / preset, Meson `--buildtype debug`, or the Makefile's debug target). Verify it builds via `/system-developer:build-test . --type Debug`. On a pure Python or Bash target there is nothing to configure: record the row as `⏭ n/a` and move to step 2.
 2. Enable core dumps for the platform (see Core Dumps) and document where cores land.
 3. Write debugger scaffolding the project lacks: a `.gdbinit`/`.lldbinit` with the project's pretty-printers and common breakpoints, or a documented `py-spy`/`pdb` entry point.
 4. Add the trace hooks the language warrants — `PS4` + `BASH_XTRACEFD` for shell entry points, `faulthandler` for Python services.
@@ -238,7 +240,7 @@ Pair `trap ERR` with `set -euo pipefail` — without strict mode the script sail
 
 | Item | State | Detail |
 |------|-------|--------|
-| Debug build (`-O0 -g -fno-omit-frame-pointer`) | ✅ / ➕ added / ❌ | {config or preset name} |
+| Debug build (`-O0 -g -fno-omit-frame-pointer`) | ✅ / ➕ added / ❌ / ⏭ n/a | {config or preset name; `⏭ n/a` for pure Python/Bash} |
 | Core dumps | ✅ / ➕ / ⏭ | {ulimit -c / coredumpctl / /cores} |
 | Debugger init | ✅ / ➕ / ⏭ | {.gdbinit / .lldbinit / pdb entry point} |
 | Trace hooks | ✅ / ➕ / ⏭ | {PS4+BASH_XTRACEFD / faulthandler / none} |

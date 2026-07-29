@@ -61,7 +61,7 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 |--------|---------|--------|
 | `scope` | `.` | Directory or file to review. The evidence sweep is rooted here. |
 | `--pattern NAME` | detected | Grade against an expected pattern (`layered`, `hexagonal`, `plugin`, `pipeline`) instead of the detected one. Detection still runs; a mismatch between expected and detected is itself reported as a finding. |
-| `--lang c\|cpp\|python\|bash` | auto | Force the language instead of detecting. Use for extensionless scripts or to narrow a mixed repo. |
+| `--lang c\|cpp\|python\|bash` | auto | Force the language instead of detecting. Use for extensionless scripts or to narrow a mixed repo. **Coverage is not uniform:** the detection signals, violation classes, and API/ABI rules below are written for C, C++, and Python. `--lang bash` grades only the structural classes that have a shell analogue (cyclic `source`, boundary bypass, sourced-library vs entry-point split) and always reports `low` confidence — say so in the report rather than grading a shell tree against native-ABI criteria. |
 | `--abi` | off | Add the exported-symbol and public-header exposure audit (Phase 4). Off by default because it needs a built artifact. |
 | `--trust-boundaries` | off | Add a read-only boundary/trust-zone pass from `system-developer:sys-security-auditor` alongside the architecture review. |
 | `--deep` | off | Ask the architector for Deep Refactor Mode deliverables — current→target map, incremental migration path, coexistence strategy, risk points. Text only; nothing is applied. |
@@ -93,6 +93,7 @@ Infer the current pattern from evidence, mirroring the architector's signal tabl
 | Arena/region/bump allocator, per-request scratch, bulk `free` | Arena/region ownership |
 | `unique_ptr`/`shared_ptr`, Rule of Zero, no naked `new`/`delete` | RAII ownership |
 | Manual `retain`/`release`, refcount fields, `Py_INCREF`/`Py_DECREF` at the boundary | Refcount / GC-boundary ownership |
+| Sourced `lib*.sh`/`common.sh` libraries with a thin `main`-style entry script; `case`-based subcommand dispatch | Layered / plugin-registry (Bash) |
 
 Concurrency and ownership are two orthogonal axes over a structural pattern — report all three, not one label.
 
@@ -109,6 +110,7 @@ The classes this review is responsible for finding. Each needs an anchor and a P
 | **Concurrency mismatch** | Blocking calls inside an event loop, shared mutable state handed to a process pool, a thread pool bolted onto a single-threaded reactor core. |
 | **Boundary bypass** | A caller reaching past a port/adapter or layer interface into the implementation tier. |
 | **Python public-API drift** | `__all__`, the documented surface, and the actually-importable names disagree; a removal shipped without a deprecation cycle. |
+| **Cyclic `source` (Bash)** | Two shell libraries `source` each other, directly or transitively, or an entry script is sourced back by a library — re-entrant definitions and order-dependent behavior. |
 
 Anchors: `skill: build-systems` (targets, link scope, visibility), `skill: ffi-interop` (boundary and `PyObject*` ownership), `skill: c-memory-ownership`, `skill: modern-cpp`, `skill: cpp-concurrency`, `skill: python-concurrency`.
 

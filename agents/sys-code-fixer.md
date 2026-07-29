@@ -5,7 +5,7 @@ model: haiku
 effort: medium
 maxTurns: 30
 color: magenta
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(ctest:*), Bash(gcc:*), Bash(g++:*), Bash(clang:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ruff:*), Bash(mypy:*), Bash(ty:*), Bash(pytest:*), Bash(uv:*), Bash(python3:*), Bash(shellcheck:*), Bash(shfmt:*), Bash(bats:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(meson:*), Bash(ctest:*), Bash(gcc:*), Bash(g++:*), Bash(clang:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ruff:*), Bash(mypy:*), Bash(ty:*), Bash(pytest:*), Bash(uv:*), Bash(python3:*), Bash(shellcheck:*), Bash(shfmt:*), Bash(bats:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 

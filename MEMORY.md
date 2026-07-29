@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Plugin version | 1.5.0 |
+| Plugin version | 1.6.0 |
 | igrsoft compatibility | v3.36.0 |
 | Claude Code min required | 2.1.170 |
 | Last updated | 2026-07-29 |
@@ -134,6 +134,33 @@ Bash 5.2, or mypy/pyright guidance removed):
   IWYU 0.26.
 - **`code-modernize` C23 target profile** added (C17→C23 ledger) plus a `cpp26`
   future stub; **`marketplace.json` keyword sync** to a superset of `plugin.json`.
+
+## Refresh Log (v1.6.0 — 2026-07-29)
+
+Cross-language correctness audit. Hunted exactly one defect class: a rule true for one
+of the four languages, stated as universal in a document serving all four. Nothing was
+added to the agent, skill, or command inventory.
+
+- **Build Evidence was C/C++-only but declared "non-negotiable" for every DV artifact**
+  (`skills/_shared/workflow-integration/SKILL.md`, `templates/dv-development.md`,
+  `agents/_base/language-agent.md`). Now a per-language table. The DR and QA sections of
+  the same file were already qualified — this was a missed spot, not a policy.
+- **`Bash(meson:*)` was granted to no agent** while `_base/language-agent.md § Tool
+  Priority` instructs every agent to run `meson compile -C` and `/build-test` detects
+  Meson at priority 3. Added to `c-developer`, `cpp-developer`, `sys-code-fixer`,
+  `sys-test-generator`. Treat the allowlist and the prose that names tools as one unit —
+  when either moves, check the other.
+- **Advertised-with-no-implementation**: `/analyze-tech-debt --focus` (echoed in the
+  report header only), `/sanitize-check --preset`'s non-CMake warning and its missing
+  `MSAN_OPTIONS` row, `/fix-modernize --target bash`'s semantic classes (no delegation
+  route existed), `unity` missing from `/gen-tests --framework`.
+- **CMake-as-the-only-build-system** leaked into `/sanitize-check`, `/gen-tests`, and
+  `/fix-performance` despite all three deferring to `/build-test`'s detection, which
+  admits Meson, Make, and autotools. Each now carries the non-CMake forms.
+- **Pre-existing, deliberately untouched**: `section-lint` fails repo-wide (many
+  sections over the 1000-char cap, predating this change), and `validate.sh --strict`
+  exits 1 on two >8KB SKILL.md warnings (`skills/SKILL.md`,
+  `skills/_shared/workflow-integration/SKILL.md`). Error count stays 0.
 
 ## Refresh Log (v1.5.0 — 2026-07-29)
 

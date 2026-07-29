@@ -89,6 +89,9 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
 # For accurate call graphs on Linux perf, also keep frame pointers:
 #   -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -fno-omit-frame-pointer"
+
+# Meson: meson setup build --buildtype debugoptimized -Dstrip=false
+# Make/autotools: make CFLAGS="-O2 -g -fno-omit-frame-pointer"  (and do not strip at install)
 ```
 
 `RelWithDebInfo` is `-O2 -g`: real optimization with symbols. Debug (`-O0`) relocates the hot path; stripped `Release` erases the symbols you need. See `skill: build-systems` for profilable presets. Python and Bash have no build step — skip this check for them (for py-spy `--native` on a C extension, the extension still needs `-g`).
@@ -125,6 +128,18 @@ Resolve the OS once with `uname -s` (Darwin vs Linux), then pick the row for `--
 | `cpu` | `py-spy record --format speedscope -o "$OUT/pyspy.speedscope.json" -- python <entry>` (attach: `py-spy record --pid <pid> --format speedscope -o "$OUT/pyspy.speedscope.json"`); add `--native` for C-extension frames (Linux; extension built with `-g`); deterministic per-call counts: `python -m cProfile -o "$OUT/profile.prof" <entry>` |
 | `memory` | `tracemalloc` snapshot in-process (top allocation sites by `lineno`); save the top-N dump to `"$OUT/tracemalloc.txt"` |
 | `io` | `py-spy dump --pid <pid> > "$OUT/pyspy-dump.txt"` for a stuck/IO-waiting process; otherwise `strace`/`fs_usage` over the `python` process as in the C/C++ I/O row |
+
+### Bash — all modes
+
+There is no shell equivalent of `perf`/`py-spy`: a slow script waits on the processes it spawns. Do not report "no tool available" — collect this instead:
+
+| Mode | Collection |
+|------|-----------|
+| `cpu` | Timestamped xtrace, ranked by the wall-clock gap between lines: `PS4='+ $EPOCHREALTIME ' BASH_XTRACEFD=3 bash -x <script> 3>"$OUT/xtrace.log"` (bash 5+; on macOS 3.2 use `PS4='+ $SECONDS '`). The hot spot is the slowest child command. |
+| `memory` | Not measurable at the shell level. Identify the child that dominates `xtrace.log` and re-run against **that** target in its own language; report the redirection, not a null result. |
+| `io` | `strace -f -e trace=file,read,write` (Linux) / `sudo dtruss -f` (macOS) — `-f` is required or the children doing the I/O are invisible. |
+
+`--mode bench` is the primary evidence path for Bash; the xtrace only tells you *which* child to bench.
 
 ### `--mode bench` (all languages — wall-clock before/after)
 

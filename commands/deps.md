@@ -22,6 +22,8 @@ Three subcommands select the operation from the first argument, across the four 
 
 **Dispatch**: parse the first token of `$ARGUMENTS`. `audit` → the `audit` subcommand with the remaining args as scope; `upgrade` → the `upgrade` subcommand with the next token as the package; `add` → the `add` subcommand with the next token as the package. **If the first token is absent or is not one of the three, default to `audit`** — the read-only path is always the safe fallback. `upgrade` and `add` without a package name are an error (see Error Handling); never guess which dependency the user meant.
 
+**Exception — a flag that names a mutating mode is an error, not a fallback.** The `audit` default is safe for an empty token, a bare path, or an unrecognized-but-harmless word. It is *not* safe for `--upgrade` or `--add`: those fall through to "not one of the three", silently run a read-only audit, and hand the caller an audit result for a mutation they asked for — "no action taken" reads as "nothing to do". If `--upgrade` or `--add` appears anywhere in `$ARGUMENTS`, stop and emit the Error Handling message; do not fall back to `audit`.
+
 [Extended thinking: Dependency changes are the highest-blast-radius edits in a systems project — one transitive bump can silently change ABI, drop a symbol, or pull in a CVE. This command separates read-only assessment (audit) from mutation (upgrade/add) and forces upgrades through a one-dependency, pin-exact, build-and-test-gated loop. Manifest discovery is shared with `skill: language-detection`; CVE lookup prefers a local `osv-scanner` and falls back to the osv.dev API; license inventory is best-effort and never blocks. Security findings are phrased in `igrsoft:security-review-process` vocabulary so they flow cleanly into an SR stage. The heavy reasoning — version-jump risk, breaking-change analysis, manifest edits — is delegated to `system-developer:sys-dependency-manager`; this command owns discovery, the gate loop, and reporting.]
 
 ## CRITICAL BEHAVIORAL RULES
@@ -272,6 +274,14 @@ Error: No dependency manifests detected under {path}.
 Looked for: vcpkg.json, conanfile.txt/.py, FetchContent_Declare(...) in CMake, pyproject.toml/uv.lock.
 Suggestion: Run from the project root, or scaffold a manifest with `add <package> --manager <m>`.
 ```
+
+### Mutating mode passed as a flag
+```
+Error: `--upgrade` / `--add` is not a supported flag. Mutating modes are selected by the
+first token only: `deps upgrade <package>` or `deps add <package>`.
+```
+Do NOT fall back to `audit` here — the caller asked for a mutation, and returning a read-only
+audit would report "no action taken" for work that was never attempted.
 
 ### Subcommand given without a package
 ```

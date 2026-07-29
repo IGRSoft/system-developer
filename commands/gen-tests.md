@@ -1,6 +1,6 @@
 ---
 description: Generate, register, and verify a runnable test suite for C, C++, Python, or Bash using the project's framework
-argument-hint: [path (default .)] [--framework googletest|catch2|cmocka|pytest|bats] [--coverage-gaps]
+argument-hint: [path (default .)] [--framework googletest|catch2|cmocka|unity|pytest|bats] [--coverage-gaps]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 estimated-cost:
   min-tokens: 3000
@@ -51,7 +51,7 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 | Option | Default | Effect |
 |--------|---------|--------|
 | `path` | `.` | File, module, or directory to generate tests for. Detection scan is rooted at its enclosing project. |
-| `--framework googletest\|catch2\|cmocka\|pytest\|bats` | auto-detect | Disambiguates ONLY when no framework is already in use. If a framework is already wired in, the in-use one wins and a mismatched `--framework` is an error (rule 1). `googletest`/`catch2`/`cmocka` → C/C++; `pytest` → Python; `bats` → Bash. |
+| `--framework googletest\|catch2\|cmocka\|unity\|pytest\|bats` | auto-detect | Disambiguates ONLY when no framework is already in use. If a framework is already wired in, the in-use one wins and a mismatched `--framework` is an error (rule 1). `googletest`/`catch2` → C++; `cmocka`/`unity` → C; `pytest` → Python; `bats` → Bash. |
 | `--coverage-gaps` | off | Run a coverage pass first (llvm-cov/gcovr for C/C++, `uv run pytest --cov` for Python, kcov for Bash) and target generation at uncovered branches/lines instead of generating broadly. Requires a buildable, already-runnable existing suite to measure against. |
 
 ## Framework Detection
@@ -127,14 +127,17 @@ Wire the generated tests into the runner so it discovers them. Registration is v
 | pytest | place files as `tests/test_*.py`; add/extend `conftest.py`; ensure `[tool.pytest.ini_options] testpaths = ["tests"]` if absent | `uv run --project <path> pytest --collect-only -q` |
 | bats | place files as `tests/*.bats`; add `setup()`/`teardown()` | `bats <path>/tests/ --count` (or `-c`) lists the new tests |
 
-For empty-project scaffolding, also pin the dependency: FetchContent block (CMake) or the `[tool.pytest.ini_options]` / dev-dependency entry (Python). Keep the pin in step with `skill: build-systems` and `skill: python-tooling`.
+The C/C++ registration edits above are the **CMake** form. On a Meson project register with `test('<name>', executable('<name>', '<test>.cpp', dependencies: <dep>))` and discover with `meson test -C builddir --list`; on a plain Make project add the test binary to the `check` target and discover by running it. Never add a `CMakeLists.txt` to a project that builds with Meson or Make just to register a test — match the build system already in use, exactly as Rule 1 requires you to match the test framework already in use.
+
+For empty-project scaffolding, also pin the dependency: FetchContent block (CMake), a `subprojects/*.wrap` (Meson), or the `[tool.pytest.ini_options]` / dev-dependency entry (Python). Keep the pin in step with `skill: build-systems` and `skill: python-tooling`.
 
 ### Phase 5: Verification Gate (Bash) — MANDATORY
 
 Reuse `/system-developer:build-test`'s detect → configure → build → test logic. Tee to `.context/logs/gen-tests-<timestamp>.log`.
 
-1. **Build (C/C++ only):** configure + build the test target.
+1. **Build (C/C++ only):** configure + build the test target with the **detected** build system's commands — take the pair from `/system-developer:build-test`'s Canonical Command Table (CMake, Meson, Make, or Autotools), not from this example.
    ```bash
+   # CMake projects; use the Meson/Make row instead when that is what was detected
    cmake -S "$path" -B "$path/build" -DCMAKE_BUILD_TYPE=Debug 2>&1 | tee -a "$LOG"
    cmake --build "$path/build" -j 2>&1 | tee -a "$LOG"
    ```
@@ -144,8 +147,8 @@ Reuse `/system-developer:build-test`'s detect → configure → build → test l
 
    | Framework | Run command |
    |-----------|-------------|
-   | GoogleTest / Catch2 / CMocka / Unity | `ctest --test-dir <path>/build --output-on-failure` |
-   | pytest | `uv run --project <path> pytest -x -q` |
+   | GoogleTest / Catch2 / CMocka / Unity | `ctest --test-dir <path>/build --output-on-failure` (Meson: `meson test -C builddir --print-errorlogs`; Make: `make -C <path> check`) |
+   | pytest | `uv run --project <path> pytest -x -q` — on a non-uv project use its own runner (`pytest -x -q` inside the active venv, `tox`, …); never introduce uv into a project that does not use it |
    | bats | `bats <path>/tests/` |
 
    Capture `${PIPESTATUS[0]}`. **A suite that does not run is a FAILURE, not a deliverable.** New tests that fail because they expose a real bug → report as a finding (the test is correct, the code is not); new tests that fail because they are wrong → route back to the generator.

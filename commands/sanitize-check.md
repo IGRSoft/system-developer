@@ -65,6 +65,18 @@ Configure each `build-<kind>/` as `RelWithDebInfo` with frame pointers preserved
 
 `RelWithDebInfo` keeps `file:line` in reports while still exercising optimizer-sensitive bugs; `-fno-omit-frame-pointer` keeps stacks reliable. See `skill: diagnostics` (sanitizers reference) for the canonical CMake snippet and per-sanitizer detail.
 
+### Non-CMake build systems
+
+The block above is the **CMake** form. Phase 1 resolves the build system with `/system-developer:build-test`'s priority order, which also admits Meson, Make, and autotools — carry the same intent into whichever one it lands on:
+
+| System | Sanitized configure into `build-<kind>/` |
+|--------|------------------------------------------|
+| CMake | the flags above on `CMAKE_<LANG>_FLAGS` + `CMAKE_EXE_LINKER_FLAGS` |
+| Meson | `meson setup build-<kind> --buildtype debugoptimized -Db_sanitize=<address,undefined\|thread> -Db_lundef=false` (`b_lundef=false` is required on Clang or the link fails) |
+| Make / autotools | pass the flags through the environment: `make -C <path> BUILD_DIR=build-<kind> CFLAGS="..." CXXFLAGS="..." LDFLAGS="..."` — the `-fsanitize=` token MUST reach `LDFLAGS` too |
+
+If the project's build system offers no way to inject per-build flags without editing tracked files, report that and stop rather than mutating its build config.
+
 ## Runtime Options (`*_OPTIONS`)
 
 Export per run, scoped to that run only:
@@ -74,6 +86,7 @@ Export per run, scoped to that run only:
 | `asan` / `lsan` | `ASAN_OPTIONS=halt_on_error=0:detect_leaks=1` | Keep going after the first error (collect all), and enable the leak check at exit. |
 | `ubsan` | `UBSAN_OPTIONS=print_stacktrace=1` | Print a stack trace for each UB report (otherwise UBSan prints only the location). |
 | `tsan` | `TSAN_OPTIONS=second_deadlock_stack=1` | Include the second stack for lock-order/deadlock reports so both sides are visible. |
+| `msan` | `MSAN_OPTIONS=halt_on_error=1` | Stop at the first uninitialized-read report — with uninstrumented deps the tail is usually noise. |
 
 When a run combines kinds (e.g. ASan+UBSan), export **both** their env vars for that run.
 
@@ -228,6 +241,12 @@ Warning: MSan requires Clang AND every linked dependency (incl. libc++) built wi
 -fsanitize=memory; uninstrumented deps produce false "uninitialized" reports.
 Install hint: brew install llvm  (use that clang)
 Skipping MSan. Recommend ASan+UBSan instead, or a fully instrumented toolchain.
+```
+
+### Preset on a non-CMake project
+```
+Warning: --preset is CMake-only; ignored for {system} project.
+Proceeding with the {system} sanitizer flags for build-{kind}/.
 ```
 
 ### TSan requested alongside ASan

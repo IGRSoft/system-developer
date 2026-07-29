@@ -65,11 +65,19 @@ The DV agent writes `.context/development-N.md`. Mandatory H2 anchors are fixed 
 | Decisions | `### decisions` (under files-changed) | Non-obvious implementation choices with rationale |
 | Tool Invocations | `### tool-invocations` (under files-changed) | Exact build/lint commands run (`cmake --build`, `uv run pytest`, `shellcheck`, …) |
 | Tests Added | `## tests-added` | Test files + what each covers |
-| Build Evidence | `### build-evidence` (under tests-added) | Compiler + standard (e.g. `clang -std=c++23` — verify against your toolchain), warning count at `-Wall -Wextra` (target: 0), sanitizer status, test transcript path in `.context/logs/` |
+| Build Evidence | `### build-evidence` (under tests-added) | Per-language toolchain + gate result (see below), plus the test transcript path in `.context/logs/` |
 | Deviations | `## deviations` | Departures from `analyzing-N.md` decisions |
 | Follow-ups | `## follow-ups` | Deferred work, flagged risks |
 
-Build Evidence is non-negotiable: a DV artifact without a compiler/standard line, a warning count, and a test transcript path under `.context/logs/` is incomplete. Tee raw build/test output to `.context/logs/<tool>-<worktask_id>.log`.
+Build Evidence is non-negotiable, but **which rows apply depends on the language of the change** — a compiler line and a `-Wall -Wextra` count exist only for C/C++:
+
+| Language of change | Toolchain line | Zero-findings gate | Also |
+|---|---|---|---|
+| C / C++ | compiler + standard (e.g. `clang -std=c++23` — verify against your toolchain) | warning count at `-Wall -Wextra` (target: 0) | sanitizer status |
+| Python | `python3 --version` (and `uv --version` if used) | `ruff check` findings (target: 0) + type-checker result | sanitizer status only if a native extension was touched |
+| Bash | `bash --version` (note the macOS 3.2 floor) | `shellcheck` findings (target: 0) + `shfmt` clean | — |
+
+Every language needs a toolchain line, its own gate result, and a transcript path; an artifact missing those is incomplete. Never demand a compiler line or a `-Wall -Wextra` count from a pure Python or Bash change, and never satisfy one by fabricating a value — record that language's row instead. Tee raw build/test output to `.context/logs/<tool>-<worktask_id>.log`.
 
 Source comments follow the compact code-documentation standard (`igrsoft:code-comment-standard` / igrsoft `skills/shared/code-documentation.md`): comment the non-obvious WHY and the contract only — never the WHAT, history, or call sites; rationale lives in the PR / `.context/development-N.md`. DR flags violations.
 

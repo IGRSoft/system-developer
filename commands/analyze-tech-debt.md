@@ -175,7 +175,24 @@ Prompt: "Read-only Bash technical-debt inventory for `{path}`. Measurements: {me
 2. **Filter** speculative items with no evidence. Per Rule 7, do not backfill.
 3. **Rank** each survivor by impact × effort into P0-P3 using `skill: severity-matrix` (its quadrant maps high-impact/low-effort → do first, high/high → schedule, low/low → batch, low/high → defer).
 4. **Attach** an owning agent and a remediation command to every item; label items with no path "manual".
-5. **Apply** `--top N` if set, and emit the Output Format report including the unmeasured dimensions.
+5. **Partition by `--focus`** if set, per the axis map below.
+6. **Apply** `--top N` if set, and emit the Output Format report including the unmeasured dimensions.
+
+#### `--focus` axis map
+
+Measurement and both review phases always run every axis (Rule 7 forbids narrowing the evidence); `--focus` shapes only the report. Assign each finding to one axis, then render the focused axis as the full ranked table and each other axis as one line — `{axis}: {N} findings, worst {P0-P3} — re-run without --focus for detail`.
+
+| Axis | Findings from |
+|------|---------------|
+| `standards` | Debt Taxonomy: Standards & Language Level |
+| `memory` | Debt Taxonomy: Memory & Error Handling |
+| `build` | Build, CI & Dependencies — every row except Dependency debt |
+| `deps` | Build, CI & Dependencies — the Dependency debt row |
+| `typing` | Typing, Tests & API/ABI — Untyped Python |
+| `tests` | Typing, Tests & API/ABI — Absent test framework, Coverage gaps |
+| `abi` | Typing, Tests & API/ABI — ABI/API debt |
+
+A finding that fits no axis (e.g. dead/duplicated code) stays in the ranked table regardless of `--focus`; say so in the report rather than dropping it.
 
 ## Output Format
 
