@@ -237,7 +237,7 @@ Print the install hint from Tool Availability, skip the system, continue. Only w
 
 - `skill: language-detection` — canonical marker → language → agent routing (keep the priority table in sync).
 - `skill: build-systems` — CMake presets, Meson/Make idioms, CMake 4.x policy-version compat, FetchContent vs vcpkg vs Conan.
-- `/system-developer:lint-fix` — run linters/formatters before building to cut noise.
+- `/system-developer:fix-quick` — run linters/formatters before building to cut noise.
 - `/system-developer:sanitize-check` — once the build is green, run ASan/UBSan/TSan over it.
-- `/system-developer:generate-tests` — add a test suite when detection finds no test target.
-- `/system-developer:deps-audit` — when a `configure`-stage failure is a missing or outdated dependency.
+- `/system-developer:gen-tests` — add a test suite when detection finds no test target.
+- `/system-developer:deps` — when a `configure`-stage failure is a missing or outdated dependency.

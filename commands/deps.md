@@ -1,6 +1,6 @@
 ---
-description: Audit, upgrade, or add C/C++/Python dependencies — outdated report, CVE lookup, license inventory, and safe one-at-a-time upgrades with a build+test gate
-argument-hint: [audit|upgrade|add <package>] [--manager vcpkg|conan|fetchcontent|uv]
+description: Audit, upgrade, or add C, C++, and Python dependencies — CVE and license report, then gated one-at-a-time upgrades
+argument-hint: audit|upgrade|add [package] [--manager vcpkg|conan|fetchcontent|uv]
 allowed-tools: Read, Edit, Glob, Grep, Bash, WebSearch, WebFetch
 estimated-cost:
   min-tokens: 3000
@@ -11,10 +11,18 @@ estimated-cost:
     opus: 10%
 ---
 
-# Dependency Audit & Upgrade
-<!-- Updated: June 2026 -->
+# Dependency Lifecycle (audit / upgrade / add)
+<!-- Updated: July 2026 -->
 
-Audit, upgrade, or add dependencies for C, C++, and Python projects across the four package managers this plugin supports: vcpkg, Conan 2, CMake `FetchContent`, and uv. **Audit** produces an outdated-versions report, a CVE lookup, and a license inventory without changing a byte. **Upgrade** advances exactly one dependency at a time, pinning an exact version and re-running the build and tests before touching the next. **Add** introduces a new pinned dependency to the right manifest.
+Three subcommands select the operation from the first argument, across the four package managers this plugin supports — vcpkg, Conan 2, CMake `FetchContent`, and uv:
+
+- **`deps audit [--manager M]`** — outdated-versions report, CVE lookup, and license inventory. Read-only; changes nothing. See **Subcommand: `audit`** below.
+- **`deps upgrade <package> [--manager M]`** — advance exactly one dependency, pin an exact version, and re-run the build and tests before the next. See **Subcommand: `upgrade`** below.
+- **`deps add <package> [--manager M]`** — introduce a new pinned dependency to the right manifest. See **Subcommand: `add`** below.
+
+**Dispatch**: parse the first token of `$ARGUMENTS`. `audit` → the `audit` subcommand with the remaining args as scope; `upgrade` → the `upgrade` subcommand with the next token as the package; `add` → the `add` subcommand with the next token as the package. **If the first token is absent or is not one of the three, default to `audit`** — the read-only path is always the safe fallback. `upgrade` and `add` without a package name are an error (see Error Handling); never guess which dependency the user meant.
+
+**Exception — a flag that names a mutating mode is an error, not a fallback.** The `audit` default is safe for an empty token, a bare path, or an unrecognized-but-harmless word. It is *not* safe for `--upgrade` or `--add`: those fall through to "not one of the three", silently run a read-only audit, and hand the caller an audit result for a mutation they asked for — "no action taken" reads as "nothing to do". If `--upgrade` or `--add` appears anywhere in `$ARGUMENTS`, stop and emit the Error Handling message; do not fall back to `audit`.
 
 [Extended thinking: Dependency changes are the highest-blast-radius edits in a systems project — one transitive bump can silently change ABI, drop a symbol, or pull in a CVE. This command separates read-only assessment (audit) from mutation (upgrade/add) and forces upgrades through a one-dependency, pin-exact, build-and-test-gated loop. Manifest discovery is shared with `skill: language-detection`; CVE lookup prefers a local `osv-scanner` and falls back to the osv.dev API; license inventory is best-effort and never blocks. Security findings are phrased in `igrsoft:security-review-process` vocabulary so they flow cleanly into an SR stage. The heavy reasoning — version-jump risk, breaking-change analysis, manifest edits — is delegated to `system-developer:sys-dependency-manager`; this command owns discovery, the gate loop, and reporting.]
 
@@ -35,19 +43,19 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 
 ```bash
 # Read-only audit of the current project (auto-detect all managers)
-/system-developer:deps-audit audit
+/system-developer:deps audit
 
 # Audit only the uv-managed Python dependencies
-/system-developer:deps-audit audit --manager uv
+/system-developer:deps audit --manager uv
 
 # Upgrade a single dependency one step, with a build+test gate
-/system-developer:deps-audit upgrade fmt --manager vcpkg
+/system-developer:deps upgrade fmt --manager vcpkg
 
 # Add a new pinned dependency to the detected manifest
-/system-developer:deps-audit add nlohmann-json --manager vcpkg
+/system-developer:deps add nlohmann-json --manager vcpkg
 ```
 
-If no mode is given, default to `audit`.
+If no subcommand is given, default to `audit`.
 
 ## Options
 
@@ -78,7 +86,7 @@ Discovery details:
 
 Auxiliary `requirements*.txt` or `setup.py` without a `uv.lock` is a non-uv Python project — note it and recommend `uv` migration, but only operate on it under `--manager uv` after `uv lock` materializes a lockfile.
 
-## Mode 1: Audit (read-only)
+## Subcommand: `audit` (read-only)
 
 Produces three sections per discovered manager: **Outdated**, **Vulnerabilities (CVE)**, **Licenses**. No edits.
 
@@ -134,7 +142,7 @@ Hand the raw discovery + queries to the dependency manager for risk framing:
   Prompt: "Audit-mode dependency analysis for the project at `{path}`. Discovered managers: {managers}. Outdated report:\n```\n{outdated_output}\n```\nCVE findings (raw):\n```\n{cve_output}\n```\nLicenses:\n```\n{license_output}\n```\nFor each outdated dependency, classify the version jump (patch/minor/major), note documented breaking changes, and assess upgrade risk. Normalize every vulnerability into `igrsoft:security-review-process` vocabulary (severity, advisory id, affected range, fixed-in, remediation). Produce a prioritized upgrade plan (security patches first, then patch/minor, then majors individually). Do NOT edit any files — this is read-only audit."
 - Synthesize the agent's analysis into the Output Format report.
 
-## Mode 2: Upgrade (one dependency, gated)
+## Subcommand: `upgrade` (one dependency, gated)
 
 Advances exactly one dependency one step. This is the ported incremental-upgrade discipline: prep, pin exact, build+test gate, then stop.
 
@@ -174,7 +182,7 @@ Emit the Output Format "Upgrade Step" block with from→to, the gate result, and
 
 > Lockfile/pin changes (vcpkg baseline + `overrides[]`, `conan.lock`, FetchContent `GIT_TAG`, `uv.lock`) feed the RE stage — leave them gate-ready (exact-pinned, build+test-green) for the FN finalization gate.
 
-## Mode 3: Add (new pinned dependency)
+## Subcommand: `add` (new pinned dependency)
 
 ### Phase 1: Resolve manager & manifest
 
@@ -252,7 +260,7 @@ A missing `osv-scanner` triggers the osv.dev API fallback (WebFetch), not a skip
 - **From → To:** {current} → {target} (exact pin)
 - **Manifest edits:** {files changed}
 - **Build + Test gate:** PASS / FAIL ({failing stage})
-- **Next recommended:** {pkg} (run `/system-developer:deps-audit upgrade {pkg}`)
+- **Next recommended:** {pkg} (run `/system-developer:deps upgrade {pkg}`)
 
 ### Skipped
 - {manager}: {missing tool} — install hint printed above.
@@ -265,6 +273,21 @@ A missing `osv-scanner` triggers the osv.dev API fallback (WebFetch), not a skip
 Error: No dependency manifests detected under {path}.
 Looked for: vcpkg.json, conanfile.txt/.py, FetchContent_Declare(...) in CMake, pyproject.toml/uv.lock.
 Suggestion: Run from the project root, or scaffold a manifest with `add <package> --manager <m>`.
+```
+
+### Mutating mode passed as a flag
+```
+Error: `--upgrade` / `--add` is not a supported flag. Mutating modes are selected by the
+first token only: `deps upgrade <package>` or `deps add <package>`.
+```
+Do NOT fall back to `audit` here — the caller asked for a mutation, and returning a read-only
+audit would report "no action taken" for work that was never attempted.
+
+### Subcommand given without a package
+```
+Error: `{upgrade|add}` requires a package name.
+Suggestion: /system-developer:deps {upgrade|add} <package> [--manager <vcpkg|conan|fetchcontent|uv>]
+           Run `/system-developer:deps audit` first to see what is declared and outdated.
 ```
 
 ### Multiple managers, ambiguous upgrade/add

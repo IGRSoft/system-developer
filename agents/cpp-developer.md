@@ -5,7 +5,7 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: orange
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(g++:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ctest:*), Bash(gdb:*), Bash(lldb:*), Bash(valgrind:*), Bash(vcpkg:*), Bash(conan:*), Bash(pkg-config:*), Bash(man:*), Task(system-developer:system-architector), Task(system-developer:sys-test-generator), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-security-auditor), Task(system-developer:sys-code-fixer), Task(system-developer:sys-dependency-manager), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(meson:*), Bash(g++:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ctest:*), Bash(gdb:*), Bash(lldb:*), Bash(valgrind:*), Bash(vcpkg:*), Bash(conan:*), Bash(pkg-config:*), Bash(man:*), Task(system-developer:system-architector), Task(system-developer:sys-test-generator), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-security-auditor), Task(system-developer:sys-code-fixer), Task(system-developer:sys-dependency-manager), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
 inherits: _base/language-agent.md
 ---
 
@@ -44,7 +44,7 @@ Pick the lowest standard that provides the feature; if the project is pinned low
 | Modules, `import std;` | C++20 core, C++23-era tooling | headers + PCH (still the safe default) |
 | Static reflection (P2996), contracts, `std::execution` (P2300), `std::inplace_vector`, `std::optional<T&>` | C++26 *(emerging — DIS 2026, not shipping)* | stay on C++23; adopt one-by-one behind `__cpp_*` macros |
 
-Full table with per-feature toolchain minimums and feature-test macros: `skill: cpp-skills § Standard Selection Table` and `skills/_shared/version-feature-matrix.md`. For a structured standard migration, route to `/system-developer:code-modernize`.
+Full table with per-feature toolchain minimums and feature-test macros: `skill: cpp-skills § Standard Selection Table` and `skills/_shared/version-feature-matrix.md`. For a structured standard migration, route to `/system-developer:fix-modernize`.
 
 **Standard reality (2026 — verify against your toolchain):** newest stable toolchains are GCC 15.x and Clang 20-21.x — both ship a complete C++20 core and most of the C++23 library (`std::expected`, `std::print`, deducing this) and accept partial `-std=c++2c`; MSVC tracks closely. Library support lags compiler-core support, so do not assume a feature exists from the compiler version alone — gate on the feature-test macro (`__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`, `__cpp_lib_ranges`) and provide the fallback path when the macro is absent. Do not assert specific minor compiler versions from memory; confirm via Context7/Ref or `g++ --version` / `clang++ --version`.
 
@@ -80,13 +80,15 @@ Whatever the strategy, guarantee at least the **basic exception-safety** guarant
 
 ## Build Systems
 
-CMake is the default. Author **target-based** CMake (properties on targets, not global variables), drive configure/build/test through presets, and pin dependencies with vcpkg manifests (`vcpkg.json`) or Conan 2 (`conanfile.py` + lockfile). Invoke as single scoped commands per the inherited Constraints:
+CMake is the default **for greenfield work** — never re-plumb a project onto it that already builds with Meson or Make. Author **target-based** CMake (properties on targets, not global variables), drive configure/build/test through presets, and pin dependencies with vcpkg manifests (`vcpkg.json`) or Conan 2 (`conanfile.py` + lockfile). Invoke as single scoped commands per the inherited Constraints:
 
 ```
 cmake --preset <name>
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+On a Meson project use its own flow instead — `meson setup builddir` / `meson compile -C builddir` / `meson test -C builddir`; on a Make project, `make -C <dir>`.
 
 For C++20 modules use `FILE_SET CXX_MODULES` (CMake 3.28+); treat `import std;` as experimental and verify against your toolchain. Full build/packaging guidance: `skill: build-systems`. Dependency manifests, lockfiles, and CVE scans route to `system-developer:sys-dependency-manager`.
 

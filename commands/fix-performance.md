@@ -1,22 +1,24 @@
 ---
-description: Profile CPU, memory, or I/O hot paths for C, C++, Python, or Bash code, or benchmark before/after with hyperfine, then route findings to the performance engineer
-argument-hint: [path or target (default .)] [--mode cpu|memory|io|bench] [--duration SECONDS]
-allowed-tools: Read, Glob, Grep, Bash
+description: Profile CPU, memory, or I/O hot paths or benchmark with hyperfine, then optionally apply the ranked fixes
+argument-hint: [path or target (default .)] [--mode cpu|memory|io|bench] [--duration SECONDS] [--apply]
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 estimated-cost:
   min-tokens: 2000
-  max-tokens: 18000
+  max-tokens: 26000
   model-distribution:
     haiku: 25%
     sonnet: 60%
     opus: 15%
 ---
 
-# Profile Performance
-<!-- Updated: June 2026 -->
+# Profile & Optimize Performance
+<!-- Updated: July 2026 -->
 
 Collect a CPU, memory, or I/O profile of a built target — or a `hyperfine` before/after benchmark — using the platform's native profiler, then hand the raw artifacts to `system-developer:sys-performance-engineer` for interpretation. Data collection is pure Bash; the agent is engaged only to read the profile and rank hot paths. The command never guesses at hotspots itself.
 
-[Extended thinking: Profiling is a measure-first discipline, so this command's job is to produce *trustworthy* measurements and then defer judgment. It is Darwin-first — `sample`/`xctrace`/`leaks`/`malloc_history` on macOS, `perf`/`valgrind`/`heaptrack` on Linux — because the same intent maps to different tools per OS; Python overlays py-spy/cProfile/tracemalloc on top. The single most common way profiling lies is a wrong build: an `-O0` build relocates the hot path and a stripped `Release` erases symbols, so the prerequisite check refuses anything but RelWithDebInfo-equivalent (`-O2 -g`, unstripped) and tells the user how to rebuild rather than profiling garbage. Every artifact lands under `.context/logs/profile-<timestamp>/` so the engineer (and the user) can re-open the trace. `--mode bench` is the comparison path: hyperfine `--warmup 3` with JSON baselines committed before and after a change, so the delta is evidence, not vibes. Interpretation — top-N hotspots with `file:line`, allocation churn, a fix plan ranked by effort/impact — is the agent's deliverable, not this command's.]
+**Measure-only is the default.** Phases 1-5 read, profile, and report; they do not modify a single file. An optional apply phase (Phases 6-8) hands the engineer's ranked fix plan to `system-developer:sys-code-fixer`, but it is unreachable until you approve it at an explicit PHASE CHECKPOINT. Running without `--apply` behaves exactly like the old read-only profiler.
+
+[Extended thinking: Profiling is a measure-first discipline, so this command's job is to produce *trustworthy* measurements, defer judgment, and only then — with the user's explicit consent — act on them. It is Darwin-first — `sample`/`xctrace`/`leaks`/`malloc_history` on macOS, `perf`/`valgrind`/`heaptrack` on Linux — because the same intent maps to different tools per OS; Python overlays py-spy/cProfile/tracemalloc on top. The single most common way profiling lies is a wrong build: an `-O0` build relocates the hot path and a stripped `Release` erases symbols, so the prerequisite check refuses anything but RelWithDebInfo-equivalent (`-O2 -g`, unstripped) and tells the user how to rebuild rather than profiling garbage. Every artifact lands under `.context/logs/profile-<timestamp>/` so the engineer (and the user) can re-open the trace. `--mode bench` is the comparison path: hyperfine `--warmup 3` with JSON baselines committed before and after a change, so the delta is evidence, not vibes. Interpretation — top-N hotspots with `file:line`, allocation churn, a fix plan ranked by effort/impact — is the agent's deliverable, not this command's. The apply phase exists because a ranked fix plan the user then has to re-paste into another command is a handoff tax, but optimization edits are exactly the kind of change that must not happen by surprise: the checkpoint makes consent explicit and the mandatory re-measure makes the result falsifiable, so an "optimization" that did not actually move the number gets reported as such instead of assumed.]
 
 ## CRITICAL BEHAVIORAL RULES
 
@@ -27,27 +29,33 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 3. **Save every artifact under `.context/logs/profile-<timestamp>/`.** Create the directory once per run; write the trace/profile/JSON/leak-report and a `meta.txt` (target, mode, platform, tool, build flags) there. The directory is the single source of truth for interpretation — do not rely on terminal scrollback.
 4. **Single-command Bash invocations.** Use each profiler's own flags for output paths and target selection. Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
 5. **Pick the platform tool, do not invent flags.** Resolve the OS once (`uname -s`), then run the matching tool from the Platform / Tool Matrix exactly as written. If a flag is rejected, consult `man`/`--help` or `skill: diagnostics` — never guess flag spellings.
-6. **`--mode bench` records, never auto-edits.** Bench mode runs hyperfine and exports JSON baselines for before/after comparison. It does not change code. The optimization itself is the agent's plan plus a follow-up `code-review`/`code-modernize` run.
-7. **Tool-missing never hard-fails.** If the platform profiler is absent, print the install hint, skip that collection, and report what was skipped. If no profiler is available at all, report the aggregated hints and stop without erroring out the session.
-8. **Never enter plan mode.** This command IS the procedure — execute it.
+6. **No mutation before the checkpoint.** Phases 1-5 are strictly read-only: they MUST NOT create, edit, or delete any source, build, or manifest file. The only writes are profiling artifacts under `.context/logs/profile-<timestamp>/`. `Write` and `Edit` are in `allowed-tools` solely for the apply phase; using them earlier is a failure.
+7. **The apply phase requires BOTH `--apply` and an approved checkpoint.** Without `--apply`, stop after Phase 5 and report — never offer to edit. With `--apply`, stop at the PHASE CHECKPOINT and use the AskUserQuestion tool. Only an explicit approval unlocks Phase 6. Silence, ambiguity, or "looks good" about the *findings* is not approval to edit.
+8. **`--mode bench` records, never optimizes.** Bench mode runs hyperfine and exports JSON baselines for before/after comparison. It is the measurement half of the loop; `--apply` is the other half. Bench mode never auto-edits, checkpoint or not — there is no profile to derive a fix plan from.
+9. **Re-measure after applying, and report the delta honestly.** Phase 8 re-runs the same collection and compares. If the numbers did not improve, say so plainly and offer the rollback — do NOT describe an applied change as an optimization on the strength of the plan alone.
+10. **Tool-missing never hard-fails.** If the platform profiler is absent, print the install hint, skip that collection, and report what was skipped. If no profiler is available at all, report the aggregated hints and stop without erroring out the session.
+11. **Never enter plan mode.** This command IS the procedure — execute it.
 
 ## Usage
 
 ```bash
 # CPU profile of the current project's primary built target
-/system-developer:profile-performance .
+/system-developer:fix-performance .
 
 # Memory profile of a specific binary
-/system-developer:profile-performance build/parser --mode memory
+/system-developer:fix-performance build/parser --mode memory
 
 # Sample a CPU profile for 15 seconds
-/system-developer:profile-performance build/server --mode cpu --duration 15
+/system-developer:fix-performance build/server --mode cpu --duration 15
 
 # I/O profile a Python entry point
-/system-developer:profile-performance app/ingest.py --mode io
+/system-developer:fix-performance app/ingest.py --mode io
 
 # Benchmark two invocations and store a JSON baseline for before/after
-/system-developer:profile-performance "build/prog --new" --mode bench
+/system-developer:fix-performance "build/prog --new" --mode bench
+
+# Profile, then (after you approve at the checkpoint) apply the ranked fixes
+/system-developer:fix-performance build/parser --mode cpu --apply
 ```
 
 ## Options
@@ -57,8 +65,11 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 | `path or target` | `.` | A directory (detect the primary built target / Python entry point), a binary path, or — in `--mode bench` — a full command line to time. |
 | `--mode cpu\|memory\|io\|bench` | `cpu` | `cpu` = where time goes; `memory` = where allocations/leaks are; `io` = syscall/I/O wait; `bench` = wall-clock before/after with hyperfine. |
 | `--duration SECONDS` | tool default | For attach/sampling modes (`sample <pid> <dur>`, `perf record -p <pid> -- sleep <dur>`, `py-spy record` of a running process), how long to sample. Ignored for launch-and-exit runs and for `--mode bench` (hyperfine controls its own run count). |
+| `--apply` | off | Unlock the optional apply phase. Even with it set, nothing is edited until you approve at the PHASE CHECKPOINT. Not valid with `--mode bench` (no profile to derive a fix plan from). |
 
 `--mode` and `--duration` interact only for the sampling/attach paths; for a launch-and-exit target the program's own runtime bounds the profile.
+
+**Without `--apply` this command is read-only.** It profiles, reports, and stops at Phase 5. `--apply` adds Phases 6-8 (checkpoint → fix → re-measure) and nothing else; the measurement half is byte-for-byte identical either way.
 
 ## Build Prerequisite Check (compiled targets)
 
@@ -78,6 +89,9 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
 # For accurate call graphs on Linux perf, also keep frame pointers:
 #   -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -fno-omit-frame-pointer"
+
+# Meson: meson setup build --buildtype debugoptimized -Dstrip=false
+# Make/autotools: make CFLAGS="-O2 -g -fno-omit-frame-pointer"  (and do not strip at install)
 ```
 
 `RelWithDebInfo` is `-O2 -g`: real optimization with symbols. Debug (`-O0`) relocates the hot path; stripped `Release` erases the symbols you need. See `skill: build-systems` for profilable presets. Python and Bash have no build step — skip this check for them (for py-spy `--native` on a C extension, the extension still needs `-g`).
@@ -114,6 +128,18 @@ Resolve the OS once with `uname -s` (Darwin vs Linux), then pick the row for `--
 | `cpu` | `py-spy record --format speedscope -o "$OUT/pyspy.speedscope.json" -- python <entry>` (attach: `py-spy record --pid <pid> --format speedscope -o "$OUT/pyspy.speedscope.json"`); add `--native` for C-extension frames (Linux; extension built with `-g`); deterministic per-call counts: `python -m cProfile -o "$OUT/profile.prof" <entry>` |
 | `memory` | `tracemalloc` snapshot in-process (top allocation sites by `lineno`); save the top-N dump to `"$OUT/tracemalloc.txt"` |
 | `io` | `py-spy dump --pid <pid> > "$OUT/pyspy-dump.txt"` for a stuck/IO-waiting process; otherwise `strace`/`fs_usage` over the `python` process as in the C/C++ I/O row |
+
+### Bash — all modes
+
+There is no shell equivalent of `perf`/`py-spy`: a slow script waits on the processes it spawns. Do not report "no tool available" — collect this instead:
+
+| Mode | Collection |
+|------|-----------|
+| `cpu` | Timestamped xtrace, ranked by the wall-clock gap between lines: `PS4='+ $EPOCHREALTIME ' BASH_XTRACEFD=3 bash -x <script> 3>"$OUT/xtrace.log"` (bash 5+; on macOS 3.2 use `PS4='+ $SECONDS '`). The hot spot is the slowest child command. |
+| `memory` | Not measurable at the shell level. Identify the child that dominates `xtrace.log` and re-run against **that** target in its own language; report the redirection, not a null result. |
+| `io` | `strace -f -e trace=file,read,write` (Linux) / `sudo dtruss -f` (macOS) — `-f` is required or the children doing the I/O are invisible. |
+
+`--mode bench` is the primary evidence path for Bash; the xtrace only tells you *which* child to bench.
 
 ### `--mode bench` (all languages — wall-clock before/after)
 
@@ -163,6 +189,41 @@ Model note: `sys-performance-engineer` defaults to sonnet/high; for a large or c
 
 Emit the Output Format summary, pointing at `{OUT}` and folding in the engineer's ranked findings (or the skip/error note when collection did not run).
 
+**Without `--apply`, the command ends here.** The report is the deliverable; nothing on disk changed except `{OUT}`. Mention that `--apply` exists only if the engineer returned at least one actionable fix.
+
+---
+
+### PHASE CHECKPOINT (only when `--apply` is set)
+
+**Completed:** Phases 1-5 — profile collected under `{OUT}`, interpreted by `sys-performance-engineer`, ranked fix plan produced. **No source file has been modified.**
+
+**Next:** Phase 6 would delegate the ranked fix plan to `system-developer:sys-code-fixer`, which edits source files, followed by a build+test gate and a re-measure.
+
+Stop here. Use the **AskUserQuestion** tool to present the ranked fix plan and ask which items to apply. Offer at minimum: apply the whole plan; apply only the high-impact / low-effort items; apply nothing (stop with the report). Do NOT proceed on an unanswered or ambiguous response — approval of the *findings* is not approval to edit code.
+
+If the engineer returned no actionable fix, skip the checkpoint entirely, say so, and stop after Phase 5.
+
+---
+
+### Phase 6: Apply the approved fixes (delegate — post-checkpoint only)
+
+Apply **only** the items the user approved, in the engineer's effort/impact order.
+
+- **Use Task tool with subagent_type="system-developer:sys-code-fixer"**
+  Prompt: "Apply these approved performance fixes from a {mode} profile of `{target}`: {approved_items as `{file, line, finding, proposed_fix, expected_effect}`}. Minimal-diff gate: change only what each item requires; do not refactor untouched code, reformat, or apply items outside this list. Preserve observable behavior — a faster program that computes something different is a defect, not an optimization. After each item, report `{file, line, item, change}`, and list any item you could NOT safely apply (needs API redesign, algorithmic rewrite, or human judgment)."
+- Items needing design judgment (algorithm replacement, API/ABI change, threading model change) are **not** auto-applied — return them for manual handling with the engineer's rationale.
+- Anything the fixer declines is reported, never forced.
+
+### Phase 7: Build + Test Gate (BINDING)
+
+Run `/system-developer:build-test` over the touched project. A red build or a failing test **blocks** the run: report the failing stage, offer to revert the applied diff, and do NOT proceed to the re-measure. A performance change that breaks correctness is a regression regardless of its numbers.
+
+### Phase 8: Re-measure & compare (Bash)
+
+1. Re-run the **same** collection from Phase 3 (same mode, same target, same duration) into a fresh `.context/logs/profile-<timestamp>/` directory. Same tool, same flags — a comparison against a differently-collected profile is not evidence.
+2. Compare the new hotspot shares (or `hyperfine` means for a benchmarkable target) against the pre-fix run and record both artifact paths.
+3. Report the delta in the Applied Fixes section of the Output Format. If the hot path did not move, or moved the wrong way, **say so** and offer to revert. Do not relabel a neutral result as a win.
+
 ## Tool Availability
 
 Confirm the chosen profiler exists before collecting. If missing, print the hint, skip the collection, and report the skip.
@@ -190,6 +251,7 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 **Language:** C | C++ | Python | Bash
 **Tool:** {sample | xctrace | perf | valgrind massif | heaptrack | leaks | py-spy | cProfile | tracemalloc | hyperfine}
 **Build:** RelWithDebInfo ✅ | (bench/Python: N/A)
+**Mutation:** read-only (no --apply) | applied {n} fixes after checkpoint approval
 **Artifacts:** .context/logs/profile-{timestamp}/
 
 | Step | Result | Notes |
@@ -197,6 +259,9 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 | Build prerequisite | ✅ / ❌ rebuild / ⏭ N/A | {-O2 -g, unstripped — or rebuild hint} |
 | Collection | ✅ / ❌ / ⏭ skipped | {tool, duration, or skip reason} |
 | Interpretation | ✅ / ⏭ | {delegated to sys-performance-engineer} |
+| Apply | ⏭ not requested / ⏭ declined at checkpoint / ✅ {n} applied | {approved scope} |
+| Build+test gate | ⏭ N/A / ✅ / ❌ blocked | {only when fixes were applied} |
+| Re-measure | ⏭ N/A / ✅ | {second profile path} |
 
 ### Top Hotspots
 <!-- from sys-performance-engineer; cpu/io modes -->
@@ -224,6 +289,16 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 1. {high-impact / low-effort fix} — implement via system-developer:{agent}
 2. {next} — ...
 
+### Applied Fixes
+<!-- only after an approved --apply checkpoint -->
+| File:Line | Item | Change | Effect (re-measured) |
+|-----------|------|--------|----------------------|
+| parse.cpp:142 | quadratic inner scan | hoisted lookup into a map | 38% → 6% of CPU time |
+
+**Not applied (manual):** {items needing algorithmic/API judgment, or "none"}
+**Before / after artifacts:** {OUT-before} → {OUT-after}
+**Verdict:** improved / unchanged / regressed — {plain statement; offer rollback unless improved}
+
 <!-- on skip/error only -->
 ### Skipped / Environment
 - {tool}: {missing — install hint above} | {perf_event_paranoid too high} | {py-spy attach denied — run as process owner}
@@ -236,7 +311,7 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 Error: Target not found: {target}
 Suggestion: Pass a built binary, a Python entry point, a directory to detect,
 or (for --mode bench) a runnable command, e.g.
-/system-developer:profile-performance build/prog --mode cpu
+/system-developer:fix-performance build/prog --mode cpu
 ```
 
 ### Debug / stripped build (compiled target)
@@ -244,7 +319,7 @@ or (for --mode bench) a runnable command, e.g.
 Error: {target} is a Debug or stripped build — profiling it yields wrong hot paths.
 Rebuild RelWithDebInfo (optimized + symbols, unstripped):
   cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build
-Then re-run: /system-developer:profile-performance build/{target} --mode {mode}
+Then re-run: /system-developer:fix-performance build/{target} --mode {mode}
 ```
 This is a STOP, not a skip — do not profile an `-O0`/stripped build.
 
@@ -264,11 +339,22 @@ Run as the target process's owner / with privilege, then re-run.
 ### Tool missing
 Print the install hint from Tool Availability, skip the collection, continue. Only when *every* eligible profiler for the mode/platform is absent does the command report "no profiler available" with the aggregated hints (no hard failure).
 
+### `--apply` with `--mode bench`
+```
+Error: --apply is not valid with --mode bench.
+Bench mode measures wall-clock time; it produces no profile to derive a fix plan from.
+Suggestion: profile first, then apply, e.g.
+/system-developer:fix-performance build/prog --mode cpu --apply
+```
+
+### Build+test gate failed after applying
+Not silent. Report the failing stage from `/system-developer:build-test`, offer to revert the applied diff, and route a code-level break plus the log excerpt to the owning language agent for a corrected patch before re-running the gate once. Never proceed to the re-measure over a red gate.
+
 ### Ambiguous target in a directory
 ```
 Error: Could not resolve a single profilable target under {path}.
 Suggestion: Pass the explicit binary or entry point, e.g.
-/system-developer:profile-performance build/server --mode cpu
+/system-developer:fix-performance build/server --mode cpu
 ```
 
 ## See Also
@@ -276,6 +362,7 @@ Suggestion: Pass the explicit binary or entry point, e.g.
 - `skill: diagnostics` — canonical profiling-tools flag reference (perf/sample/py-spy/valgrind/heaptrack/hyperfine), the measure→fix→re-measure loop, and the symptom→tool table. Keep the Platform / Tool Matrix in sync with it.
 - `skill: build-systems` — RelWithDebInfo presets and profilable build flags (`-O2 -g -fno-omit-frame-pointer`).
 - `skill: language-detection` — target language resolution for the matrix.
-- `/system-developer:build-test` — produce the profilable build first (`--type Release`/RelWithDebInfo) before profiling.
-- `/system-developer:code-modernize` — apply the ranked algorithmic/idiom fixes the engineer recommends.
+- `/system-developer:build-test` — produce the profilable build first (`--type Release`/RelWithDebInfo) before profiling; also the binding gate `--apply` runs after editing.
+- `/system-developer:fix-modernize` — for a ranked fix that is really a standard/idiom migration (too broad for the `--apply` minimal-diff gate).
+- `/system-developer:review-code` — review the applied optimization diff for behavioral drift.
 - `/system-developer:sanitize-check` — when the symptom is a *crash or corruption*, not slowness — correctness before performance.

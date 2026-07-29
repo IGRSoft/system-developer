@@ -1,5 +1,5 @@
 ---
-description: Run linters and formatters (clang-tidy/clang-format, ruff, mypy/ty, shellcheck, shfmt) over C, C++, Python, and Bash code — check-only or auto-fix
+description: Run linters and formatters over C, C++, Python, and Bash code — check-only, or apply the safe mechanical fixes
 argument-hint: [path (default .)] [--check | --fix] [--lang c|cpp|python|bash]
 allowed-tools: Read, Edit, Glob, Grep, Bash
 model: haiku
@@ -14,9 +14,9 @@ estimated-cost:
 # Lint & Fix
 <!-- Updated: June 2026 -->
 
-Run each language's standard linter and formatter over the target, report violations, and — in `--fix` mode — apply the safe, deterministic auto-fixes, then re-check. Fast, cheap, and reversible: this is the deterministic-cleanup pass, not a review. Deep, judgment-bearing fixes escalate to `/system-developer:code-review --fix`.
+Run each language's standard linter and formatter over the target, report violations, and — in `--fix` mode — apply the safe, deterministic auto-fixes, then re-check. Fast, cheap, and reversible: this is the deterministic-cleanup pass, not a review. Deep, judgment-bearing fixes escalate to `/system-developer:review-code --fix`.
 
-[Extended thinking: This command is the system-developer analogue of a pre-commit hook. It detects which languages are present, discovers each language's config (so it honors project rules instead of imposing its own), and runs linters/formatters in a fixed order per language. `--check` is the CI mode — no edits, exit-code-honest, with a planted-violation count — and `--fix` applies only the mechanical fixes (`clang-format -i`, `ruff check --fix`, `ruff format`, `shfmt -w`) then re-runs the linters to confirm. Anything a formatter or `--fix` rule cannot resolve mechanically is reported, not forced; those land in `code-review --fix`. Keep it on haiku: the work is tool invocation and table assembly, not analysis.]
+[Extended thinking: This command is the system-developer analogue of a pre-commit hook. It detects which languages are present, discovers each language's config (so it honors project rules instead of imposing its own), and runs linters/formatters in a fixed order per language. `--check` is the CI mode — no edits, exit-code-honest, with a planted-violation count — and `--fix` applies only the mechanical fixes (`clang-format -i`, `ruff check --fix`, `ruff format`, `shfmt -w`) then re-runs the linters to confirm. Anything a formatter or `--fix` rule cannot resolve mechanically is reported, not forced; those land in `review-code --fix`. Keep it on haiku: the work is tool invocation and table assembly, not analysis.]
 
 ## CRITICAL BEHAVIORAL RULES
 
@@ -28,23 +28,23 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 4. **clang-tidy requires `compile_commands.json`.** If absent, generate it with `cmake -S <path> -B <path>/build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` (or symlink an existing one). If it cannot be generated (no CMake), skip clang-tidy with a note — never run it blind.
 5. **Single-command Bash invocations.** Use each tool's own path/recursion flags. Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
 6. **Tool-missing never hard-fails.** If a linter/formatter binary is absent, print the install hint, skip that language's pass, and continue. Report what was skipped.
-7. **This is the shallow pass.** Do NOT attempt semantic refactors, API redesigns, or fixes that change behavior. When a finding needs judgment, list it under "Needs review" and point to `/system-developer:code-review --fix`. Do not delegate to an agent from this command.
+7. **This is the shallow pass.** Do NOT attempt semantic refactors, API redesigns, or fixes that change behavior. When a finding needs judgment, list it under "Needs review" and point to `/system-developer:review-code --fix`. Do not delegate to an agent from this command.
 8. **Never enter plan mode.** This command IS the procedure — execute it.
 
 ## Usage
 
 ```bash
 # Report violations across all detected languages (CI-safe, no edits)
-/system-developer:lint-fix . --check
+/system-developer:fix-quick . --check
 
 # Auto-fix everything fixable, then re-check
-/system-developer:lint-fix . --fix
+/system-developer:fix-quick . --fix
 
 # Fix only the Python sources under a subtree
-/system-developer:lint-fix src/py --fix --lang python
+/system-developer:fix-quick src/py --fix --lang python
 
 # Check just the shell scripts (exit non-zero if any violation)
-/system-developer:lint-fix scripts/ --check --lang bash
+/system-developer:fix-quick scripts/ --check --lang bash
 ```
 
 ## Options
@@ -195,7 +195,7 @@ git checkout -- {files}
 <!-- when mechanical fixes cannot resolve everything -->
 ### Needs review ({count})
 - {file}:{line}: {mypy/shellcheck finding that needs judgment}
-- Escalate with: `/system-developer:code-review --fix {path}`
+- Escalate with: `/system-developer:review-code --fix {path}`
 
 <!-- on skipped languages only -->
 ### Skipped
@@ -210,7 +210,7 @@ In `--check` mode, the "Violations" column doubles as the planted-violation summ
 ### Path not found
 ```
 Error: Path not found: {path}
-Suggestion: Pass a directory or file that exists, e.g. /system-developer:lint-fix . --check
+Suggestion: Pass a directory or file that exists, e.g. /system-developer:fix-quick . --check
 ```
 
 ### No lintable sources
@@ -235,5 +235,5 @@ Print the install hint from Tool Availability, skip that language's pass, contin
 
 - `skill: language-detection` — canonical marker → language → agent routing (keep detection in sync).
 - `/system-developer:build-test` — run before building to cut compiler-warning noise; build green first, then lint.
-- `/system-developer:code-review --fix` — escalation target for findings that need judgment (semantic refactors, API/behavioral changes) beyond mechanical lint fixes.
-- `/system-developer:code-modernize` — for cross-standard modernization (`clang-tidy modernize-*` at scale, `ruff --select UP`), which goes deeper than this command's mechanical pass.
+- `/system-developer:review-code --fix` — escalation target for findings that need judgment (semantic refactors, API/behavioral changes) beyond mechanical lint fixes.
+- `/system-developer:fix-modernize` — for cross-standard modernization (`clang-tidy modernize-*` at scale, `ruff --select UP`), which goes deeper than this command's mechanical pass.

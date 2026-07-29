@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Systems development toolkit with specialized agents for C, C++, Python, and Bash.",
-    "version": "1.4.0"
+    "version": "1.6.0"
   },
   "plugins": [
     {
@@ -110,14 +110,22 @@
         "./agents/sys-dependency-manager.md"
       ],
       "commands": [
+        "./commands/analyze-accessibility.md",
+        "./commands/analyze-tech-debt.md",
+        "./commands/arch-review.md",
+        "./commands/arch-select.md",
         "./commands/build-test.md",
-        "./commands/code-review.md",
-        "./commands/generate-tests.md",
-        "./commands/sanitize-check.md",
-        "./commands/lint-fix.md",
-        "./commands/profile-performance.md",
-        "./commands/code-modernize.md",
-        "./commands/deps-audit.md"
+        "./commands/debug.md",
+        "./commands/deps.md",
+        "./commands/develop-feature.md",
+        "./commands/fix-modernize.md",
+        "./commands/fix-performance.md",
+        "./commands/fix-quick.md",
+        "./commands/fix-refactor.md",
+        "./commands/gen-docs.md",
+        "./commands/gen-tests.md",
+        "./commands/review-code.md",
+        "./commands/sanitize-check.md"
       ]
     }
   ]

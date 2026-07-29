@@ -510,7 +510,7 @@ constexpr bool is_any_of_v = (std::is_same_v<T, Ts> || ...);
 
 ## Migration Notes: C++11/14 to C++17
 
-Mechanical upgrades worth doing in bulk (clang-tidy `modernize-*` checks automate most of them — route batches through `Task(system-developer:sys-code-fixer)` or `/system-developer:code-modernize`):
+Mechanical upgrades worth doing in bulk (clang-tidy `modernize-*` checks automate most of them — route batches through `Task(system-developer:sys-code-fixer)` or `/system-developer:fix-modernize`):
 
 | Old pattern | C++17 replacement | clang-tidy check |
 |---|---|---|
@@ -533,7 +533,7 @@ Behavioral changes to be aware of when flipping `-std=c++17` on old code:
 - **Guaranteed copy elision** can change observable behavior in code that counted copies (test mocks, instrumented types).
 - **Evaluation order is (partially) fixed** — `a(b(), c())` argument order is still unspecified, but `a << b() << c()` and assignments gained ordering guarantees; code that "worked by accident" may change behavior in either direction.
 
-One standard jump at a time: go 11/14 → 17, stabilize under `-Wall -Wextra -Werror` plus a sanitizer pass, then consider 20. See `/system-developer:code-modernize` for the ledger-driven workflow.
+One standard jump at a time: go 11/14 → 17, stabilize under `-Wall -Wextra -Werror` plus a sanitizer pass, then consider 20. See `/system-developer:fix-modernize` for the ledger-driven workflow.
 
 ## Related References
 

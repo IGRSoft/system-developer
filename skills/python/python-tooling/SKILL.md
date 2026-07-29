@@ -119,7 +119,7 @@ uv export --format requirements-txt -o requirements.txt   # legacy interop
 ```
 
 Commit `uv.lock`; generate `pylock.toml` on demand (or in CI) for cross-tool
-consumers and supply-chain scanners — see the deps-audit command.
+consumers and supply-chain scanners — see the `/system-developer:deps` command.
 
 ## ruff: Lint + Format
 
@@ -148,7 +148,7 @@ ruff format . --check           # CI: fail if unformatted
 
 Add rule families incrementally (`RUF`, `C4`, `PTH`, `A`, `PT`) once the starter
 set is clean. `UP` with `target-version = "py314"` drives modernization (see the
-code-modernize command and the modern-python skill). For a modernization-only
+`/system-developer:fix-modernize` command and the modern-python skill). For a modernization-only
 pass, `../scripts/ruff_modernize.sh [--fix]` runs the `UP,B,SIM,C4,PIE,RUF` set at
 a target version without touching the project config.
 

@@ -1,4 +1,4 @@
-"""PLANTED-DEFECTS module — do not "fix" by hand; lint-fix is meant to.
+"""PLANTED-DEFECTS module — do not "fix" by hand; /system-developer:fix-quick is meant to.
 
 This file intentionally contains:
   1. A ruff violation: an unused import (`os`) -> rule F401.
@@ -6,7 +6,7 @@ This file intentionally contains:
      instead of `int | None` / `list[int]`. ruff's pyupgrade (UP) rules flag
      these (e.g. UP006, UP007/UP045) and `ruff check --fix` rewrites them.
 
-Keep these defects intact so `lint-fix --check` reports them and `--fix`
+Keep these defects intact so `/system-developer:fix-quick --check` reports them and `--fix`
 clears them in the smoke test.
 """
 

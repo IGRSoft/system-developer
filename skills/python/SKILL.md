@@ -55,7 +55,7 @@ Python task?
 │   └── subinterpreters (isolation) → references/subinterpreters.md
 ├── uv / ruff / packaging → python-tooling/SKILL.md
 ├── pytest, fixtures, coverage → python-testing/SKILL.md
-└── Migrating to 3.14 → /system-developer:code-modernize
+└── Migrating to 3.14 → /system-developer:fix-modernize
 ```
 
 ## File Overview

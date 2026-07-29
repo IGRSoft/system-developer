@@ -1,5 +1,5 @@
 ---
-description: Language-aware code review for C, C++, Python, and Bash — parallel per-language reviewers plus a security pass, synthesized into a P0-P3 report
+description: Review C, C++, Python, and Bash changes with per-language reviewers plus a security pass, ranked P0-P3
 argument-hint: [scope: file/dir/PR#/branch — default: working changes] [--quick] [--fix] [--lang c|cpp|python|bash] [--security-focus]
 allowed-tools: Read, Glob, Grep, Bash
 estimated-cost:
@@ -35,26 +35,26 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 
 ```bash
 # Review your current working changes (staged + unstaged)
-/system-developer:code-review
+/system-developer:review-code
 
 # Review a specific directory
-/system-developer:code-review src/
+/system-developer:review-code src/
 
 # Review a single file
-/system-developer:code-review src/parser.cpp
+/system-developer:review-code src/parser.cpp
 
 # Review a branch or PR against the base
-/system-developer:code-review feature/zstd-stream
-/system-developer:code-review 142            # PR number
+/system-developer:review-code feature/zstd-stream
+/system-developer:review-code 142            # PR number
 
 # Fast single-agent pass for quick feedback
-/system-developer:code-review src/ --quick
+/system-developer:review-code src/ --quick
 
 # Review, then auto-fix the P0/P1 findings
-/system-developer:code-review src/ --fix
+/system-developer:review-code src/ --fix
 
 # Force a language when detection is ambiguous (e.g. extensionless scripts)
-/system-developer:code-review scripts/ --lang bash
+/system-developer:review-code scripts/ --lang bash
 ```
 
 ## Options
@@ -213,7 +213,7 @@ Suggestion: Pass an explicit path, or check that your changes include reviewable
 ### No changes detected (default scope)
 ```
 Note: No staged or unstaged changes to review.
-Suggestion: Name a path, branch, or PR number, e.g. /system-developer:code-review src/
+Suggestion: Name a path, branch, or PR number, e.g. /system-developer:review-code src/
 ```
 
 ### `gh` unavailable for a PR scope
@@ -242,7 +242,7 @@ If detection cannot classify a file (e.g. extensionless), apply `skill: language
 - `skill: severity-matrix` — P0-P3 definitions used by the synthesis ranking.
 - `skill: secure-coding` — input-validation and injection patterns the security pass draws on.
 - `igrsoft:code-comment-standard` — the compact code-documentation standard the language reviewers check source comments against (WHY/contract-only; no design provenance/history/call-site enumeration).
-- `/system-developer:lint-fix` — run formatters/linters first to clear P3 noise before review.
+- `/system-developer:fix-quick` — run formatters/linters first to clear P3 noise before review.
 - `/system-developer:build-test` — confirm the change builds and tests green before or after review.
 - `/system-developer:sanitize-check` — escalate a memory/UB finding to ASan/UBSan/TSan confirmation.
 

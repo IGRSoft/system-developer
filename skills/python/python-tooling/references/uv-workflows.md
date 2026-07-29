@@ -172,7 +172,7 @@ uv export --format pylock.toml --group dev -o pylock.dev.toml   # scope a group
 
 Keep `uv.lock` as the committed source of truth; treat `pylock.toml` as a
 generated export (on demand or in CI) for interop and scanning, not as the lock
-you resolve from. See the deps-audit command for feeding it to scanners.
+you resolve from. See the `/system-developer:deps` command for feeding it to scanners.
 
 ## Python Version Management
 

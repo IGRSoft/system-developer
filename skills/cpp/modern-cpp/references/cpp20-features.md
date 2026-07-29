@@ -716,7 +716,7 @@ target_compile_features(math PUBLIC cxx_std_20)
 
 ## Migration Notes: C++17 to C++20 Breakage
 
-Flipping `-std=c++20` on a C++17 codebase is mostly safe, but these changes bite real code. Audit for each before the switch (`/system-developer:code-modernize --target cpp20` builds the ledger):
+Flipping `-std=c++20` on a C++17 codebase is mostly safe, but these changes bite real code. Audit for each before the switch (`/system-developer:fix-modernize --target cpp20` builds the ledger):
 
 | Change | Symptom | Fix |
 |---|---|---|

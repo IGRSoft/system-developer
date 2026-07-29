@@ -1,5 +1,5 @@
 ---
-description: Modernize C (17->23), C++ (17->20->23), Python (->3.14), or Bash to a newer standard one jump at a time, gating each migration class on a green build and test run
+description: Modernize C, C++, Python, or Bash one standard jump at a time, gating each migration class on a green build and tests
 argument-hint: [path (default .)] --target c23|cpp20|cpp23|py314|bash [--dry-run]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 estimated-cost:
@@ -26,8 +26,8 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 2. **One migration class per commit.** Each ledger row is applied, verified, and committed on its own. Never batch unrelated classes into one diff. The commit subject names the class (e.g. `refactor: adopt std::span over pointer+size`).
 3. **Verify after every class.** After applying a class, run `/system-developer:build-test` (build + tests). If it is not green, the class is NOT committed — revert or fix before moving on. A red build halts the run; report it and stop.
 4. **`--dry-run` produces the ledger only.** In `--dry-run`, write `.context/.modernize/plan.md` and stop. Make ZERO source edits and ZERO commits. This is the review-the-plan mode.
-5. **Mechanical vs semantic routing.** Pure mechanical rewrites (clang-tidy `modernize-*` fixes, `ruff check --select UP --fix`, `shfmt`) delegate to `system-developer:sys-code-fixer`. Rewrites needing judgment (SFINAE -> concepts where the constraint must be designed, error-code -> `std::expected` API changes, `#define` -> typed `constexpr`, free-threading readiness) delegate to `system-developer:c-developer` / `system-developer:cpp-developer` / `system-developer:python-developer`. Never hand a semantic migration to the code-fixer.
-6. **Gate features on the toolchain, not the calendar.** Before adopting a standard's feature, confirm the project's compiler/CPython supports it (see `skill: version-feature-matrix`). Prefer feature-test macros (`__cpp_lib_*`, `__has_include`) over compiler-version checks. If the toolchain cannot guarantee the target standard, report the gap and stop — do not write code that will not compile.
+5. **Mechanical vs semantic routing.** Pure mechanical rewrites (clang-tidy `modernize-*` fixes, `ruff check --select UP --fix`, `shfmt`) delegate to `system-developer:sys-code-fixer`. Rewrites needing judgment (SFINAE -> concepts where the constraint must be designed, error-code -> `std::expected` API changes, `#define` -> typed `constexpr`, free-threading readiness, `set -e` blind-spot audits) delegate to `system-developer:c-developer` / `system-developer:cpp-developer` / `system-developer:python-developer` / `system-developer:bash-developer`. Never hand a semantic migration to the code-fixer.
+6. **Gate features on the toolchain, not the calendar.** Before adopting a standard's feature, confirm the project's compiler/CPython supports it (see `skill: version-feature-matrix`). For C/C++, prefer feature-test macros (`__cpp_lib_*`, `__STDC_VERSION__`, `__has_include`) over compiler-version checks; for Python gate on `sys.version_info` or a capability probe, and for Bash on `BASH_VERSINFO` — never on the calendar. If the toolchain cannot guarantee the target standard, report the gap and stop — do not write code that will not compile.
 7. **Single-command Bash invocations.** Use each tool's own path/recursion flags. Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
 8. **Tool-missing never hard-fails.** If a required tool is absent, print the install hint, skip that class (or language), and continue. Report what was skipped.
 9. **Never enter plan mode.** This command IS the procedure — execute it (or, with `--dry-run`, produce the ledger and stop).
@@ -36,19 +36,19 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 
 ```bash
 # Preview the C++23 migration ledger without touching any source
-/system-developer:code-modernize . --target cpp23 --dry-run
+/system-developer:fix-modernize . --target cpp23 --dry-run
 
 # Modernize a C17 project to C23 idioms (one jump)
-/system-developer:code-modernize src/ --target c23
+/system-developer:fix-modernize src/ --target c23
 
 # Modernize a C++17 project to C++20 (one jump)
-/system-developer:code-modernize src/ --target cpp20
+/system-developer:fix-modernize src/ --target cpp20
 
 # Bring Python sources up to 3.14 idioms
-/system-developer:code-modernize . --target py314
+/system-developer:fix-modernize . --target py314
 
 # Harden shell scripts to the strict-mode baseline
-/system-developer:code-modernize scripts/ --target bash
+/system-developer:fix-modernize scripts/ --target bash
 ```
 
 ## Options
@@ -203,6 +203,9 @@ Walk the ledger top-down, one row at a time. For each `pending` row:
    - **semantic (Python)** ->
      **Use Task tool with subagent_type="system-developer:python-developer"**
      Prompt: "Perform ONLY the migration class **{class}** for `{path}` (target 3.14). {e.g. Rewrite TypeVar/Generic to PEP 695 type parameters / sweep removed-deprecations / audit C-extension free-threading readiness and emit notes}. Verify 3.14 behavior against the toolchain (Context7/Ref) where a detail is volatile. Do not touch other classes. Return the diff (and readiness notes for advisory classes)."
+   - **semantic (Bash)** ->
+     **Use Task tool with subagent_type="system-developer:bash-developer"**
+     Prompt: "Perform ONLY the migration class **{class}** for `{path}` (Bash modernization). {e.g. Add the `set -Eeuo pipefail` prologue and audit each script for the places `set -e` is blind / replace ad-hoc cleanup with `trap cleanup EXIT` / scope variables with `local` and replace word-split string lists with real arrays}. Keep the scripts portable — assume the macOS `/bin/bash` 3.2 floor unless the shebang pins a newer bash, and guard any 4.x/5.x-only feature. Exit criterion is shellcheck-clean. Do not touch other classes. Return the diff and the portability rationale."
 3. **Mark `verified`** only after the build+test gate (Phase 3) is green for this class.
 
 ### Phase 3: Verify After Every Class (per class)
@@ -299,13 +302,13 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 ### Path not found
 ```
 Error: Path not found: {path}
-Suggestion: Pass a directory or file that exists, e.g. /system-developer:code-modernize . --target cpp20 --dry-run
+Suggestion: Pass a directory or file that exists, e.g. /system-developer:fix-modernize . --target cpp20 --dry-run
 ```
 
 ### Missing or invalid --target
 ```
 Error: --target is required and must be one of: c23, cpp20, cpp23, py314, bash.
-Suggestion: /system-developer:code-modernize . --target cpp23 --dry-run
+Suggestion: /system-developer:fix-modernize . --target cpp23 --dry-run
 ```
 
 ### C++26 requested (future stub)
@@ -360,5 +363,5 @@ Print the install hint from Tool Availability, skip the class (or language), con
 - `skill: modern-python` — t-strings, PEP 649 deferred annotations, the `from __future__` removal, except*/add_note.
 - `skill: bash-scripting` — strict-mode prologue, the honest `set -e` caveat matrix, portability and version guards.
 - `/system-developer:build-test` — the build + test gate run after every migration class.
-- `/system-developer:lint-fix` — the shallow mechanical pass (`clang-tidy modernize-*`, `ruff --select UP`) for a single language; this command sequences those plus semantic migrations across standard jumps.
-- `/system-developer:code-review` — review the modernized diff for behavioral drift once the ledger is complete.
+- `/system-developer:fix-quick` — the shallow mechanical pass (`clang-tidy modernize-*`, `ruff --select UP`) for a single language; this command sequences those plus semantic migrations across standard jumps.
+- `/system-developer:review-code` — review the modernized diff for behavioral drift once the ledger is complete.

@@ -69,7 +69,7 @@ Shell task?
 │   └── Version feature or POSIX fallback → references/bash-versions-and-portability.md
 ├── Testing a script → bash-testing/SKILL.md
 │   └── bats / shellcheck / shfmt → bash-testing/references/
-└── Migrating / modernizing → /system-developer:code-modernize
+└── Migrating / modernizing → /system-developer:fix-modernize
 ```
 
 ## Version Snapshot
