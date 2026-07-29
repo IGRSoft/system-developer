@@ -4,10 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Plugin version | 1.4.0 |
+| Plugin version | 1.5.0 |
 | igrsoft compatibility | v3.36.0 |
 | Claude Code min required | 2.1.170 |
-| Last updated | 2026-07-22 |
+| Last updated | 2026-07-29 |
 
 Version strings move together (plugin.json, marketplace.json metadata, README
 header, this table) per the igrsoft `/cc-update` convention.
@@ -77,9 +77,14 @@ following stay orchestrator-owned and are deliberately **not** implemented here:
 - **Review-only auditors** — `sys-performance-engineer` and `sys-security-auditor`
   carry `disallowed-tools: Write, Edit` and route all remediation to
   `sys-code-fixer`. Keeps the review/fix separation explicit and auditable.
-- **Plain command names** — commands use bare filenames (invoked as
-  `/system-developer:<name>`), mirroring apple-developer, rather than a verb prefix
-  scheme.
+- **Shared verb-first command names (v1.5.0)** — commands use bare filenames
+  (invoked as `/system-developer:<name>`) drawn from the naming standard shared
+  across the igrsoft plugin family, with `apple-developer` as the reference
+  implementation: a `<verb>-<object>` shape grouped by verb (`review-`, `fix-`,
+  `gen-`, `arch-`, `analyze-`). Supersedes the pre-1.5.0 ad-hoc names
+  (`code-review`, `lint-fix`, `deps-audit`, …). The point is cross-plugin recall —
+  the same intent resolves to the same name everywhere — so a new command here
+  takes the standard name even when a locally more descriptive one exists.
 - **Accepted `validate.sh` >8KB warnings on two entry SKILL.md files** —
   `skills/SKILL.md` (11KB navigation index) and
   `skills/_shared/workflow-integration/SKILL.md` (17KB cohesive handoff contract)
@@ -129,6 +134,38 @@ Bash 5.2, or mypy/pyright guidance removed):
   IWYU 0.26.
 - **`code-modernize` C23 target profile** added (C17→C23 ledger) plus a `cpp26`
   future stub; **`marketplace.json` keyword sync** to a superset of `plugin.json`.
+
+## Refresh Log (v1.5.0 — 2026-07-29)
+
+Command-surface unification with the igrsoft plugin family. The command set is the only
+thing that moved — no agent, skill, or language guidance changed.
+
+- **Six commands renamed** to the cross-plugin verb-first standard (`code-review` →
+  `review-code`, `lint-fix` → `fix-quick`, `code-modernize` → `fix-modernize`,
+  `profile-performance` → `fix-performance`, `generate-tests` → `gen-tests`, `deps-audit`
+  → `deps`). Breaking: the old names no longer resolve. `build-test` and `sanitize-check`
+  were already compliant. The full old → new map lives in `README.md § Migration`.
+- **Eight commands added** — `arch-select`, `arch-review`, `analyze-tech-debt`,
+  `gen-docs`, `debug`, `analyze-accessibility`, `fix-refactor`, `develop-feature` — for a
+  16-command surface matching the standard set. Each was adapted from its
+  `apple-developer` counterpart across three axes (tech stack, agent routing, skill
+  references) rather than transliterated; every `skill:` reference was verified against
+  `skills/_index.md`, and no apple skill name was carried over.
+- **`fix-performance` gained `--apply`** — measure-only stays the default and the
+  profiling phases stay strictly read-only; the apply phase is unreachable without both
+  the flag and an approved `AskUserQuestion` PHASE CHECKPOINT, and is followed by a
+  binding build+test gate and a mandatory re-measure.
+- **`deps` moved to subcommand form** (`audit | upgrade | add`), defaulting to the
+  read-only audit when the first token is absent or unrecognized.
+- **Frontmatter standard enforced on all 16 commands** — verb-first `description` ≤120
+  chars, no `name:` key, minimal `allowed-tools`, `estimated-cost` with a
+  `model-distribution` summing to 100. Both `analyze-*` commands are read-only.
+- **`scripts/validate.sh` fix** — a leading `${CLAUDE_SKILL_DIR}/` is now normalized
+  before resolving backticked skill paths, clearing two false-positive warnings.
+- **Known pre-existing debt (not introduced here)**: `validate.sh --strict` still exits 1
+  on two >8KB `SKILL.md` files with no `references/` sibling (`skills/SKILL.md`,
+  `skills/_shared/workflow-integration/SKILL.md`). Both predate 1.5.0 and splitting them
+  is a skills refactor, not a command change.
 
 ## Refresh Log (v1.4.0 — 2026-07-22)
 

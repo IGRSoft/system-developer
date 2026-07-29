@@ -6,6 +6,79 @@ adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
 per the igrsoft `/cc-update` convention.
 
+## [1.5.0] — 2026-07-29
+
+Command-surface unification with the rest of the igrsoft plugin family. Six commands
+are renamed to the shared verb-first scheme, eight new commands are added to match the
+standard set, and two existing commands gain capability (`fix-performance` an optional
+checkpoint-gated apply phase, `deps` a subcommand form). No C/C++/Python/Bash language
+guidance changed, and no agent or skill was added or removed.
+
+### Changed
+
+- **BREAKING — six commands renamed** to the cross-plugin naming standard shared with
+  `apple-developer`. The old names no longer resolve; update scripts, aliases, and
+  worktask payloads that reference them.
+
+  | Old | New |
+  |-----|-----|
+  | `code-review` | `review-code` |
+  | `lint-fix` | `fix-quick` |
+  | `code-modernize` | `fix-modernize` |
+  | `profile-performance` | `fix-performance` |
+  | `generate-tests` | `gen-tests` |
+  | `deps-audit` | `deps` |
+
+  `build-test` and `sanitize-check` were already compliant and are unchanged. Every
+  in-body self-reference and cross-command reference across `commands/`, `agents/`,
+  `skills/`, `tests/fixtures/`, and `README.md` was swept to the new names; historical
+  release-note entries in this file, `MEMORY.md`, and the README's "What's in 1.2.0"
+  section retain the names in use at that release.
+- **`deps` restructured to subcommand form** — `deps audit | upgrade | add`, dispatched
+  off the first token of `$ARGUMENTS`, defaulting to the read-only `audit` path when the
+  token is absent or unrecognized. `upgrade`/`add` without a package name are now an
+  explicit error rather than a guess. The three `Mode N:` sections are renamed
+  `Subcommand:` accordingly.
+- **`gen-tests` log filenames** moved from `.context/logs/generate-tests-<ts>.log` to
+  `.context/logs/gen-tests-<ts>.log`.
+- **Command frontmatter normalized** — verb-first `description` capped at 120 characters
+  on every command (previously up to 162), minimal `allowed-tools`, and an
+  `estimated-cost` band with a `model-distribution` summing to 100 on all 16.
+
+### Added
+
+- **`fix-performance --apply`** — an optional apply phase behind an explicit PHASE
+  CHECKPOINT. Measure-only remains the default and Phases 1-5 stay strictly read-only
+  (`Write`/`Edit` were added to `allowed-tools` solely for the new phase); `--apply`
+  unlocks an `AskUserQuestion` checkpoint that must be approved before
+  `sys-code-fixer` touches a file, followed by a binding `/system-developer:build-test`
+  gate and a mandatory re-measure whose verdict is reported honestly (improved /
+  unchanged / regressed, with a rollback offer unless improved). `--apply` is rejected
+  with `--mode bench`, which produces no profile to derive a fix plan from.
+- **Eight new commands**, each adapted from its `apple-developer` counterpart across
+  three axes — tech stack (Swift/Xcode → C/C++/Python/Bash toolchains), agent routing,
+  and skill references — with every referenced skill verified to exist in this plugin:
+
+  | Command | Routes to | Notes |
+  |---------|-----------|-------|
+  | `arch-select` | `system-architector` | Structural pattern plus the orthogonal concurrency and ownership axes; every pick carries a version marker and a fallback. |
+  | `arch-review` | `system-architector` | Read-only; cyclic deps, leaked internal headers, accidental ABI exposure, ownership ambiguity, concurrency mismatch. |
+  | `analyze-tech-debt` | `system-architector` + language developers | Read-only; an absent tool marks a dimension unmeasured rather than guessing a number. |
+  | `gen-docs` | language developers | Doxygen (C/C++), Sphinx docstrings (Python), shell header comments; verified by running the real doc build. |
+  | `debug` | plugin router + `skill: diagnostics` | `configure`/`triage` dispatch; routes memory/UB/race symptoms to `sanitize-check` before a debugger. |
+  | `analyze-accessibility` | plugin router | CLI output only — `NO_COLOR`, contrast-safe ANSI, screen-reader-friendly output, `--help` clarity. Read-only, `model: haiku`, and explicit that it makes no WCAG or GUI claim. |
+  | `fix-refactor` | `system-architector` plans, `sys-code-fixer` applies | Requires a green baseline; a refactor on a red baseline is a rewrite. |
+  | `develop-feature` | architect → language developers → `sys-test-generator` → `sys-security-auditor` | Phase checkpoints, sync points, and a resumable `.context/.feature-dev/state.json`. |
+
+  Both `analyze-*` commands are read-only and carry no `Write`/`Edit`. The build gate in
+  every new command is `/system-developer:build-test`.
+
+### Fixed
+
+- **`scripts/validate.sh`** — normalize a leading `${CLAUDE_SKILL_DIR}/` before resolving
+  backticked skill reference paths, clearing two false "does not exist" warnings for
+  `skills/embedded/_index.md` links whose targets are present on disk.
+
 ## [1.4.0] — 2026-07-22
 
 igrsoft compatibility port to **v3.36.0** (from v3.33.0). Beyond the version-string

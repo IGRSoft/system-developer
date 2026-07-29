@@ -2,7 +2,14 @@
 
 Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the igrsoft (company-workflow) plugin v3.36.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.4.0 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+**Version**: 1.5.0 | **igrsoft Compatibility**: v3.36.0 | **claude-code min version**: "2.1.170"
+
+## What's new in 1.5.0
+
+- **Unified command names** — six commands were renamed to the cross-plugin verb-first scheme shared with `apple-developer`, so the same intent resolves to the same name in every plugin. See [Migration: old → new command names](#migration-old--new-command-names) for the full map.
+- **Eight new commands** — `arch-select`, `arch-review`, `analyze-tech-debt`, `gen-docs`, `debug`, `analyze-accessibility`, `fix-refactor`, and `develop-feature` bring the set to 16, matching the shared command surface. Each was adapted to C/C++/Python/Bash toolchains and this plugin's agents and skills rather than transliterated.
+- **`fix-performance` can now close the loop** — measure-only remains the default and the profiling phases stay strictly read-only, but `--apply` unlocks a phase checkpoint that must be approved before `sys-code-fixer` edits anything, followed by a binding build+test gate and a mandatory re-measure.
+- **`deps` moved to subcommand form** — `deps audit | upgrade | add`, dispatched off the first argument, defaulting to the read-only audit path. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's new in 1.4.0
 
@@ -45,20 +52,60 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 
 > `sys-performance-engineer` and `sys-security-auditor` are review-only by default; callers may override them to `opus` + `xhigh` for the hardest analyses (Opus 4.8 honors `xhigh`; Sonnet falls back to `high`, so the model must be raised too).
 
-## Commands (8)
+## Commands (16)
+
+### Build, test, and verify
+
+| Command | Description |
+|---------|-------------|
+| `/system-developer:build-test` | Detect the build system, configure, build, and run the test suite. The gate every other command runs against. |
+| `/system-developer:gen-tests` | Generate, register, and verify a runnable test suite using the project's existing framework. Supports `--coverage-gaps`. |
+| `/system-developer:sanitize-check` | Build with sanitizers (ASan/UBSan/TSan/LSan/MSan), run tests under them, and triage the reports. Supports `--fix`. |
+| `/system-developer:debug` | Configure a debugging workflow, or triage one crash, hang, or wrong-value bug across gdb/lldb, strace, py-spy, and shell xtrace. |
+
+### Review and analyze (read-only)
 
 | Command | Description |
 |---------|-------------|
 | `/system-developer:review-code` | Language-aware review — parallel per-language reviewers plus a security pass, synthesized into a P0-P3 report. Supports `--quick` and `--fix`. |
-| `/system-developer:build-test` | Detect the build system, configure, build, and run the test suite for C, C++, Python, or Bash projects. |
-| `/system-developer:gen-tests` | Generate, register, and verify a runnable test suite using the project's existing framework. Supports `--coverage-gaps`. |
-| `/system-developer:sanitize-check` | Build with sanitizers (ASan/UBSan/TSan/LSan/MSan), run tests under them, and triage the reports. Supports `--fix`. |
+| `/system-developer:arch-review` | Review the codebase against its architecture pattern; violations reported with `file:line` and P0-P3 severity. |
+| `/system-developer:analyze-tech-debt` | Inventory, quantify, and rank technical debt into a P0-P3 remediation plan, each item naming its owning agent and fix command. |
+| `/system-developer:analyze-accessibility` | Audit a CLI program's terminal output: `NO_COLOR` honoring, contrast-safe ANSI, screen-reader-friendly output, `--help` clarity. |
+
+### Change code
+
+| Command | Description |
+|---------|-------------|
 | `/system-developer:fix-quick` | Run linters and formatters (clang-tidy/clang-format, ruff, mypy, shellcheck, shfmt) — check-only (`--check`) or auto-fix (`--fix`). |
-| `/system-developer:fix-performance` | Profile CPU, memory, or I/O hot paths, or benchmark before/after with hyperfine, then route findings to `sys-performance-engineer`. |
 | `/system-developer:fix-modernize` | Modernize C (17→23), C++ (17→20→23), Python (→3.14), or Bash one standard jump at a time, gating each migration class on a green build and test run. Supports `--dry-run`. |
-| `/system-developer:deps` | Audit, upgrade, or add C/C++/Python dependencies — outdated report, CVE lookup, license inventory, and safe one-at-a-time upgrades with a build+test gate. |
+| `/system-developer:fix-refactor` | Refactor for clean-code and SOLID structure — `system-architector` plans, `sys-code-fixer` applies, every class gated on a green build. |
+| `/system-developer:fix-performance` | Profile CPU, memory, or I/O hot paths, or benchmark with hyperfine. Measure-only by default; `--apply` adds an approval checkpoint, a build+test gate, and a re-measure. |
+
+### Design, document, and build features
+
+| Command | Description |
+|---------|-------------|
+| `/system-developer:arch-select` | Select the structural pattern plus the orthogonal concurrency and ownership axes for a module or project. |
+| `/system-developer:develop-feature` | End-to-end feature development: design → implementation → tests → sanitizers → security pass, with phase checkpoints and a resumable state file. |
+| `/system-developer:gen-docs` | Generate or update Doxygen (C/C++), Sphinx docstrings (Python), and shell header comments, then verify with the real doc build. |
+| `/system-developer:deps` | `deps audit \| upgrade \| add` — CVE and license report, then exact-pinned one-at-a-time upgrades behind a build+test gate. |
 
 All commands degrade gracefully when a tool is missing: they print an install hint (for example `brew install llvm shellcheck shfmt hyperfine`, `uv tool install ruff`), skip that language, and never hard-fail.
+
+## Migration: old → new command names
+
+Six commands were renamed in 1.5.0 to match the naming standard shared across the igrsoft plugin family. The old names no longer resolve — update any scripts, aliases, or worktask payloads that reference them.
+
+| Old name (≤1.4.0) | New name (1.5.0+) | Behavior change |
+|-------------------|-------------------|-----------------|
+| `/system-developer:code-review` | `/system-developer:review-code` | None — same flags, same output. |
+| `/system-developer:lint-fix` | `/system-developer:fix-quick` | None. |
+| `/system-developer:code-modernize` | `/system-developer:fix-modernize` | None. |
+| `/system-developer:profile-performance` | `/system-developer:fix-performance` | Additive: default stays measure-only; new `--apply` unlocks a checkpoint-gated fix phase. |
+| `/system-developer:generate-tests` | `/system-developer:gen-tests` | Log filenames moved from `generate-tests-*.log` to `gen-tests-*.log`. |
+| `/system-developer:deps-audit` | `/system-developer:deps` | Restructured to subcommands. `deps-audit audit` → `deps audit`; a bare `deps` still defaults to the read-only audit. |
+
+`build-test` and `sanitize-check` were already standard-compliant and are unchanged.
 
 ## Skills (25)
 
