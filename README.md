@@ -49,14 +49,14 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 
 | Command | Description |
 |---------|-------------|
-| `/system-developer:code-review` | Language-aware review — parallel per-language reviewers plus a security pass, synthesized into a P0-P3 report. Supports `--quick` and `--fix`. |
+| `/system-developer:review-code` | Language-aware review — parallel per-language reviewers plus a security pass, synthesized into a P0-P3 report. Supports `--quick` and `--fix`. |
 | `/system-developer:build-test` | Detect the build system, configure, build, and run the test suite for C, C++, Python, or Bash projects. |
-| `/system-developer:generate-tests` | Generate, register, and verify a runnable test suite using the project's existing framework. Supports `--coverage-gaps`. |
+| `/system-developer:gen-tests` | Generate, register, and verify a runnable test suite using the project's existing framework. Supports `--coverage-gaps`. |
 | `/system-developer:sanitize-check` | Build with sanitizers (ASan/UBSan/TSan/LSan/MSan), run tests under them, and triage the reports. Supports `--fix`. |
-| `/system-developer:lint-fix` | Run linters and formatters (clang-tidy/clang-format, ruff, mypy, shellcheck, shfmt) — check-only (`--check`) or auto-fix (`--fix`). |
-| `/system-developer:profile-performance` | Profile CPU, memory, or I/O hot paths, or benchmark before/after with hyperfine, then route findings to `sys-performance-engineer`. |
-| `/system-developer:code-modernize` | Modernize C (17→23), C++ (17→20→23), Python (→3.14), or Bash one standard jump at a time, gating each migration class on a green build and test run. Supports `--dry-run`. |
-| `/system-developer:deps-audit` | Audit, upgrade, or add C/C++/Python dependencies — outdated report, CVE lookup, license inventory, and safe one-at-a-time upgrades with a build+test gate. |
+| `/system-developer:fix-quick` | Run linters and formatters (clang-tidy/clang-format, ruff, mypy, shellcheck, shfmt) — check-only (`--check`) or auto-fix (`--fix`). |
+| `/system-developer:fix-performance` | Profile CPU, memory, or I/O hot paths, or benchmark before/after with hyperfine, then route findings to `sys-performance-engineer`. |
+| `/system-developer:fix-modernize` | Modernize C (17→23), C++ (17→20→23), Python (→3.14), or Bash one standard jump at a time, gating each migration class on a green build and test run. Supports `--dry-run`. |
+| `/system-developer:deps` | Audit, upgrade, or add C/C++/Python dependencies — outdated report, CVE lookup, license inventory, and safe one-at-a-time upgrades with a build+test gate. |
 
 All commands degrade gracefully when a tool is missing: they print an install hint (for example `brew install llvm shellcheck shfmt hyperfine`, `uv tool install ruff`), skip that language, and never hard-fail.
 
@@ -197,13 +197,13 @@ This plugin collaborates with the **igrsoft** (company-workflow) plugin v3.36.0 
 /system-developer:build-test .
 
 # Language-aware review, then auto-apply minimal-diff fixes
-/system-developer:code-review src/ --fix
+/system-developer:review-code src/ --fix
 
 # Build with AddressSanitizer, run the tests under it, and triage
 /system-developer:sanitize-check asan .
 
 # Plan a C++23 migration without touching files
-/system-developer:code-modernize . --target cpp23 --dry-run
+/system-developer:fix-modernize . --target cpp23 --dry-run
 
 # Use an agent directly, outside the workflow
 Use the system-developer agent to design a plugin/registry architecture for a C++ codec library

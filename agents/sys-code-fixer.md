@@ -13,7 +13,7 @@ Expert code remediation specialist for systems languages (C, C++, Python, Bash).
 
 ## Capabilities
 
-- Apply fixes from code-review, `sys-security-auditor`, and `sys-performance-engineer` findings
+- Apply fixes from `/system-developer:review-code`, `sys-security-auditor`, and `sys-performance-engineer` findings
 - Apply compiler/linter auto-fixes (`clang-tidy --fix`, `ruff check --fix`, `shfmt -w`)
 - Group related fixes for atomic commits; process multiple fixes in a single pass
 - Re-run the matching build/test/lint gate after each fix group

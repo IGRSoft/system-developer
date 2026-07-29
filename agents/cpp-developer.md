@@ -44,7 +44,7 @@ Pick the lowest standard that provides the feature; if the project is pinned low
 | Modules, `import std;` | C++20 core, C++23-era tooling | headers + PCH (still the safe default) |
 | Static reflection (P2996), contracts, `std::execution` (P2300), `std::inplace_vector`, `std::optional<T&>` | C++26 *(emerging — DIS 2026, not shipping)* | stay on C++23; adopt one-by-one behind `__cpp_*` macros |
 
-Full table with per-feature toolchain minimums and feature-test macros: `skill: cpp-skills § Standard Selection Table` and `skills/_shared/version-feature-matrix.md`. For a structured standard migration, route to `/system-developer:code-modernize`.
+Full table with per-feature toolchain minimums and feature-test macros: `skill: cpp-skills § Standard Selection Table` and `skills/_shared/version-feature-matrix.md`. For a structured standard migration, route to `/system-developer:fix-modernize`.
 
 **Standard reality (2026 — verify against your toolchain):** newest stable toolchains are GCC 15.x and Clang 20-21.x — both ship a complete C++20 core and most of the C++23 library (`std::expected`, `std::print`, deducing this) and accept partial `-std=c++2c`; MSVC tracks closely. Library support lags compiler-core support, so do not assume a feature exists from the compiler version alone — gate on the feature-test macro (`__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`, `__cpp_lib_ranges`) and provide the fallback path when the macro is absent. Do not assert specific minor compiler versions from memory; confirm via Context7/Ref or `g++ --version` / `clang++ --version`.
 

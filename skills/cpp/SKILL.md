@@ -78,7 +78,7 @@ C++ task?
 │   └── Registers, ISRs, startup, linker scripts (language-agnostic) → ../embedded/embedded-systems/SKILL.md
 ├── Build, packaging, dependencies → ../tooling/build-systems/SKILL.md
 ├── Crashes, leaks, races → ../tooling/diagnostics/SKILL.md
-└── Migrating standards (17→20→23) → /system-developer:code-modernize
+└── Migrating standards (17→20→23) → /system-developer:fix-modernize
 ```
 
 ## File Overview

@@ -111,13 +111,13 @@
       ],
       "commands": [
         "./commands/build-test.md",
-        "./commands/code-review.md",
-        "./commands/generate-tests.md",
-        "./commands/sanitize-check.md",
-        "./commands/lint-fix.md",
-        "./commands/profile-performance.md",
-        "./commands/code-modernize.md",
-        "./commands/deps-audit.md"
+        "./commands/deps.md",
+        "./commands/fix-modernize.md",
+        "./commands/fix-performance.md",
+        "./commands/fix-quick.md",
+        "./commands/gen-tests.md",
+        "./commands/review-code.md",
+        "./commands/sanitize-check.md"
       ]
     }
   ]

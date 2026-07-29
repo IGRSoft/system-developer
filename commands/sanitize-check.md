@@ -219,7 +219,7 @@ Suggestion: Pass a directory that exists, e.g. /system-developer:sanitize-check 
 ```
 Notice: No sanitizable code under {path} (pure-Python or Bash project).
 Sanitizers instrument C/C++ (or a Python native extension). For pure Python
-use /system-developer:lint-fix and -X dev; for Bash use /system-developer:lint-fix (shellcheck).
+use /system-developer:fix-quick and -X dev; for Bash use /system-developer:fix-quick (shellcheck).
 ```
 
 ### MSan requested without Clang / instrumented deps
@@ -254,5 +254,5 @@ Only when *every* requested kind is skipped does the command report FAIL with th
 - `skill: secure-coding` — the memory-safety and input-validation patterns these findings map back to.
 - `skill: language-detection` — language/build-system routing (and the Python native-extension tie-break).
 - `/system-developer:build-test` — get a green ordinary build first; reuse its configure/compile/link triage on sanitized build failures.
-- `/system-developer:code-review` — pairs static review with this runtime check (QA gate = tests pass AND ASan+UBSan clean).
-- `/system-developer:profile-performance` — when the concern is speed, not correctness (also RelWithDebInfo).
+- `/system-developer:review-code` — pairs static review with this runtime check (QA gate = tests pass AND ASan+UBSan clean).
+- `/system-developer:fix-performance` — when the concern is speed, not correctness (also RelWithDebInfo).

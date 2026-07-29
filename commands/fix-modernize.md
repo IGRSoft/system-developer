@@ -1,5 +1,5 @@
 ---
-description: Modernize C (17->23), C++ (17->20->23), Python (->3.14), or Bash to a newer standard one jump at a time, gating each migration class on a green build and test run
+description: Modernize C, C++, Python, or Bash one standard jump at a time, gating each migration class on a green build and tests
 argument-hint: [path (default .)] --target c23|cpp20|cpp23|py314|bash [--dry-run]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 estimated-cost:
@@ -36,19 +36,19 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 
 ```bash
 # Preview the C++23 migration ledger without touching any source
-/system-developer:code-modernize . --target cpp23 --dry-run
+/system-developer:fix-modernize . --target cpp23 --dry-run
 
 # Modernize a C17 project to C23 idioms (one jump)
-/system-developer:code-modernize src/ --target c23
+/system-developer:fix-modernize src/ --target c23
 
 # Modernize a C++17 project to C++20 (one jump)
-/system-developer:code-modernize src/ --target cpp20
+/system-developer:fix-modernize src/ --target cpp20
 
 # Bring Python sources up to 3.14 idioms
-/system-developer:code-modernize . --target py314
+/system-developer:fix-modernize . --target py314
 
 # Harden shell scripts to the strict-mode baseline
-/system-developer:code-modernize scripts/ --target bash
+/system-developer:fix-modernize scripts/ --target bash
 ```
 
 ## Options
@@ -299,13 +299,13 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 ### Path not found
 ```
 Error: Path not found: {path}
-Suggestion: Pass a directory or file that exists, e.g. /system-developer:code-modernize . --target cpp20 --dry-run
+Suggestion: Pass a directory or file that exists, e.g. /system-developer:fix-modernize . --target cpp20 --dry-run
 ```
 
 ### Missing or invalid --target
 ```
 Error: --target is required and must be one of: c23, cpp20, cpp23, py314, bash.
-Suggestion: /system-developer:code-modernize . --target cpp23 --dry-run
+Suggestion: /system-developer:fix-modernize . --target cpp23 --dry-run
 ```
 
 ### C++26 requested (future stub)
@@ -360,5 +360,5 @@ Print the install hint from Tool Availability, skip the class (or language), con
 - `skill: modern-python` — t-strings, PEP 649 deferred annotations, the `from __future__` removal, except*/add_note.
 - `skill: bash-scripting` — strict-mode prologue, the honest `set -e` caveat matrix, portability and version guards.
 - `/system-developer:build-test` — the build + test gate run after every migration class.
-- `/system-developer:lint-fix` — the shallow mechanical pass (`clang-tidy modernize-*`, `ruff --select UP`) for a single language; this command sequences those plus semantic migrations across standard jumps.
-- `/system-developer:code-review` — review the modernized diff for behavioral drift once the ledger is complete.
+- `/system-developer:fix-quick` — the shallow mechanical pass (`clang-tidy modernize-*`, `ruff --select UP`) for a single language; this command sequences those plus semantic migrations across standard jumps.
+- `/system-developer:review-code` — review the modernized diff for behavioral drift once the ledger is complete.

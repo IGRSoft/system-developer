@@ -304,6 +304,9 @@ if [[ -d skills ]]; then
 		refs="$(grep -oE '`[^`]*(references|templates|scripts)/[A-Za-z0-9._/-]+`' "${f}" 2>/dev/null | tr -d '`' | sort -u || true)"
 		while IFS= read -r ref; do
 			[[ -z "${ref}" ]] && continue
+			# ${CLAUDE_SKILL_DIR} is the installed skills root; normalize it to
+			# the repo-relative skills/ so the resolutions below can match.
+			ref="${ref#\$\{CLAUDE_SKILL_DIR\}/}"
 			# A backticked path may be relative to the file's own directory,
 			# the repo root, or the skills/ root; accept any resolution.
 			if [[ -e "${fdir}/${ref}" ]] || [[ -e "${ref}" ]] || [[ -e "skills/${ref}" ]]; then

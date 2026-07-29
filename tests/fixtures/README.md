@@ -14,7 +14,7 @@ a linter should catch statically are left live in a clearly marked file.
 | `cmake-cpp/` | CMake + FetchContent GoogleTest | `cmake -S . -B build && cmake --build build && ctest --test-dir build` | Heap-buffer-overflow in `RingBuffer::at` | Configure with `-DENABLE_BUG=ON`, build with ASan, run `ctest` — AddressSanitizer reports a heap-buffer-overflow with file:line |
 | `c-make/` | GNU Make | `make && make run` | Memory leak (heap copy never freed) | Build `make ENABLE_BUG=1`, run under `valgrind --leak-check=full ./wordcount` or LeakSanitizer — "definitely lost", one allocation per word |
 | `py-uv/` | uv + ruff + pytest (src layout) | `uv sync && uv run pytest` | ruff F401 (unused import) + pre-3.14 typing idiom (`Optional`/`List`) in `src/calc/legacy.py` | `uv run ruff check src/` reports F401 and UP rules; `ruff check --fix` rewrites the typing idioms |
-| `bash/` | Bash + bats | `bats greet.bats` | ShellCheck SC2086 (unquoted `$name`) in `greet.sh` | `shellcheck greet.sh` reports SC2086; `lint-fix --fix` quotes the variable |
+| `bash/` | Bash + bats | `bats greet.bats` | ShellCheck SC2086 (unquoted `$name`) in `greet.sh` | `shellcheck greet.sh` reports SC2086; `/system-developer:fix-quick --fix` quotes the variable |
 
 ## Per-fixture detail
 
