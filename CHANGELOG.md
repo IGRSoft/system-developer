@@ -4,7 +4,7 @@ All notable changes to the **system-developer** plugin are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
-per the igrsoft `/cc-update` convention.
+per the company-workflow `/cc-update` convention.
 
 ## [1.6.0] — 2026-07-29
 
@@ -92,7 +92,7 @@ flag that had no code path.
 
 ## [1.5.0] — 2026-07-29
 
-Command-surface unification with the rest of the igrsoft plugin family. Six commands
+Command-surface unification with the rest of the company-workflow plugin family. Six commands
 are renamed to the shared verb-first scheme, eight new commands are added to match the
 standard set, and two existing commands gain capability (`fix-performance` an optional
 checkpoint-gated apply phase, `deps` a subcommand form). No C/C++/Python/Bash language
@@ -165,21 +165,21 @@ guidance changed, and no agent or skill was added or removed.
 
 ## [1.4.0] — 2026-07-22
 
-igrsoft compatibility port to **v3.36.0** (from v3.33.0). Beyond the version-string
-realignment, this release ports three igrsoft v3.36.0 workflow-contract learnings — the
+company-workflow compatibility port to **v3.36.0** (from v3.33.0). Beyond the version-string
+realignment, this release ports three company-workflow v3.36.0 workflow-contract learnings — the
 `state-patch.sh` pointer form, a CLI evidence-freshness rule, and benchmark-driven output
 budgets with an architector complexity gate — and wires two structure linters into the
 test harness. No C/C++/Python/Bash language guidance changed.
 
 ### Changed
 
-- **igrsoft compatibility → v3.36.0** across `plugin.json`, `marketplace.json`,
+- **company-workflow compatibility → v3.36.0** across `plugin.json`, `marketplace.json`,
   `README.md`, `MEMORY.md`, the `workflow-integration` skill (invocation/contract headers
   + skill-catalog descriptions), and the agent stage-participation headers
   (`system-developer`, `system-architector`, `sys-code-fixer`, `_base/language-agent`).
   The Dynamic Worktask Sizing table was already current (DR0 at every tier); the PL0 stamp
   note now also names `metadata.test_mode` (`build-only`/`scoped`/`full`) and
-  `metadata.ui_visual_check`, citing igrsoft `estimation-methodology § PL0 Stage-Set` as
+  `metadata.ui_visual_check`, citing company-workflow `estimation-methodology § PL0 Stage-Set` as
   the source of truth.
 - **state.json patching → `state-patch.sh` pointer form** — replaced the manual
   `read → merge → temp → fsync → rename` atomic-write prose in `_base/language-agent.md`,
@@ -192,7 +192,7 @@ test harness. No C/C++/Python/Bash language guidance changed.
 
 - **CLI evidence-freshness rule** — every `cli-fallback` transcript row must be produced
   *this run* from the actual build/test invocation; a stale or duplicated transcript
-  re-opens DV. The systems analog of igrsoft's QA direct-read evidence-integrity check
+  re-opens DV. The systems analog of company-workflow's QA direct-read evidence-integrity check
   (`workflow-integration/SKILL.md § Screenshot Gate for CLI Work`). Also documents that
   `ui_visual_check` exists in the DV metadata contract but is **not applicable** to
   systems/CLI work (left `false`).
@@ -214,12 +214,12 @@ test harness. No C/C++/Python/Bash language guidance changed.
 
 ## [1.3.1] — 2026-07-08
 
-igrsoft compatibility refresh to **v3.33.0** (from v3.27.1); version-string realignment
+company-workflow compatibility refresh to **v3.33.0** (from v3.27.1); version-string realignment
 only — the `workflow-integration` content was already current, so no agent/skill behavior
 change.
 
 ### Changed
-- **igrsoft compatibility → v3.33.0** across `plugin.json`, `marketplace.json`, `README.md`,
+- **company-workflow compatibility → v3.33.0** across `plugin.json`, `marketplace.json`, `README.md`,
   `MEMORY.md`, the `workflow-integration` skill (invocation/contract headers), the skill
   catalog descriptions, and the agent stage-participation headers (`system-developer`,
   `system-architector`, `sys-code-fixer`, `_base/language-agent`). Historical release notes
@@ -228,7 +228,7 @@ change.
 
 ## [1.3.0] — 2026-06-23
 
-igrsoft worktask-behaviour currency refresh to v3.27.1; additive — existing
+company-workflow worktask-behaviour currency refresh to v3.27.1; additive — existing
 C/C++/Python/Bash guidance preserved.
 
 ### Changed
@@ -241,9 +241,9 @@ C/C++/Python/Bash guidance preserved.
 - **Corrected stage-model facts** — SR (`security-reviewer`) and ET
   (`ethics-reviewer`) run on opus at effort xhigh; Fable 5 (`fable`) noted as the
   available top tier (stage agents pin opus).
-- **Base Code Comment Policy and agents** now cross-reference igrsoft's new
-  compact code-documentation standard (`igrsoft:code-comment-standard`).
-- **Refreshed igrsoft compatibility** to v3.27.1 / CC 2.1.170 across
+- **Base Code Comment Policy and agents** now cross-reference company-workflow's new
+  compact code-documentation standard (`company-workflow:code-comment-standard`).
+- **Refreshed company-workflow compatibility** to v3.27.1 / CC 2.1.170 across
   `plugin.json`, `marketplace.json`, `README.md`, `MEMORY.md`, and the 3
   skill-index labels.
 
@@ -326,4 +326,4 @@ entry skill (`embedded-skills`) and two leaf skills (`embedded-systems`,
 `embedded-cpp`) with reference files, cross-linked from `c/SKILL.md` and
 `cpp/SKILL.md`. Established the Bash 5.3 and Python 3.14 baselines and the
 tiered-`maxTurns` / scoped-`Bash(cmd:*)` allow-list / plugin-scoped advisory-hooks
-conventions on the igrsoft v3.17.0 / CC 2.1.169 baseline.
+conventions on the company-workflow v3.17.0 / CC 2.1.169 baseline.

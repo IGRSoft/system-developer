@@ -234,7 +234,7 @@ After a class is `verified`:
 
 > Per the user's git conventions: no `--no-verify`, no AI-attribution footers, and follow the repo's commit format. If the repo is mid-feature on a protected branch, branch first.
 
-> Doc constraint: modernization rationale and before/after notes belong in the PR / `.context/development-N.md`, NOT in source comments — per the compact code-documentation standard (`igrsoft:code-comment-standard`). Source comments carry only the non-obvious WHY and the contract.
+> Doc constraint: modernization rationale and before/after notes belong in the PR / `.context/development-N.md`, NOT in source comments — per the compact code-documentation standard (`company-workflow:code-comment-standard`). Source comments carry only the non-obvious WHY and the contract.
 
 ### Phase 5: Report
 

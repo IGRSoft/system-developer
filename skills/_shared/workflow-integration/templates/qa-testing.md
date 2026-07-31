@@ -1,6 +1,6 @@
 # QA Stage Artifact Template (systems testing)
 
-Primary artifact `.context/testing-N.md` is owned by igrsoft's qa-engineer; use this when sys-test-generator or a system-developer agent takes over QA or supplies the evidence body.
+Primary artifact `.context/testing-N.md` is owned by company-workflow's qa-engineer; use this when sys-test-generator or a system-developer agent takes over QA or supplies the evidence body.
 
 ```markdown
 ---

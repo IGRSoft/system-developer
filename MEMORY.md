@@ -5,16 +5,16 @@
 | Field | Value |
 |-------|-------|
 | Plugin version | 1.6.0 |
-| igrsoft compatibility | v3.36.0 |
+| company-workflow compatibility | v3.36.0 |
 | Claude Code min required | 2.1.170 |
 | Last updated | 2026-07-29 |
 
 Version strings move together (plugin.json, marketplace.json metadata, README
-header, this table) per the igrsoft `/cc-update` convention.
+header, this table) per the company-workflow `/cc-update` convention.
 
 ## CC Features Adopted at 1.0.0
 
-The plugin is born on the igrsoft v3.27.1 / CC 2.1.170 baseline, so it adopts the
+The plugin is born on the company-workflow v3.27.1 / CC 2.1.170 baseline, so it adopts the
 current capability set from the start rather than migrating into it:
 
 - **Tiered `maxTurns`** — every agent declares a runaway-loop backstop sized to
@@ -29,7 +29,7 @@ current capability set from the start rather than migrating into it:
 - **Fully-qualified `Task(plugin:agent)` references** — all delegations use the
   `Task(system-developer:<agent>)` / `subagent_type="system-developer:<agent>"`
   form; no bare agent names anywhere. Cross-plugin targets keep their own prefix
-  (`igrsoft:*`, `security-scanning:*`, etc.).
+  (`company-workflow:*`, `security-scanning:*`, etc.).
 - **Scoped `Bash(cmd:*)` allowlists** — each agent's `tools:` enumerates only the
   toolchain binaries it needs (for example `c-developer`: gcc, clang, cc, make,
   cmake, ninja, ctest, clang-tidy, clang-format, gdb, lldb, valgrind, pkg-config,
@@ -39,22 +39,22 @@ current capability set from the start rather than migrating into it:
 - **Plugin-scoped advisory hooks** — `hooks/{audit-tooluse,audit-subagent,
   precompact-checkpoint}.sh`, wired in `plugin.json` (PostToolUse / SubagentStop /
   PreCompact). All rows are advisory (`actor: "system-developer:hook:*"`,
-  `metadata.advisory: true`) and share igrsoft's `dedupe_key` / `dedupe_key_extended`
-  shape so igrsoft's `audit-dedup.sh` keeps the orchestrator row authoritative when
+  `metadata.advisory: true`) and share company-workflow's `dedupe_key` / `dedupe_key_extended`
+  shape so company-workflow's `audit-dedup.sh` keeps the orchestrator row authoritative when
   system-developer runs nested. Each script has `--self-test`.
 
-## Not Adopted (igrsoft-owned infrastructure)
+## Not Adopted (company-workflow-owned infrastructure)
 
-system-developer agents are invoked specialists; igrsoft owns orchestration. The
+system-developer agents are invoked specialists; company-workflow owns orchestration. The
 following stay orchestrator-owned and are deliberately **not** implemented here:
 
-- **`audit-dedup.sh`** — igrsoft-owned. system-developer emits advisory rows with
-  matching dedupe keys for igrsoft's helper to reconcile; it does not reconcile
+- **`audit-dedup.sh`** — company-workflow-owned. system-developer emits advisory rows with
+  matching dedupe keys for company-workflow's helper to reconcile; it does not reconcile
   them itself.
 - **`state-merge.sh` / SubagentStop `state.json` merge** — orchestrator-owned.
   The hooks here read and checkpoint state but never merge it. Frontmatter
-  emission is unconditional (it is the input igrsoft's merge layer consumes).
-- **Screenshot-gate ownership** — igrsoft owns the evidence gate. system-developer
+  emission is unconditional (it is the input company-workflow's merge layer consumes).
+- **Screenshot-gate ownership** — company-workflow owns the evidence gate. system-developer
   work defaults to `requires_screenshots: false` and, when a gate demands proof,
   supplies `cli-fallback` terminal transcripts (build logs, ctest/pytest/bats
   output, sanitizer reports). It does not own or override the gate itself.
@@ -79,7 +79,7 @@ following stay orchestrator-owned and are deliberately **not** implemented here:
   `sys-code-fixer`. Keeps the review/fix separation explicit and auditable.
 - **Shared verb-first command names (v1.5.0)** — commands use bare filenames
   (invoked as `/system-developer:<name>`) drawn from the naming standard shared
-  across the igrsoft plugin family, with `apple-developer` as the reference
+  across the company-workflow plugin family, with `apple-developer` as the reference
   implementation: a `<verb>-<object>` shape grouped by verb (`review-`, `fix-`,
   `gen-`, `arch-`, `analyze-`). Supersedes the pre-1.5.0 ad-hoc names
   (`code-review`, `lint-fix`, `deps-audit`, …). The point is cross-plugin recall —
@@ -164,7 +164,7 @@ added to the agent, skill, or command inventory.
 
 ## Refresh Log (v1.5.0 — 2026-07-29)
 
-Command-surface unification with the igrsoft plugin family. The command set is the only
+Command-surface unification with the company-workflow plugin family. The command set is the only
 thing that moved — no agent, skill, or language guidance changed.
 
 - **Six commands renamed** to the cross-plugin verb-first standard (`code-review` →
@@ -196,17 +196,17 @@ thing that moved — no agent, skill, or language guidance changed.
 
 ## Refresh Log (v1.4.0 — 2026-07-22)
 
-igrsoft v3.36.0 port — three workflow-contract learnings plus repo-structure linters; no
+company-workflow v3.36.0 port — three workflow-contract learnings plus repo-structure linters; no
 C/C++/Python/Bash guidance changed.
 
 - **Contract sync v3.33.0 → v3.36.0** — version headline realigned across `plugin.json`,
   `marketplace.json`, `README.md`, this file, the `workflow-integration` skill, and the agent
   stage-participation headers. The PL0 stamp note now also names `metadata.test_mode` and
   `metadata.ui_visual_check` (the latter **N/A** for systems/CLI work — left `false`), citing
-  igrsoft `estimation-methodology § PL0 Stage-Set`; the Dynamic Worktask Sizing table was
+  company-workflow `estimation-methodology § PL0 Stage-Set`; the Dynamic Worktask Sizing table was
   already current (DR0 at every tier).
 - **CLI evidence freshness** — `cli-fallback` transcripts must be produced this run from the
-  actual build/test invocation, never reused; the systems analog of igrsoft's ov151
+  actual build/test invocation, never reused; the systems analog of company-workflow's ov151
   evidence-integrity gate (QA direct-reads evidence and cross-checks `### build-evidence` log
   paths, re-opening DV on a stale/duplicated transcript).
 - **state-patch pointer form** — replaced the manual `read → merge → temp → fsync → rename`
@@ -225,7 +225,7 @@ still fires the right skill. The section-lint burn-down is tracked separately.
 
 ## Refresh Log (v1.3.1 — 2026-07-08)
 
-- **igrsoft compatibility refresh v3.27.1 → v3.33.0** — version-string realignment only; the
+- **company-workflow compatibility refresh v3.27.1 → v3.33.0** — version-string realignment only; the
   `workflow-integration` content was already current (`/worktask`-only launch, two-gate model),
   so no agent/skill behavior changed. Bumped the compat headline across `plugin.json`,
   `marketplace.json`, `README.md`, the version table above, the `workflow-integration` skill
@@ -235,8 +235,8 @@ still fires the right skill. The section-lint burn-down is tracked separately.
 
 ## Refresh Log (v1.3.0 — 2026-06-23)
 
-- **Worktask alignment to igrsoft v3.27.1** — version co-move 1.2.0 → 1.3.0 and
-  igrsoft compatibility v3.17.0 → v3.27.1 (CC min 2.1.169 → 2.1.170) across
+- **Worktask alignment to company-workflow v3.27.1** — version co-move 1.2.0 → 1.3.0 and
+  company-workflow compatibility v3.17.0 → v3.27.1 (CC min 2.1.169 → 2.1.170) across
   plugin.json, marketplace.json, README, this file, and the skill-index labels.
   README Workflow Integration section refreshed: the two human checkpoints (PL plan
   gate + FN finalization gate, both on `PL0.metadata`, independently bypassable),
