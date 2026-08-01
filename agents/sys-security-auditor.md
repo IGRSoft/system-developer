@@ -16,11 +16,11 @@ Inherits `_base/language-agent.md` (Constraints, Tool Priority, Delegation Routi
 
 ## Workflow Integration
 
-If `.context/state.json` exists, this agent is inside an igrsoft workflow. BEFORE doing any work:
+If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
 
 1. Load `skill: workflow-integration` for the 11-stage context and the BINDING handoff contract
 2. Read `.context/state.json` for upstream context; read `development-N.md` (newest `development-*.md`) for the SR security-surface table and files changed
-3. Default stage: **SR context provider** — the SR owner `igrsoft:security-reviewer` (runs on **opus** at **effort xhigh** — Fable 5 is available on the runtime but SR pins opus) owns `.context/security-review.md`; this agent supplies systems-specific findings (memory safety, injection, secrets, supply chain, privilege, hardening) as input for that agent to merge
+3. Default stage: **SR context provider** — the SR owner `company-workflow:security-reviewer` (runs on **opus** at **effort xhigh** — Fable 5 is available on the runtime but SR pins opus) owns `.context/security-review.md`; this agent supplies systems-specific findings (memory safety, injection, secrets, supply chain, privilege, hardening) as input for that agent to merge
 4. Return a **compressed summary (≤500 tokens)** — findings grouped by severity, each with CWE + `file:line` — for the parent SR agent
 5. Do NOT patch `state.json` and do NOT write `security-review.md` — the parent SR agent owns stage status and the report file
 

@@ -24,7 +24,7 @@ Three subcommands select the operation from the first argument, across the four 
 
 **Exception — a flag that names a mutating mode is an error, not a fallback.** The `audit` default is safe for an empty token, a bare path, or an unrecognized-but-harmless word. It is *not* safe for `--upgrade` or `--add`: those fall through to "not one of the three", silently run a read-only audit, and hand the caller an audit result for a mutation they asked for — "no action taken" reads as "nothing to do". If `--upgrade` or `--add` appears anywhere in `$ARGUMENTS`, stop and emit the Error Handling message; do not fall back to `audit`.
 
-[Extended thinking: Dependency changes are the highest-blast-radius edits in a systems project — one transitive bump can silently change ABI, drop a symbol, or pull in a CVE. This command separates read-only assessment (audit) from mutation (upgrade/add) and forces upgrades through a one-dependency, pin-exact, build-and-test-gated loop. Manifest discovery is shared with `skill: language-detection`; CVE lookup prefers a local `osv-scanner` and falls back to the osv.dev API; license inventory is best-effort and never blocks. Security findings are phrased in `igrsoft:security-review-process` vocabulary so they flow cleanly into an SR stage. The heavy reasoning — version-jump risk, breaking-change analysis, manifest edits — is delegated to `system-developer:sys-dependency-manager`; this command owns discovery, the gate loop, and reporting.]
+[Extended thinking: Dependency changes are the highest-blast-radius edits in a systems project — one transitive bump can silently change ABI, drop a symbol, or pull in a CVE. This command separates read-only assessment (audit) from mutation (upgrade/add) and forces upgrades through a one-dependency, pin-exact, build-and-test-gated loop. Manifest discovery is shared with `skill: language-detection`; CVE lookup prefers a local `osv-scanner` and falls back to the osv.dev API; license inventory is best-effort and never blocks. Security findings are phrased in `company-workflow:security-review-process` vocabulary so they flow cleanly into an SR stage. The heavy reasoning — version-jump risk, breaking-change analysis, manifest edits — is delegated to `system-developer:sys-dependency-manager`; this command owns discovery, the gate loop, and reporting.]
 
 ## CRITICAL BEHAVIORAL RULES
 
@@ -36,7 +36,7 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 4. **Single-command Bash invocations.** Use each tool's own directory flags (`vcpkg --x-manifest-root=DIR`, `conan` from the project via `--`-scoped args, `uv --project DIR`). Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
 5. **Tool-missing never hard-fails.** If a package manager or scanner binary is absent, print the install hint, skip that manager's pass, and continue with the others. Report what was skipped. A missing `osv-scanner` falls back to the osv.dev API via WebFetch — never skip the CVE pass silently.
 6. **Delegate the reasoning, own the loop.** Hand version-jump risk, breaking-change analysis, and manifest edits to `system-developer:sys-dependency-manager`. This command performs discovery, runs the build+test gate, and synthesizes the report.
-7. **Security findings use SR vocabulary.** Phrase every CVE/advisory finding in `igrsoft:security-review-process` terms (severity, CVE/advisory id, affected version range, fixed-in version, remediation) so the output is consumable by an SR stage.
+7. **Security findings use SR vocabulary.** Phrase every CVE/advisory finding in `company-workflow:security-review-process` terms (severity, CVE/advisory id, affected version range, fixed-in version, remediation) so the output is consumable by an SR stage.
 8. **Never enter plan mode.** This command IS the procedure — execute it.
 
 ## Usage
@@ -122,7 +122,7 @@ Prefer a locally installed scanner; fall back to the osv.dev API. **Never skip t
    - URL: `https://api.osv.dev/v1/query`
    - Body shape: `{"package": {"ecosystem": "<PyPI|...>", "name": "<name>"}, "version": "<version>"}`
    - Map ecosystems: Python → `PyPI`; native C/C++ deps from vcpkg/Conan/FetchContent → query by upstream project (osv.dev coverage for native libs is partial; cross-check the NVD via WebSearch when osv.dev returns nothing for a well-known native CVE). Verify coverage against your toolchain.
-4. **Normalize every finding into SR vocabulary** (per `igrsoft:security-review-process`): `severity` (Critical/High/Medium/Low from CVSS), `advisory id` (CVE-/GHSA-/OSV-), `affected range`, `fixed-in version`, `remediation` (upgrade target). Group Critical/High at the top.
+4. **Normalize every finding into SR vocabulary** (per `company-workflow:security-review-process`): `severity` (Critical/High/Medium/Low from CVSS), `advisory id` (CVE-/GHSA-/OSV-), `affected range`, `fixed-in version`, `remediation` (upgrade target). Group Critical/High at the top.
 
 ### Phase 4: License Inventory (best-effort)
 
@@ -139,7 +139,7 @@ Flag any GPL/AGPL/SSPL or otherwise copyleft-incompatible license against a perm
 Hand the raw discovery + queries to the dependency manager for risk framing:
 
 - **Use Task tool with subagent_type="system-developer:sys-dependency-manager"**
-  Prompt: "Audit-mode dependency analysis for the project at `{path}`. Discovered managers: {managers}. Outdated report:\n```\n{outdated_output}\n```\nCVE findings (raw):\n```\n{cve_output}\n```\nLicenses:\n```\n{license_output}\n```\nFor each outdated dependency, classify the version jump (patch/minor/major), note documented breaking changes, and assess upgrade risk. Normalize every vulnerability into `igrsoft:security-review-process` vocabulary (severity, advisory id, affected range, fixed-in, remediation). Produce a prioritized upgrade plan (security patches first, then patch/minor, then majors individually). Do NOT edit any files — this is read-only audit."
+  Prompt: "Audit-mode dependency analysis for the project at `{path}`. Discovered managers: {managers}. Outdated report:\n```\n{outdated_output}\n```\nCVE findings (raw):\n```\n{cve_output}\n```\nLicenses:\n```\n{license_output}\n```\nFor each outdated dependency, classify the version jump (patch/minor/major), note documented breaking changes, and assess upgrade risk. Normalize every vulnerability into `company-workflow:security-review-process` vocabulary (severity, advisory id, affected range, fixed-in, remediation). Produce a prioritized upgrade plan (security patches first, then patch/minor, then majors individually). Do NOT edit any files — this is read-only audit."
 - Synthesize the agent's analysis into the Output Format report.
 
 ## Subcommand: `upgrade` (one dependency, gated)
@@ -321,4 +321,4 @@ Print the install hint, skip that manager's pass, continue. A missing `osv-scann
 - `skill: secure-coding` — supply-chain and dependency-trust rules that gate a diff.
 - `/system-developer:build-test` — the build+test gate this command invokes after every upgrade/add.
 - `/system-developer:sanitize-check` — run after a dependency upgrade to catch ABI/behavior regressions a new version introduces.
-- `igrsoft:security-review-process` — SR-stage vocabulary used for every vulnerability finding here.
+- `company-workflow:security-review-process` — SR-stage vocabulary used for every vulnerability finding here.

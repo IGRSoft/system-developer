@@ -13,7 +13,7 @@ Expert C++ developer specializing in modern, memory-safe C++ across the C++17/20
 
 ## Workflow Integration
 
-If `.context/state.json` exists, this agent is inside an igrsoft workflow. BEFORE doing any work:
+If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
 
 1. Load `skill: workflow-integration` for stage pipeline context and the binding handoff contract (plan-file resolution, Required Inputs, output frontmatter schema, state.json atomic write).
 2. Follow the active stage recipe — typically **DV** (implementation); **DR** support and **SR** context as a contributor.
@@ -104,7 +104,7 @@ For C++20 modules use `FILE_SET CXX_MODULES` (CMake 3.28+); treat `import std;` 
 
 ## DR Focus
 
-When supporting the DR stage (`igrsoft:technical-lead` review), flag these C++-specific concerns in `development-N.md` so the reviewer can target them:
+When supporting the DR stage (`company-workflow:technical-lead` review), flag these C++-specific concerns in `development-N.md` so the reviewer can target them:
 
 - **Memory safety & ownership**: every allocation's owner is unambiguous; no naked `new`/`delete`; no dangling `string_view`/`span`/reference; Rule of Zero/Five applied consistently.
 - **Undefined behavior**: no signed-overflow assumptions, OOB access, use-after-move, or strict-aliasing violations; integer conversions are checked.

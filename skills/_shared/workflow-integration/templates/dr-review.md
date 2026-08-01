@@ -1,6 +1,6 @@
 # DR Stage Artifact Template (systems review)
 
-Primary artifact `.context/developer-review-N.md` is owned by igrsoft's technical-lead; use this when a system-developer agent takes over DR or contributes the review body. sys-code-fixer appends retry narratives to `.context/errors/sys-code-fixer.md` instead.
+Primary artifact `.context/developer-review-N.md` is owned by company-workflow's technical-lead; use this when a system-developer agent takes over DR or contributes the review body. sys-code-fixer appends retry narratives to `.context/errors/sys-code-fixer.md` instead.
 
 ```markdown
 ---

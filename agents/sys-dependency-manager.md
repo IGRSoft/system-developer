@@ -15,7 +15,7 @@ Inherits `_base/language-agent.md` (Constraints, Code Comment Policy, Tool Prior
 
 ## Workflow Integration
 
-If `.context/state.json` exists, this agent is inside an igrsoft workflow. BEFORE doing any work:
+If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
 
 1. Load `skill: workflow-integration` for the binding handoff contract
 2. Read `.context/state.json` for upstream context
