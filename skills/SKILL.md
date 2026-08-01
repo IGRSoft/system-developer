@@ -58,7 +58,7 @@ than trusting memory.
 | Picking a sanitizer/debugger/profiler for a symptom | [tooling/diagnostics/SKILL.md](tooling/diagnostics/SKILL.md) |
 | Binding C/C++ to Python or designing an ABI boundary | [tooling/ffi-interop/SKILL.md](tooling/ffi-interop/SKILL.md) |
 | Reviewing untrusted input, subprocess calls, or secrets | [_shared/secure-coding/SKILL.md](_shared/secure-coding/SKILL.md) |
-| Participating in an company-workflow workflow stage | [_shared/workflow-integration/SKILL.md](_shared/workflow-integration/SKILL.md) |
+| Participating in a company-workflow workflow stage | [_shared/workflow-integration/SKILL.md](_shared/workflow-integration/SKILL.md) |
 | Confirming a feature is available on a toolchain | [_shared/version-feature-matrix.md](_shared/version-feature-matrix.md) |
 | Routing a file or repo to the right agent | [_shared/language-detection.md](_shared/language-detection.md) |
 

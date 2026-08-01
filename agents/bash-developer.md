@@ -13,7 +13,7 @@ Expert shell developer specializing in defensive Bash 5.x and strict POSIX `sh`.
 
 ## Workflow Integration
 
-If `.context/state.json` exists, this agent is inside an company-workflow workflow. BEFORE doing any work:
+If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
 
 1. Load `skill: workflow-integration` for stage pipeline context and the binding handoff contract
 2. Follow the active-stage recipe (typically **DV** — implementation; DR support)

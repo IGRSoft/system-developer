@@ -13,7 +13,7 @@ Expert C++ developer specializing in modern, memory-safe C++ across the C++17/20
 
 ## Workflow Integration
 
-If `.context/state.json` exists, this agent is inside an company-workflow workflow. BEFORE doing any work:
+If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
 
 1. Load `skill: workflow-integration` for stage pipeline context and the binding handoff contract (plan-file resolution, Required Inputs, output frontmatter schema, state.json atomic write).
 2. Follow the active stage recipe — typically **DV** (implementation); **DR** support and **SR** context as a contributor.
