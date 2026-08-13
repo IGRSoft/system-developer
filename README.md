@@ -2,7 +2,7 @@
 
 Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the corpflow plugin v4.0.13 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.6.0 | **corpflow Compatibility**: v4.0.13 | **claude-code min version**: "2.1.170"
+**Version**: 1.6.0 | **claude-code min version**: "2.1.170"
 
 ## What's new in 1.6.0
 
@@ -20,7 +20,6 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 
 ## What's new in 1.4.0
 
-- **corpflow v3.36.0 sync** — compatibility headline realigned v3.33.0 → v3.36.0 across the manifests, README, `MEMORY.md`, the `workflow-integration` skill, and the agent stage-participation headers; the PL0 stamp note now also names `metadata.test_mode` and `metadata.ui_visual_check` (the latter N/A for CLI work, left `false`), with the Dynamic Worktask Sizing table already current (DR0 at every tier).
 - **state-patch pointer form** — the manual `read → merge → temp → fsync → rename` atomic-write prose is replaced by the two-mode `state-patch.sh --stage <CODE> --prev <PREV>` contract (run when its path is supplied, else silently skip; Layers 2/3 repair from the unconditional `handoff:` frontmatter).
 - **CLI evidence-freshness rule** — every `cli-fallback` transcript must be produced this run from the actual build/test invocation, never reused; the systems analog of corpflow's QA direct-read evidence-integrity check.
 - **Output budgets + Complexity Triage** — benchmark-driven `Output Budget` blocks on the DV (`_base`), AR, DV-support, and DR-support agents (Build Evidence stays exempt), plus a `Complexity Triage` gate on `system-architector` that self-limits scope at Low complexity; `section-lint` and `desc-lint` are wired into `scripts/test.sh`. See [`CHANGELOG.md`](CHANGELOG.md).
@@ -121,7 +120,6 @@ Six commands were renamed in 1.5.0 to match the naming standard shared across th
 | Skill | Description |
 |-------|-------------|
 | `secure-coding` | Non-negotiable security rules and bug-class defenses across all four languages — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene. |
-| `workflow-integration` | Guide for integrating with the corpflow 11-stage pipeline (v4.0.13), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
 
 ### C
 
@@ -224,25 +222,12 @@ Register the marketplace as a directory source and enable the plugin:
 
 After editing `settings.json`, run `/plugins` (or restart the session) to load the plugin.
 
-## Workflow Integration (corpflow v4.0.13)
+## corpflow Integration
 
-This plugin collaborates with the **corpflow** plugin v4.0.13 for 11-stage workflow orchestration. corpflow owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `corpflow:developer` routes to the appropriate system-developer specialist based on file/marker detection.
-
-**Two human checkpoints**: corpflow worktasks stop at the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). Both carriers live independently on `PL0.metadata` (`plan_gate` / `fn_gate`, default `checkpoint`) and are bypassed by `--auto-plan` / `--auto-finalization` respectively (and both by `--emergency`). system-developer agents run as invoked specialists *between* the gates and do not own gate logic, though DV/DR/QA may re-run on a gate loopback.
-
-**Multi-issue batches**: `/megatask <milestone#>` (or `/megatask --issues 12,15,18`) orders many worktasks by a dependency/blocker DAG, each issue in its own isolated worktree.
-
-**Reasoning tier**: the security-review (SR) and ethics-review (ET) stages run on `opus` at effort `xhigh`; Fable 5 is available as the top reasoning tier on CC ≥ 2.1.170, but the shipped corpflow stage agents pin `opus`. system-developer's own agents keep their existing models.
-
-| Stage | system-developer Role | Contribution |
-|-------|----------------------|--------------|
-| **DV** | Primary | Language-specific implementation; emits `development-N.md` with a Build Evidence section. |
-| **DR** | Support | `sys-code-fixer` applies technical-lead findings (minimal-diff gate); `system-architector` consulted for structural concerns. |
-| **SR** | Context Provider | `sys-security-auditor` supplies memory-safety, injection, secrets, and supply-chain context. |
-| **QA** | Support | `sys-test-generator`; the QA gate is tests pass **and** ASan+UBSan clean. |
-| **RE** | Context Provider | `sys-dependency-manager` supplies lockfile/CVE state for release readiness. |
-
-**Evidence norm**: systems and CLI work defaults to `requires_screenshots: false`. When a gate demands evidence, agents attach `cli-fallback` terminal transcripts (build logs, `ctest`/`pytest`/`bats` output, sanitizer reports) rather than screenshots.
+This plugin runs standalone. It also participates in [corpflow](https://github.com/IGRSoft/corpflow)
+worktasks, and the whole of that integration lives in one file at the repository root:
+**[CORPFLOW.md](CORPFLOW.md)**. Delete that file and the plugin is fully standalone; restore it
+and it participates again. Nothing else here references corpflow.
 
 ## Quick Start
 

@@ -35,4 +35,4 @@ for the guided entry with version snapshot and decision tree.
 | Input validation, injection, pickle/yaml/`shell=True` | `${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md` |
 | Profiling (py-spy, cProfile, tracemalloc) | `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md` |
 | C/C++/Python boundaries (pybind11, nanobind, C API) | `${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md` |
-| Workflow stage participation | `${CLAUDE_SKILL_DIR}/_shared/workflow-integration/SKILL.md` |
+| Workflow stage participation | `CORPFLOW.md` |

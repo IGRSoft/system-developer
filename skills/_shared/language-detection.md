@@ -68,6 +68,6 @@ this file — keep the two in sync when a rule changes.
 
 ## Related Skills
 
-- `workflow-integration/SKILL.md` — how the routed agent participates in DV
+- `CORPFLOW.md` — how the routed agent participates in DV
 - `model-selection.md` — model/effort to pass with the routed `Task()` call
 - `version-feature-matrix.md` — standard/version floors once the language is known

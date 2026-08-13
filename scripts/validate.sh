@@ -343,11 +343,6 @@ shopt -s nullglob
 for f in "${HOME}"/.claude/plugins/cache/*/*/*/agents/*.md; do
 	collect_external "${f}"
 done
-if [[ -n "${CORPFLOW_DIR:-}" && -d "${CORPFLOW_DIR}/agents" ]]; then
-	for f in "${CORPFLOW_DIR}/agents"/*.md; do
-		collect_external "${f}"
-	done
-fi
 shopt -u nullglob
 
 # Walk this plugin's agents, checking completeness, in-repo uniqueness, and
@@ -387,7 +382,7 @@ if [[ -d agents ]]; then
 			SEEN_NAMES="${SEEN_NAMES}${aname}	${rel}"$'\n'
 		fi
 
-		# External collision against installed plugins + corpflow.
+		# External collision against installed plugins and the orchestrator.
 		ext="$(printf '%s' "${EXTERNAL_NAMES}" | awk -F'\t' -v n="${aname}" '$1 == n {print $2; exit}')"
 		[[ -n "${ext}" ]] && err "${rel}" "agent name '${aname}' collides with ${ext}" "rename to a sys-prefixed or otherwise unique name"
 	done < <(find agents -type f -name '*.md')

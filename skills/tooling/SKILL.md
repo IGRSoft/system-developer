@@ -88,4 +88,4 @@ Tooling task?
 - [ffi-interop](ffi-interop/SKILL.md) — Python ↔ C/C++ bindings
 - [version-feature-matrix](../_shared/version-feature-matrix.md) — toolchain floors per standard
 - [secure-coding](../_shared/secure-coding/SKILL.md) — hardening flags belong in the build, not as an afterthought
-- [workflow-integration](../_shared/workflow-integration/SKILL.md) — Build Evidence and the cli-fallback screenshot norm
+- [CORPFLOW.md](../../CORPFLOW.md) — Build Evidence and the cli-fallback screenshot norm

@@ -14,16 +14,6 @@ Performance engineer for C, C++, Python, and Bash. Diagnoses bottlenecks from co
 
 Inherits `_base/language-agent.md` (Constraints, Tool Priority, Delegation Routing, Standard Response Format, Workflow Stage Participation). The notes below are performance-specific; do not restate the base.
 
-## Workflow Integration
-
-When `.context/state.json` exists, this agent runs inside corpflow as **DV support**, not as a stage owner:
-
-1. Load `skill: workflow-integration` for the handoff contract; read `.context/state.json` for upstream context and `development-N.md#files-changed` for profiling targets
-2. The parent DV agent owns `.context/development-N.md` — this agent supplies findings as input to its `## Performance` section
-3. Return a compressed summary (≤500 tokens) of findings for the parent to merge
-4. Do **not** patch `state.json` — the parent DV agent owns stage status and handoff frontmatter
-5. Because this agent is review-only (`disallowed-tools: Write, Edit`), it emits no artifact file and applies no fix; recommendations are handed back as text
-
 ## Model Notes
 
 Default frontmatter: `model: sonnet`, `effort: high`. Sonnet is sufficient for routine profiling, hot-path review, and benchmark reporting.

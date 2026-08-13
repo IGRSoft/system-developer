@@ -23,7 +23,6 @@ at [`SKILL.md`](SKILL.md) for the routing entry point.
 | Skill | Path | Description |
 |-------|------|-------------|
 | **secure-coding** | [`_shared/secure-coding/SKILL.md`](_shared/secure-coding/SKILL.md) | Non-negotiable security rules and bug-class defenses for C, C++, Python, and Bash — injection-safe process execution, memory-corruption sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene |
-| **workflow-integration** | [`_shared/workflow-integration/SKILL.md`](_shared/workflow-integration/SKILL.md) | Guide for integrating with the corpflow 11-stage pipeline (v4.0.13) |
 | version-feature-matrix | [`_shared/version-feature-matrix.md`](_shared/version-feature-matrix.md) | Standards/versions → minimum toolchains and headline features (canonical lookup) |
 | language-detection | [`_shared/language-detection.md`](_shared/language-detection.md) | Marker → language → agent routing table, detection priority, tie-breaking |
 | model-selection | [`_shared/model-selection.md`](_shared/model-selection.md) | Per-agent model/effort/maxTurns assignments and opus+xhigh override paths |

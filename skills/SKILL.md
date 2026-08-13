@@ -58,7 +58,6 @@ than trusting memory.
 | Picking a sanitizer/debugger/profiler for a symptom | [tooling/diagnostics/SKILL.md](tooling/diagnostics/SKILL.md) |
 | Binding C/C++ to Python or designing an ABI boundary | [tooling/ffi-interop/SKILL.md](tooling/ffi-interop/SKILL.md) |
 | Reviewing untrusted input, subprocess calls, or secrets | [_shared/secure-coding/SKILL.md](_shared/secure-coding/SKILL.md) |
-| Participating in a corpflow stage | [_shared/workflow-integration/SKILL.md](_shared/workflow-integration/SKILL.md) |
 | Confirming a feature is available on a toolchain | [_shared/version-feature-matrix.md](_shared/version-feature-matrix.md) |
 | Routing a file or repo to the right agent | [_shared/language-detection.md](_shared/language-detection.md) |
 
@@ -156,7 +155,6 @@ Cross-cutting patterns used by every agent, command, and skill.
 | Skill | Path | Description |
 |-------|------|-------------|
 | **secure-coding** | [_shared/secure-coding/SKILL.md](_shared/secure-coding/SKILL.md) | Non-negotiable security rules and bug-class defenses for C, C++, Python, Bash |
-| **workflow-integration** | [_shared/workflow-integration/SKILL.md](_shared/workflow-integration/SKILL.md) | Integrating with the corpflow 11-stage pipeline (v4.0.13) |
 | version-feature-matrix | [_shared/version-feature-matrix.md](_shared/version-feature-matrix.md) | Standards/versions → minimum toolchains + headline features (canonical) |
 | language-detection | [_shared/language-detection.md](_shared/language-detection.md) | Marker → language → agent routing table |
 | model-selection | [_shared/model-selection.md](_shared/model-selection.md) | Per-agent model/effort/maxTurns assignments |
@@ -198,5 +196,4 @@ toolchain before relying on a feature.
 
 - [`_shared/version-feature-matrix.md`](_shared/version-feature-matrix.md) — canonical version/toolchain lookup
 - [`_shared/language-detection.md`](_shared/language-detection.md) — file/repo → agent routing
-- [`_shared/workflow-integration/SKILL.md`](_shared/workflow-integration/SKILL.md) — corpflow 11-stage integration
 - [`_index.md`](_index.md) — full navigation index of every skill directory
