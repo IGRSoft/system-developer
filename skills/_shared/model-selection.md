@@ -6,7 +6,7 @@ effort: low
 
 # Model & Effort Selection (system-developer)
 
-Companion to company-workflow's `skills/shared/model-selection.md`. This file pins the
+Companion to corpflow's `skills/shared/model-selection.md`. This file pins the
 **system-developer** per-agent assignments and the override paths the language
 agents expose. Frontmatter in `agents/*.md` is the source of truth — keep this
 table in sync with it.

@@ -1,8 +1,8 @@
 # System Developer Plugin
 
-Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the company-workflow plugin v4.0.0 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
+Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/23/26-emerging)**, **Python 3.14**, and **Bash/POSIX shell**, with specialized agents, commands, and skills. Collaborates with the corpflow plugin v4.0.13 for full 11-stage workflow orchestration (PL→AR→TL→DV→**DR**→SR→QA→DC→RE→FN→ST) including the handoff-protocol (planning-N.md, state.json ledger, frontmatter schema). Systems and CLI work defaults to `requires_screenshots: false`; when an evidence gate demands proof, agents attach `cli-fallback` terminal transcripts (build logs, test output, sanitizer reports) instead of screenshots.
 
-**Version**: 1.6.0 | **company-workflow Compatibility**: v4.0.0 | **claude-code min version**: "2.1.170"
+**Version**: 1.6.0 | **corpflow Compatibility**: v4.0.13 | **claude-code min version**: "2.1.170"
 
 ## What's new in 1.6.0
 
@@ -20,14 +20,14 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 
 ## What's new in 1.4.0
 
-- **company-workflow v3.36.0 sync** — compatibility headline realigned v3.33.0 → v3.36.0 across the manifests, README, `MEMORY.md`, the `workflow-integration` skill, and the agent stage-participation headers; the PL0 stamp note now also names `metadata.test_mode` and `metadata.ui_visual_check` (the latter N/A for CLI work, left `false`), with the Dynamic Worktask Sizing table already current (DR0 at every tier).
+- **corpflow v3.36.0 sync** — compatibility headline realigned v3.33.0 → v3.36.0 across the manifests, README, `MEMORY.md`, the `workflow-integration` skill, and the agent stage-participation headers; the PL0 stamp note now also names `metadata.test_mode` and `metadata.ui_visual_check` (the latter N/A for CLI work, left `false`), with the Dynamic Worktask Sizing table already current (DR0 at every tier).
 - **state-patch pointer form** — the manual `read → merge → temp → fsync → rename` atomic-write prose is replaced by the two-mode `state-patch.sh --stage <CODE> --prev <PREV>` contract (run when its path is supplied, else silently skip; Layers 2/3 repair from the unconditional `handoff:` frontmatter).
-- **CLI evidence-freshness rule** — every `cli-fallback` transcript must be produced this run from the actual build/test invocation, never reused; the systems analog of company-workflow's QA direct-read evidence-integrity check.
+- **CLI evidence-freshness rule** — every `cli-fallback` transcript must be produced this run from the actual build/test invocation, never reused; the systems analog of corpflow's QA direct-read evidence-integrity check.
 - **Output budgets + Complexity Triage** — benchmark-driven `Output Budget` blocks on the DV (`_base`), AR, DV-support, and DR-support agents (Build Evidence stays exempt), plus a `Complexity Triage` gate on `system-architector` that self-limits scope at Low complexity; `section-lint` and `desc-lint` are wired into `scripts/test.sh`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's new in 1.3.0
 
-- **Worktask refresh to company-workflow v3.27.1** — workflow integration realigned to the current company-workflow worktask behaviour: launch is `/worktask`-only (no message-prefix triggers), two human checkpoints (the PL plan gate and the FN finalization gate, both carried on `PL0.metadata` and independently bypassable), `/megatask` for dependency-ordered multi-issue batches, PL0 dynamic sizing that stamps `metadata.skipped_stages`, and SR/ET running on `opus` (xhigh) with Fable 5 available as the top reasoning tier. See [`CHANGELOG.md`](CHANGELOG.md).
+- **Worktask refresh to corpflow v3.27.1** — workflow integration realigned to the current corpflow worktask behaviour: launch is `/worktask`-only (no message-prefix triggers), two human checkpoints (the PL plan gate and the FN finalization gate, both carried on `PL0.metadata` and independently bypassable), `/megatask` for dependency-ordered multi-issue batches, PL0 dynamic sizing that stamps `metadata.skipped_stages`, and SR/ET running on `opus` (xhigh) with Fable 5 available as the top reasoning tier. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## What's in 1.2.0
 
@@ -38,7 +38,7 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 - **11 agents** — a `system-developer` router, four language developers (`c-developer`, `cpp-developer`, `python-developer`, `bash-developer`), `system-architector`, and five Tier-2 specialists (`sys-test-generator`, `sys-performance-engineer`, `sys-security-auditor`, `sys-code-fixer`, `sys-dependency-manager`). All inherit `agents/_base/language-agent.md`.
 - **8 commands** — language-aware review, build/test, test generation, sanitizer runs, lint/format, profiling, standard modernization, and dependency auditing, each with restrictive `allowed-tools` and an `estimated-cost` band.
 - **Complete skills tree** — 25 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, `embedded`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
-- **Plugin-scoped advisory hooks** — `audit-tooluse`, `audit-subagent`, `precompact-checkpoint`, wired in `plugin.json` with company-workflow-compatible dedupe keys. Advisory only: never merges `state.json` (orchestrator-owned). See [`hooks/README.md`](hooks/README.md).
+- **Plugin-scoped advisory hooks** — `audit-tooluse`, `audit-subagent`, `precompact-checkpoint`, wired in `plugin.json` with corpflow-compatible dedupe keys. Advisory only: never merges `state.json` (orchestrator-owned). See [`hooks/README.md`](hooks/README.md).
 - **CC capabilities adopted** — tiered `maxTurns` runaway-loop backstops, `disallowed-tools: Write, Edit` on the two review-only auditors, fully-qualified `Task(system-developer:<agent>)` delegations, and scoped `Bash(cmd:*)` allowlists per toolchain.
 
 ## Agents (11)
@@ -101,7 +101,7 @@ All commands degrade gracefully when a tool is missing: they print an install hi
 
 ## Migration: old → new command names
 
-Six commands were renamed in 1.5.0 to match the naming standard shared across the company-workflow plugin family. The old names no longer resolve — update any scripts, aliases, or worktask payloads that reference them.
+Six commands were renamed in 1.5.0 to match the naming standard shared across the corpflow plugin family. The old names no longer resolve — update any scripts, aliases, or worktask payloads that reference them.
 
 | Old name (≤1.4.0) | New name (1.5.0+) | Behavior change |
 |-------------------|-------------------|-----------------|
@@ -121,7 +121,7 @@ Six commands were renamed in 1.5.0 to match the naming standard shared across th
 | Skill | Description |
 |-------|-------------|
 | `secure-coding` | Non-negotiable security rules and bug-class defenses across all four languages — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene. |
-| `workflow-integration` | Guide for integrating with the company-workflow 11-stage workflow system (v4.0.0), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
+| `workflow-integration` | Guide for integrating with the corpflow 11-stage pipeline (v4.0.13), including the DV development contract and the `requires_screenshots: false` / cli-fallback norm. |
 
 ### C
 
@@ -224,15 +224,15 @@ Register the marketplace as a directory source and enable the plugin:
 
 After editing `settings.json`, run `/plugins` (or restart the session) to load the plugin.
 
-## Workflow Integration (company-workflow v4.0.0)
+## Workflow Integration (corpflow v4.0.13)
 
-This plugin collaborates with the **company-workflow** plugin v4.0.0 for 11-stage workflow orchestration. company-workflow owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `company-workflow:developer` routes to the appropriate system-developer specialist based on file/marker detection.
+This plugin collaborates with the **corpflow** plugin v4.0.13 for 11-stage workflow orchestration. corpflow owns orchestration, worktree isolation, and `state.json` merge; system-developer agents stay invoked specialists and follow the handoff-protocol (plan-file resolution, Required Inputs, `handoff:` frontmatter schema, `state.json` atomic write). During the DV stage, `corpflow:developer` routes to the appropriate system-developer specialist based on file/marker detection.
 
-**Two human checkpoints**: company-workflow worktasks stop at the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). Both carriers live independently on `PL0.metadata` (`plan_gate` / `fn_gate`, default `checkpoint`) and are bypassed by `--auto-plan` / `--auto-finalization` respectively (and both by `--emergency`). system-developer agents run as invoked specialists *between* the gates and do not own gate logic, though DV/DR/QA may re-run on a gate loopback.
+**Two human checkpoints**: corpflow worktasks stop at the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). Both carriers live independently on `PL0.metadata` (`plan_gate` / `fn_gate`, default `checkpoint`) and are bypassed by `--auto-plan` / `--auto-finalization` respectively (and both by `--emergency`). system-developer agents run as invoked specialists *between* the gates and do not own gate logic, though DV/DR/QA may re-run on a gate loopback.
 
 **Multi-issue batches**: `/megatask <milestone#>` (or `/megatask --issues 12,15,18`) orders many worktasks by a dependency/blocker DAG, each issue in its own isolated worktree.
 
-**Reasoning tier**: the security-review (SR) and ethics-review (ET) stages run on `opus` at effort `xhigh`; Fable 5 is available as the top reasoning tier on CC ≥ 2.1.170, but the shipped company-workflow stage agents pin `opus`. system-developer's own agents keep their existing models.
+**Reasoning tier**: the security-review (SR) and ethics-review (ET) stages run on `opus` at effort `xhigh`; Fable 5 is available as the top reasoning tier on CC ≥ 2.1.170, but the shipped corpflow stage agents pin `opus`. system-developer's own agents keep their existing models.
 
 | Stage | system-developer Role | Contribution |
 |-------|----------------------|--------------|

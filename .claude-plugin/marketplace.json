@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "system-developer",
-      "description": "Systems development toolkit with specialized agents for C (C17/C23), C++ (C++17/20/23, C++26 emerging), Python 3.14, and Bash/POSIX shell. Includes language-aware commands, modern-standards skills, build-system and diagnostics tooling, FFI interop, secure-coding guidance, plugin-scoped advisory hooks, full company-workflow 11-stage workflow integration, and utility agents for code fixes, test generation, performance, security, and dependency management.",
+      "description": "Systems development toolkit with specialized agents for C (C17/C23), C++ (C++17/20/23, C++26 emerging), Python 3.14, and Bash/POSIX shell. Includes language-aware commands, modern-standards skills, build-system and diagnostics tooling, FFI interop, secure-coding guidance, plugin-scoped advisory hooks, full corpflow 11-stage pipeline integration, and utility agents for code fixes, test generation, performance, security, and dependency management.",
       "source": "./",
       "strict": true,
       "category": "development",

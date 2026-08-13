@@ -36,7 +36,7 @@ Violations must be flagged and corrected before code is complete.
 | Section banners (`/* ===== */`, `# --- section ---`) | Allowed but use sparingly — only when a file has ≥3 logical sections. |
 | `// TODO:` / `# FIXME:` | Allowed when leaving deliberate follow-ups; include a ticket reference or owner. |
 
-Apply this policy in DV stage output and when responding to DR findings. Reviewers (DR, SR) should flag policy violations alongside other issues. This policy aligns with `skill: company-workflow:code-comment-standard` — comment the non-obvious *why* and the contract only; route rationale, history, and before/after narrative to the PR / `.context/development-N.md` / ADR, not to source comments.
+Apply this policy in DV stage output and when responding to DR findings. Reviewers (DR, SR) should flag policy violations alongside other issues. This policy aligns with `skill: corpflow:code-comment-standard` — comment the non-obvious *why* and the contract only; route rationale, history, and before/after narrative to the PR / `.context/development-N.md` / ADR, not to source comments.
 
 ## Tool Priority
 
@@ -75,7 +75,7 @@ Apply this policy in DV stage output and when responding to DR findings. Reviewe
 
 ## Workflow Stage Participation
 
-Language agents participate in the company-workflow 11-stage workflow system (v4.0.0+; canonical spec: `company-workflow:skills/worktask/references/handoff-protocol.md`).
+Language agents participate in the corpflow 11-stage pipeline (v4.0.13+; canonical spec: `corpflow:skills/worktask/references/handoff-protocol.md`).
 
 **Two human checkpoints** gate the pipeline: the **PL gate** (post-PL0 plan approval) and the **FN gate** (pre-finalization commit/push/PR). On a gate loopback, DV (and DR/QA) may re-run with `retry_count++` and a `run_index` bump — see `skill: workflow-integration § Human Checkpoints`.
 
@@ -83,10 +83,10 @@ Language agents participate in the company-workflow 11-stage workflow system (v4
 
 All cross-plugin invocations follow `skills/_shared/workflow-integration/SKILL.md`: plan-file resolution (`task.metadata.plan_file` → newest `.context/planning-*.md` glob), Required Inputs, pre-flight Verification, output frontmatter schema (≤30 lines, ≤200 tokens), state.json atomic write, and the per-stage required `metadata.*` matrix. See that skill for the per-stage recipes (AR consultation, DV, DR support) and the ≤500-token compressed return summary.
 
-**state.json patching is REQUIRED before returning** — but do NOT hand-roll a `jq` or manual read→merge→rename. Use company-workflow's single, lock-serialized implementation, or skip and let the safety-net layers repair the ledger from your frontmatter:
+**state.json patching is REQUIRED before returning** — but do NOT hand-roll a `jq` or manual read→merge→rename. Use corpflow's single, lock-serialized implementation, or skip and let the safety-net layers repair the ledger from your frontmatter:
 
-- **Primary (script)**: when the dispatching prompt or `task.metadata.state_patch_script` supplies the path to company-workflow's `state-patch.sh` (it ships in the company-workflow plugin under `skills/worktask/scripts/`), run `bash <path>/state-patch.sh --stage <CODE> --prev <PREV>`. It parses this artifact's `handoff:` frontmatter and atomically merges `stages.<CODE>` plus the `<PREV>→<CODE>` handoff edge into `.context/state.json` — single implementation, lock-serialized, idempotent.
-- **Degrade (silent skip)**: if no script path was supplied, or `jq`/`state.json` is absent, skip — do NOT reconstruct the merge inline. The orchestrator's post-stage re-read (Layer 2) and company-workflow's SubagentStop `state-merge.sh` hook (Layer 3) repair the ledger from your frontmatter.
+- **Primary (script)**: when the dispatching prompt or `task.metadata.state_patch_script` supplies the path to corpflow's `state-patch.sh` (it ships in the corpflow plugin under `skills/worktask/scripts/`), run `bash <path>/state-patch.sh --stage <CODE> --prev <PREV>`. It parses this artifact's `handoff:` frontmatter and atomically merges `stages.<CODE>` plus the `<PREV>→<CODE>` handoff edge into `.context/state.json` — single implementation, lock-serialized, idempotent.
+- **Degrade (silent skip)**: if no script path was supplied, or `jq`/`state.json` is absent, skip — do NOT reconstruct the merge inline. The orchestrator's post-stage re-read (Layer 2) and corpflow's SubagentStop `state-merge.sh` hook (Layer 3) repair the ledger from your frontmatter.
 
 **Frontmatter emission is therefore unconditional**: an artifact without `handoff:` YAML breaks the entire three-layer safety net (agent self-patch → orchestrator re-read → SubagentStop hook).
 
@@ -98,7 +98,7 @@ All cross-plugin invocations follow `skills/_shared/workflow-integration/SKILL.m
 - Run only the tests covering changed files — `ctest --test-dir build -R <pattern>`, `uv run pytest -k <expr>`, or `bats -f <regex>`. Full-suite regression belongs to QA.
 - Include security-surface summary in `.context/development-N.md` for DR and SR.
 - On retry, append narrative to `.context/errors/{agent-basename}.md`.
-- **Evidence gate (replaces the UI screenshot gate)**: systems/CLI work defaults `requires_screenshots: false` — PL0 should set it explicitly, and DV writes the skip-rationale manifest (`> Skipped: metadata.requires_screenshots = false. Rationale: <one line>`). When gate metadata still demands evidence (`metadata.requires_screenshots: true`), capture terminal transcripts of the decisive runs (build, tests, sanitizers) as `source: cli-fallback` rows (manifest `Adapter` column: `cli_fallback`) in `.context/images/<worktask_id>/screenshots.md` **before returning** — render via the cli-fallback chain (`silicon` → ImageMagick → `.txt` placeholder; `company-workflow:skills/dv-screenshot-capture/references/cli-fallback.md`). If the manifest is missing while the gate is armed, company-workflow's `dv-screenshot-gate.sh` blocks `SubagentStop` with `hookSpecificOutput.additionalContext` and re-dispatches.
+- **Evidence gate (replaces the UI screenshot gate)**: systems/CLI work defaults `requires_screenshots: false` — PL0 should set it explicitly, and DV writes the skip-rationale manifest (`> Skipped: metadata.requires_screenshots = false. Rationale: <one line>`). When gate metadata still demands evidence (`metadata.requires_screenshots: true`), capture terminal transcripts of the decisive runs (build, tests, sanitizers) as `source: cli-fallback` rows (manifest `Adapter` column: `cli_fallback`) in `.context/images/<worktask_id>/screenshots.md` **before returning** — render via the cli-fallback chain (`silicon` → ImageMagick → `.txt` placeholder; `corpflow:skills/dv-screenshot-capture/references/cli-fallback.md`). If the manifest is missing while the gate is armed, corpflow's `dv-screenshot-gate.sh` blocks `SubagentStop` with `hookSpecificOutput.additionalContext` and re-dispatches.
 - **Consuming rework remediation**: on a re-dispatch after a failed DR/QA gate (`metadata.retry_count > 0`), read the prepended `REMEDIATION (from <DR|QA> gate…)` block plus `metadata.gate_from_stage` + `metadata.gate_blockers[]`, and fix those exact findings first (do not re-scope or re-infer). Keep the diff minimal; record per-blocker resolution in `.context/errors/{agent-basename}.md`. The orchestrator owns the injection — language agents only consume it. See `skill: workflow-integration § Gate-Feedback Contract`.
 
 ### Output Budget (DV)
@@ -107,7 +107,7 @@ All cross-plugin invocations follow `skills/_shared/workflow-integration/SKILL.m
 
 ### DR Stage (Developer Review) - Provide Context
 
-Technical-lead (`company-workflow:technical-lead`) reviews DV output against systems-specific criteria (memory safety, undefined behavior, error-handling discipline, unsafe constructs, build hygiene, Linux/macOS portability). Language agents support DR by:
+Technical-lead (`corpflow:technical-lead`) reviews DV output against systems-specific criteria (memory safety, undefined behavior, error-handling discipline, unsafe constructs, build hygiene, Linux/macOS portability). Language agents support DR by:
 
 - Flagging known trade-offs in `development-N.md` under "DR Focus" section
 - Responding to DR findings by routing to `system-developer:sys-code-fixer` (minimal-diff application) or `system-developer:system-architector` (pattern consult)

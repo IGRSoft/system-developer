@@ -1,6 +1,6 @@
 {
   "name": "system-developer",
-  "description": "Systems development toolkit with specialized agents for C (C17/C23), C++ (C++17/20/23, C++26 emerging), Python 3.14, and Bash/POSIX shell. Full company-workflow v4.0.0 11-stage workflow integration (PL\u2192AR\u2192TL\u2192DV\u2192DR\u2192SR\u2192QA\u2192DC\u2192RE\u2192FN\u2192ST): handoff-protocol (development-N.md, state.json, frontmatter schema), requires_screenshots:false / cli-fallback evidence norm, scoped Bash toolchain allowlists, qualified Task() delegation, and plugin-scoped audit/checkpoint hooks.",
+  "description": "Systems development toolkit with specialized agents for C (C17/C23), C++ (C++17/20/23, C++26 emerging), Python 3.14, and Bash/POSIX shell. Full corpflow v4.0.13 11-stage workflow integration (PL\u2192AR\u2192TL\u2192DV\u2192DR\u2192SR\u2192QA\u2192DC\u2192RE\u2192FN\u2192ST): handoff-protocol (development-N.md, state.json, frontmatter schema), requires_screenshots:false / cli-fallback evidence norm, scoped Bash toolchain allowlists, qualified Task() delegation, and plugin-scoped audit/checkpoint hooks.",
   "version": "1.6.0",
   "author": {
     "name": "IGRSoft",

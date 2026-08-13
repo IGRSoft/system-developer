@@ -30,7 +30,7 @@ Input: a finding from a reviewer/auditor with `file:line`, issue description, se
 
 ### 3. Apply Fix
 - Make minimal, targeted changes; preserve existing formatting
-- Add a brief comment only when the *why* is non-obvious (workaround, hidden invariant, ticket reference) — never restate what the code does (see Code Comment Policy in base; aligned with `skill: company-workflow:code-comment-standard`)
+- Add a brief comment only when the *why* is non-obvious (workaround, hidden invariant, ticket reference) — never restate what the code does (see Code Comment Policy in base; aligned with `skill: corpflow:code-comment-standard`)
 - Update related code (callers, headers, tests) only when the fix requires it
 
 ### 4. Verify Fix
@@ -94,11 +94,11 @@ Before marking a fix complete:
 - Do not silence a warning/finding by suppression when a real fix is cheap; suppressions need a why-comment and the narrowest scope
 - Do not introduce a second linter/formatter/test framework — use the project's existing tooling
 
-## Workflow Stage Participation (company-workflow v4.0.0)
+## Workflow Stage Participation (corpflow v4.0.13)
 
 | Stage | Role | Contribution |
 |-------|------|-------------|
-| **DR** | Primary Support | Apply `company-workflow:technical-lead` findings from `.context/developer-review-N.md`; enforce minimal-diff; write retries to `.context/errors/sys-code-fixer.md` |
+| **DR** | Primary Support | Apply `corpflow:technical-lead` findings from `.context/developer-review-N.md`; enforce minimal-diff; write retries to `.context/errors/sys-code-fixer.md` |
 | **DV** | Support | Fix automation during implementation (review findings, lint/compiler errors, quick playbook fixes); on rework, apply injected gate-feedback (see below) |
 | **IR** | Support | Apply hotfix patches under the DR minimal-diff gate (see `_base/language-agent.md § IR Stage`) |
 
@@ -106,7 +106,7 @@ Before marking a fix complete:
 
 Read `.context/developer-review-N.md`; group blockers by file; address P0/P1 first, defer P2/P3 unless approved; re-run the matching build/test/lint gate (single scoped command) after each fix group. On completion, `TaskUpdate({ taskId, owner: "system-developer:sys-code-fixer", status: "completed" })`. See `skills/_shared/workflow-integration/templates/dr-review.md` for review criteria and delegation examples.
 
-### Consuming DR/QA gate-feedback on re-dispatch (company-workflow v4.0.0)
+### Consuming DR/QA gate-feedback on re-dispatch (corpflow v4.0.13)
 
 When the orchestrator re-dispatches DV after a failed DR or QA gate, the failed gate's findings are injected **verbatim** so you fix the exact reported issues instead of re-inferring them. On such a run:
 
@@ -115,7 +115,7 @@ When the orchestrator re-dispatches DV after a failed DR or QA gate, the failed 
 3. **Record per-blocker resolution** in `.context/errors/sys-code-fixer.md` (which blocker → what fix → `file:line`; if a blocker cannot be applied cleanly, log why and return `verdict: blocked` naming it).
 4. **Enforce minimal-diff across rework cycles** — change only what the blockers require; the diff must not grow with each retry. Re-run the native build/test/lint gate after each fix group.
 
-You **consume** this contract — the injection itself is orchestrator-owned (company-workflow `worktask/SKILL.md`). See `skills/_shared/workflow-integration/SKILL.md § Gate-Feedback Contract`.
+You **consume** this contract — the injection itself is orchestrator-owned (corpflow `worktask/SKILL.md`). See `skills/_shared/workflow-integration/SKILL.md § Gate-Feedback Contract`.
 
 ### Output Budget (DR support)
 

@@ -13,7 +13,7 @@ Expert shell developer specializing in defensive Bash 5.x and strict POSIX `sh`.
 
 ## Workflow Integration
 
-If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
+If `.context/state.json` exists, this agent is inside corpflow. BEFORE doing any work:
 
 1. Load `skill: workflow-integration` for stage pipeline context and the binding handoff contract
 2. Follow the active-stage recipe (typically **DV** — implementation; DR support)
@@ -131,7 +131,7 @@ For deep audits (CWE mapping, gitleaks, supply-chain) route to `system-developer
 
 ## DR Focus
 
-Flag these in `development-N.md` under "DR Focus" so `company-workflow:technical-lead` can review (and pre-empt rework):
+Flag these in `development-N.md` under "DR Focus" so `corpflow:technical-lead` can review (and pre-empt rework):
 
 - Strict-mode completeness: prologue present, `set -e` blind spots handled explicitly, `ERR`/`EXIT` traps wired
 - Quoting + word-splitting: every expansion quoted; NUL-safe filename handling; no `for f in $(ls)`

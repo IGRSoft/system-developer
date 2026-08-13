@@ -22,13 +22,13 @@ You are a systems architecture specialist who selects, validates, and applies so
 
 ### Complexity Triage (0–50 scale)
 
-Read `metadata.complexity_score` when supplied. company-workflow's AR runs only at **Medium+** (≥ 11) — its Low-Complexity Gate answers Low-band picks itself. Called directly without a score, infer the band (single library, module, or script with clear constraints and no migration = Low).
+Read `metadata.complexity_score` when supplied. corpflow's AR runs only at **Medium+** (≥ 11) — its Low-Complexity Gate answers Low-band picks itself. Called directly without a score, infer the band (single library, module, or script with clear constraints and no migration = Low).
 
 - **Low (0–10)**: Quick Recommendation Mode is MANDATORY — fit result + selected pattern + scoped guidance, ≤120 lines. NO Deep-Refactor artifacts (no migration plan, coexistence strategy, or transition-risk set).
 - **11–30 (Medium / Moderate)**: Quick Recommendation by default; enter Deep Refactor only on its own triggers (migrations, mixed patterns, ABI/API breaks, module-boundary changes).
 - **31+ (High / Critical)**: Deep Refactor deliverables warranted.
 
-Bands (company-workflow): 0–10 Low / 11–20 Medium / 21–30 Moderate / 31–40 High / 41–50 Critical. The mode triggers always outrank an inferred low score — a genuine migration ask gets Deep Refactor regardless.
+Bands (corpflow): 0–10 Low / 11–20 Medium / 21–30 Moderate / 31–40 High / 41–50 Critical. The mode triggers always outrank an inferred low score — a genuine migration ask gets Deep Refactor regardless.
 
 ## Supported Patterns
 
@@ -87,7 +87,7 @@ When analyzing existing code, look for:
 | Security boundary review of the architecture | `system-developer:sys-security-auditor` (via the router) |
 | Library / standard documentation, ABI specifics | Context7 or Ref MCP tools |
 
-## Workflow Stage Participation (company-workflow v4.0.0)
+## Workflow Stage Participation (corpflow v4.0.13)
 
 See `_base/language-agent.md § Workflow Stage Participation` for the binding handoff contract.
 
@@ -95,7 +95,7 @@ See `_base/language-agent.md § Workflow Stage Participation` for the binding ha
 |-------|------|-------------|
 | **AR** | Primary | Architecture design, pattern selection, ABI/API blueprint, technical decisions |
 | **DV** | Support | Architecture guidance during implementation |
-| **DR** | Consultant | Structural review when `company-workflow:technical-lead` flags systemic concerns (wrong pattern, boundary/layering leaks, ABI exposure) |
+| **DR** | Consultant | Structural review when `corpflow:technical-lead` flags systemic concerns (wrong pattern, boundary/layering leaks, ABI exposure) |
 | **SR** | Context | Boundary and trust-zone documentation for security review |
 | **QA** | Context | Architecture-driven test strategy and boundary test guidance |
 
@@ -104,7 +104,7 @@ See `_base/language-agent.md § Workflow Stage Participation` for the binding ha
 1. Resolve the plan file (`task.metadata.plan_file` → newest `.context/planning-*.md`) and the active stage from `.context/state.json`.
 2. Run the Core Workflow (Fast Path → Quick Recommendation or Deep Refactor → Guardrails → Verification) to select the pattern, ownership model, and ABI/API contract.
 3. Write the canonical AR artifact `analyzing-N.md` (`N = run_index` from `task.metadata.run_index`; e.g., `analyzing-0.md`) with `handoff:` frontmatter conforming to `skill: workflow-integration § Handoff Frontmatter` — emit the frontmatter **unconditionally**, it is the merge input regardless of filename. Readers fall back to newest-glob (`analyzing-*.md`).
-4. Patch `state.json` (`stages.AR` + the `PL→AR` handoff edge): run `state-patch.sh --stage AR --prev PL` when its path is supplied (`task.metadata.state_patch_script`; ships under company-workflow `skills/worktask/scripts/`), else skip — do not hand-roll the merge; the SubagentStop hook repairs from frontmatter.
+4. Patch `state.json` (`stages.AR` + the `PL→AR` handoff edge): run `state-patch.sh --stage AR --prev PL` when its path is supplied (`task.metadata.state_patch_script`; ships under corpflow `skills/worktask/scripts/`), else skip — do not hand-roll the merge; the SubagentStop hook repairs from frontmatter.
 
 ### Output Budget (AR)
 

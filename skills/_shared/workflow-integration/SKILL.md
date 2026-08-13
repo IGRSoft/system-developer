@@ -1,11 +1,11 @@
 ---
 name: workflow-integration
-description: Guide for integrating with company-workflow 11-stage workflow system (v4.0.0). Use when participating in structured workflow stages.
+description: Guide for integrating with corpflow 11-stage pipeline (v4.0.13). Use when participating in structured workflow stages.
 ---
 
 # Workflow Integration Guide
 
-When invoked from the company-workflow workflow system, follow these guidelines for seamless collaboration.
+When invoked from corpflow, follow these guidelines for seamless collaboration.
 
 ## 11-Stage Pipeline (Default)
 
@@ -15,7 +15,7 @@ PL → AR → TL → DV → DR → SR → QA → DC → RE → FN → ST
    system-developer agents contribute to AR, DV, DR, SR, QA, and RE
 ```
 
-| Code | Stage | company-workflow Agent | system-developer Contribution |
+| Code | Stage | corpflow Agent | system-developer Contribution |
 |------|-------|---------------|-------------------------------|
 | PL | Planning | product-manager | — |
 | AR | Architecture | software-architector | system-architector (consultation: layering, ownership models, API/ABI design) |
@@ -31,7 +31,7 @@ PL → AR → TL → DV → DR → SR → QA → DC → RE → FN → ST
 
 ## Worktask Invocation (v4.0.0)
 
-Launch is **only** via the `/worktask` slash command (or `Skill company-workflow:worktask`) plus flags. Message-prefix triggers (`micro:`/`quick:`/`worktask:`/`fworktask:`/`emergency:`) are **removed**. PL0 dynamic sizing selects which of the 9 stages run.
+Launch is **only** via the `/worktask` slash command (or `Skill corpflow:worktask`) plus flags. Message-prefix triggers (`micro:`/`quick:`/`worktask:`/`fworktask:`/`emergency:`) are **removed**. PL0 dynamic sizing selects which of the 9 stages run.
 
 | Flag | Effect |
 |------|--------|
@@ -57,7 +57,7 @@ system-developer agents are **invoked specialists that run between the gates** �
 
 ## DV Contract for Systems Work
 
-The DV agent writes `.context/development-N.md`. Mandatory H2 anchors are fixed by company-workflow's anchor allow-list (`handoff-protocol.md#anchor-allow-list`): `## files-changed`, `## tests-added`, `## deviations`, `## follow-ups`. Systems-specific sections nest as H3 under them:
+The DV agent writes `.context/development-N.md`. Mandatory H2 anchors are fixed by corpflow's anchor allow-list (`handoff-protocol.md#anchor-allow-list`): `## files-changed`, `## tests-added`, `## deviations`, `## follow-ups`. Systems-specific sections nest as H3 under them:
 
 | Section | Anchor level | Content |
 |---------|--------------|---------|
@@ -79,13 +79,13 @@ Build Evidence is non-negotiable, but **which rows apply depends on the language
 
 Every language needs a toolchain line, its own gate result, and a transcript path; an artifact missing those is incomplete. Never demand a compiler line or a `-Wall -Wextra` count from a pure Python or Bash change, and never satisfy one by fabricating a value — record that language's row instead. Tee raw build/test output to `.context/logs/<tool>-<worktask_id>.log`.
 
-Source comments follow the compact code-documentation standard (`company-workflow:code-comment-standard` / company-workflow `skills/shared/code-documentation.md`): comment the non-obvious WHY and the contract only — never the WHAT, history, or call sites; rationale lives in the PR / `.context/development-N.md`. DR flags violations.
+Source comments follow the compact code-documentation standard (`corpflow:code-comment-standard` / corpflow `skills/shared/code-documentation.md`): comment the non-obvious WHY and the contract only — never the WHAT, history, or call sites; rationale lives in the PR / `.context/development-N.md`. DR flags violations.
 
 Copy-paste template: [templates/dv-development.md](templates/dv-development.md).
 
 ## Screenshot Gate for CLI Work (HIGHEST INTEGRATION RISK — read this)
 
-company-workflow's `dv-screenshot-gate.sh` blocks `SubagentStop` when `metadata.requires_screenshots != false` and no manifest exists at `.context/images/<worktask_id>/screenshots.md`. The company-workflow default is **TRUE** — but systems/CLI work has no UI to screenshot. Handle it in this order:
+corpflow's `dv-screenshot-gate.sh` blocks `SubagentStop` when `metadata.requires_screenshots != false` and no manifest exists at `.context/images/<worktask_id>/screenshots.md`. The corpflow default is **TRUE** — but systems/CLI work has no UI to screenshot. Handle it in this order:
 
 1. **Preferred**: the dispatcher sets `metadata.requires_screenshots: false` for system-developer DV stages (non-UI changes). Then no manifest is required and the gate is skipped. Plugin norm: `requires_screenshots: false` is the **default expectation** for systems work — flag it in your return summary if the metadata says otherwise.
 2. **cli-fallback procedure** (when the flag is unset/true and you cannot change it): produce the manifest anyway using terminal transcripts —
@@ -93,9 +93,9 @@ company-workflow's `dv-screenshot-gate.sh` blocks `SubagentStop` when `metadata.
    - Write `.context/images/<worktask_id>/screenshots.md` with one row per capture, `source: cli-fallback`, and a `notes` cell explaining why (e.g. "CLI tool, no UI; transcript capture").
    - Frontmatter `screenshot_count` MUST equal the number of table rows.
 3. **Never** fabricate image files or return without either the `false` flag or a cli-fallback manifest — the gate re-dispatches DV until one exists.
-4. **Evidence freshness**: every `cli-fallback` transcript row must be produced *this run* from the actual build/test invocation — never reuse a transcript from a prior run or another workdir. company-workflow QA direct-reads the evidence files and cross-checks them against the log paths recorded in the DV artifact's `### build-evidence` section; a stale or duplicated transcript is flagged and re-opens DV. This is the text-evidence corollary of rule 3 — the "never fabricate" integrity bar applies to reused transcripts as much as to invented image files.
+4. **Evidence freshness**: every `cli-fallback` transcript row must be produced *this run* from the actual build/test invocation — never reuse a transcript from a prior run or another workdir. corpflow QA direct-reads the evidence files and cross-checks them against the log paths recorded in the DV artifact's `### build-evidence` section; a stale or duplicated transcript is flagged and re-opens DV. This is the text-evidence corollary of rule 3 — the "never fabricate" integrity bar applies to reused transcripts as much as to invented image files.
 
-Manifest row format mirrors company-workflow's `dv-screenshot-capture` output: `| name | path | source | design_ref | notes |` with `source` ∈ {`cli-fallback`} for systems work; `design_ref` stays blank (no mockups for CLI).
+Manifest row format mirrors corpflow's `dv-screenshot-capture` output: `| name | path | source | design_ref | notes |` with `source` ∈ {`cli-fallback`} for systems work; `design_ref` stays blank (no mockups for CLI).
 
 `ui_visual_check` (the v4.0.0 DV metadata contract field) is **not applicable** to systems/CLI work — leave it `false`; it gates live-driven UI-capture provenance on UI platforms, which have no analog here.
 
@@ -125,7 +125,7 @@ technical-lead reads `development-N.md` + error files and produces `developer-re
 | Error-handling discipline | No bare `except:` (Python); no swallowed `errno` / unchecked return values (C); `set -euo pipefail` present and its caveats handled (Bash); no `\|\| true` masking failures |
 | Unsafe constructs | `strcpy`/`strcat`/`sprintf`/`gets` (C); `eval`, unquoted expansions (Bash); `pickle.loads` on untrusted data, `subprocess(..., shell=True)`, `yaml.load` without `SafeLoader` (Python); `system()` with user input |
 | Build hygiene | 0 warnings at `-Wall -Wextra` (ruff/shellcheck clean for Python/Bash); no committed build artifacts; lockfiles updated with manifest changes; `compile_commands.json` regenerated when targets change |
-| Comment hygiene | Comments follow the compact code-documentation standard (`company-workflow:code-comment-standard`): WHY/contract only, no design provenance, history, or call-site enumeration; no restated code |
+| Comment hygiene | Comments follow the compact code-documentation standard (`corpflow:code-comment-standard`): WHY/contract only, no design provenance, history, or call-site enumeration; no restated code |
 
 Template: [templates/dr-review.md](templates/dr-review.md).
 
@@ -140,12 +140,12 @@ sys-test-generator supports QA with framework-native generation (GoogleTest/Catc
 
 ## SR and RE Contributions
 
-- **SR** — sys-security-auditor provides platform context to company-workflow's security-reviewer: sanitizer evidence, CWE Top 25 mapping, injection review (command/SQL/path/format-string), secrets scan, supply-chain audit (`pip-audit`, `osv-scanner`), hardening flags (`-D_FORTIFY_SOURCE=3`, RELRO, PIE — verified via `checksec`/`readelf`/`otool`). Review-only: findings route to sys-code-fixer for application.
+- **SR** — sys-security-auditor provides platform context to corpflow's security-reviewer: sanitizer evidence, CWE Top 25 mapping, injection review (command/SQL/path/format-string), secrets scan, supply-chain audit (`pip-audit`, `osv-scanner`), hardening flags (`-D_FORTIFY_SOURCE=3`, RELRO, PIE — verified via `checksec`/`readelf`/`otool`). Review-only: findings route to sys-code-fixer for application.
 - **RE** — release-engineer owns the stage; system-developer contributes packaging: sys-dependency-manager freezes lockfiles/pins (vcpkg baselines, Conan lockfiles, `uv.lock`), and the language agents produce release artifacts (tarballs, wheels/sdists via `uv build`, version bumps, changelog entries) recorded in `release-N.md`.
 
 ## Artifact Filename Contract (v4.0.0)
 
-**Numbered `<stage>-N.md` names are canonical** per company-workflow's authoritative `handoff-protocol.md#stage-artifact-map`. N is allocated by PL0 (same value as `planning-N.md`), shared across all stages within a run, and propagated via `task.metadata.run_index`; it bumps on gate loop-back re-dispatch. Readers fall back to newest-glob (`<basename>-*.md`).
+**Numbered `<stage>-N.md` names are canonical** per corpflow's authoritative `handoff-protocol.md#stage-artifact-map`. N is allocated by PL0 (same value as `planning-N.md`), shared across all stages within a run, and propagated via `task.metadata.run_index`; it bumps on gate loop-back re-dispatch. Readers fall back to newest-glob (`<basename>-*.md`).
 
 | Stage | Artifact | Owner |
 |-------|----------|-------|
@@ -179,7 +179,7 @@ Every stage artifact MUST start with a YAML block between `---` markers. Budgets
 
 ## Gate-Feedback Contract (v4.0.0)
 
-When DR returns `verdict: fail` or QA returns `verdict: no-go`, the orchestrator re-dispatches DV (`run_index` bumped, `retry_count`++) and carries the upstream remediation **verbatim** into the retry prompt (company-workflow `worktask/SKILL.md` step 4.6). system-developer agents **consume** this contract; the injection is orchestrator-owned.
+When DR returns `verdict: fail` or QA returns `verdict: no-go`, the orchestrator re-dispatches DV (`run_index` bumped, `retry_count`++) and carries the upstream remediation **verbatim** into the retry prompt (corpflow `worktask/SKILL.md` step 4.6). system-developer agents **consume** this contract; the injection is orchestrator-owned.
 
 | Surface | Mechanism | system-developer action |
 |---------|-----------|-------------------------|
@@ -199,8 +199,8 @@ All Task delegations MUST use the fully-qualified `plugin:agent` form:
 | Form | Status |
 |------|--------|
 | `system-developer:cpp-developer` | Required |
-| `company-workflow:technical-lead` | Required |
-| `cpp-developer` (bare) | Deprecated — back-compat shim prepends `company-workflow:` and logs a warning (would resolve to the wrong plugin) |
+| `corpflow:technical-lead` | Required |
+| `cpp-developer` (bare) | Deprecated — back-compat shim prepends `corpflow:` and logs a warning (would resolve to the wrong plugin) |
 
 Task metadata carries qualified names:
 
@@ -219,10 +219,10 @@ Task metadata carries qualified names:
 
 ## Token Budgets
 
-- **Incoming compressed context** (from company-workflow): 300-500 tokens (planning summary 300, architecture summary 300, development handoff 500)
+- **Incoming compressed context** (from corpflow): 300-500 tokens (planning summary 300, architecture summary 300, development handoff 500)
 - **Full stage output**: write to `.context/<stage>-N.md` (no token cap)
 - **Outgoing return summary**: 500 tokens max (for the orchestrator)
-- **Inter-stage handoffs**: DV→DR 300, DR→QA 300 (`company-workflow:context-compression § Context Budget by Handoff`)
+- **Inter-stage handoffs**: DV→DR 300, DR→QA 300 (`corpflow:context-compression § Context Budget by Handoff`)
 
 ## Detecting Workflow Context
 
@@ -246,7 +246,7 @@ PL0 assesses complexity (0-50) and creates only the stages needed:
 
 Security-sensitive features (authentication, payment, PII, cryptography, secrets, file uploads) auto-include SR0 regardless of score.
 
-PL0 stamps `metadata.skipped_stages = [{stage, reason}]` for every stage dropped from the full 9-stage pipeline (PL→AR→TL→DV→DR→QA→DC→FN→ST), so `state.json` self-documents the drops. It also stamps `metadata.test_mode` (`build-only` / `scoped` / `full` — defaulted by score and marker coverage) and `metadata.ui_visual_check` (the UI-capture provenance gate, left `false` for systems/CLI work). The stage table above, the `test_mode` defaults, and these stamps are all defined by company-workflow `estimation-methodology § PL0 Stage-Set` (the source of truth) — keep them in lockstep with it so the next sync is a mechanical copy.
+PL0 stamps `metadata.skipped_stages = [{stage, reason}]` for every stage dropped from the full 9-stage pipeline (PL→AR→TL→DV→DR→QA→DC→FN→ST), so `state.json` self-documents the drops. It also stamps `metadata.test_mode` (`build-only` / `scoped` / `full` — defaulted by score and marker coverage) and `metadata.ui_visual_check` (the UI-capture provenance gate, left `false` for systems/CLI work). The stage table above, the `test_mode` defaults, and these stamps are all defined by corpflow `estimation-methodology § PL0 Stage-Set` (the source of truth) — keep them in lockstep with it so the next sync is a mechanical copy.
 
 ## MCP Dynamic Inheritance
 
@@ -256,16 +256,16 @@ Subagents inherit the parent session's MCP tools (Context7, Ref, etc.). Do not r
 
 If no workflow context is detected (no `.context/`, no task metadata), proceed with standard implementation: follow the language skills, run the same build/test/sanitizer discipline, and report results directly — no artifacts or frontmatter required.
 
-## Related Skills (company-workflow plugin)
+## Related Skills (corpflow plugin)
 
 | Skill | Purpose |
 |-------|---------|
-| `company-workflow:worktask` | Complete worktask system documentation |
-| `company-workflow:cross-plugin-handoff` | Handoff protocol between plugins |
-| `company-workflow:agent-coordination` | Multi-agent coordination patterns |
-| `company-workflow:context-compression` | Token budgets and compression techniques |
-| `company-workflow:security-review-process` | SR stage OWASP checklists |
-| `company-workflow:release-engineering` | RE stage versioning patterns |
+| `corpflow:worktask` | Complete worktask system documentation |
+| `corpflow:cross-plugin-handoff` | Handoff protocol between plugins |
+| `corpflow:agent-coordination` | Multi-agent coordination patterns |
+| `corpflow:context-compression` | Token budgets and compression techniques |
+| `corpflow:security-review-process` | SR stage OWASP checklists |
+| `corpflow:release-engineering` | RE stage versioning patterns |
 
 ## Related Skills (system-developer plugin)
 

@@ -5,7 +5,7 @@ description: Shared marker-to-language-to-agent routing table for system-develop
 
 # Language Detection & Agent Routing
 
-Single source of truth for the marker → language → agent mapping used by `system-developer` (router), `company-workflow:developer`, and every command that scopes work per language. Keep command-local detection logic in sync with this file — do not fork the table.
+Single source of truth for the marker → language → agent mapping used by `system-developer` (router), `corpflow:developer`, and every command that scopes work per language. Keep command-local detection logic in sync with this file — do not fork the table.
 
 ## Detection Priority Order
 
