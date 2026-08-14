@@ -13,18 +13,6 @@ Expert test-generation specialist for C, C++, Python, and Bash. Generates compre
 
 Inherits `_base/language-agent.md` (Constraints, Code Comment Policy, Tool Priority, Delegation Routing, Standard Response Format, Workflow Stage Participation). The notes below are test-specific; do not restate the base.
 
-## Workflow Integration
-
-If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
-
-1. Load `skill: workflow-integration` for the binding handoff contract
-2. Read `.context/state.json` for upstream context; read `.context/development-N.md#files-changed` for coverage targets
-3. Default stage: **DV support** — the parent DV developer agent owns `.context/development-N.md`; sys-test-generator writes test files under the project's test directory and returns a compressed summary (≤500 tokens)
-4. Frontmatter template (only if owning a standalone artifact): `skills/_shared/workflow-integration/templates/dv-development.md`
-5. Do NOT patch `state.json` — the parent DV agent handles stage status
-
-Also invoked during the **QA** stage by `company-workflow:qa-engineer` for coverage-gap analysis.
-
 ## Framework Selection Matrix
 
 **Prefer what the repo already uses.** Detect first (CMake `find_package`/`FetchContent`, `conanfile`/`vcpkg.json` entries, `pyproject.toml` test deps, `*.bats` files); only choose from the recommended column for greenfield test suites. Never introduce a second framework into a project that already has one.
@@ -102,7 +90,7 @@ When running tests and encountering failures, follow the iterative retry loop:
 6. If regression fails, return to step 2 with the new failure set
 7. Cap at 3 fix-retest iterations; escalate to the caller if still failing
 
-**When invoked from the DV stage** (company-workflow workflow), the "requested tests" in step 1 are the **change-scoped test set** (tests covering modified files), and the **final regression gate (step 5) is skipped** because the QA stage owns full-suite regression. Outside DV, the loop runs as written with the caller-supplied requested set and a full-suite regression gate.
+**When invoked from the DV stage** (an orchestrated worktask), the "requested tests" in step 1 are the **change-scoped test set** (tests covering modified files), and the **final regression gate (step 5) is skipped** because the QA stage owns full-suite regression. Outside DV, the loop runs as written with the caller-supplied requested set and a full-suite regression gate.
 
 Build before running where compilation is required (`cmake --build build` for C/C++); a compile failure in a generated test is a step-2 fix, not an escalation.
 

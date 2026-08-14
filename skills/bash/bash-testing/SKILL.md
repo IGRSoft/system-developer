@@ -223,4 +223,4 @@ binary_next_line = true
 - [bash-scripting](../bash-scripting/SKILL.md) — strict-mode prologue, defensive patterns, and portability the tests exercise.
 - [testing-principles](../../_shared/testing-principles.md) — language-agnostic test design (AAA, isolation, naming).
 - [diagnostics](../../tooling/diagnostics/SKILL.md) — running tests and linters under the broader toolchain.
-- [workflow-integration](../../_shared/workflow-integration/SKILL.md) — QA-gate expectation that bats + ShellCheck pass before handoff.
+- [CORPFLOW.md](../../../CORPFLOW.md) — QA-gate expectation that bats + ShellCheck pass before handoff.

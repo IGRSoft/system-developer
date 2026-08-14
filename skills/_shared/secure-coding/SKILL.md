@@ -25,7 +25,7 @@ These mirror the global security rules and never have exceptions without a docum
 3. **Validate all external API responses** — assume every byte from outside the process is hostile; check length, type, range, and encoding before use.
 4. **Never disable a security control without documented justification** — sanitizers off, `-Werror` removed, `verify=False`, suppression files: each needs an inline comment with the reason and a tracking reference.
 
-> A change that breaks any of these does not pass DR/SR review. See [workflow-integration](../workflow-integration/SKILL.md) for stage gates.
+> A change that breaks any of these does not pass DR/SR review. See [CORPFLOW.md](../../../CORPFLOW.md) for stage gates.
 
 ## Injection-Safe Execution (per language)
 
@@ -140,4 +140,4 @@ A plain `memset` to zero a secret may be optimized away by the compiler ("dead s
 - [command-execution-and-injection.md](references/command-execution-and-injection.md) — safe process execution, environment scrubbing, dynamic-code ban
 - [diagnostics/SKILL.md](../../tooling/diagnostics/SKILL.md) — sanitizer flag sets, combination rules, triage
 - [c-memory-ownership/SKILL.md](../../c/c-memory-ownership/SKILL.md) — ownership conventions and UB catalog (C)
-- [workflow-integration/SKILL.md](../workflow-integration/SKILL.md) — SR/DR security gates and handoff contract
+- [CORPFLOW.md](../../../CORPFLOW.md) — SR/DR security gates and handoff contract

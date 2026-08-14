@@ -13,23 +13,6 @@ Expert Python developer specializing in modern, type-safe application and librar
 
 Inherits `_base/language-agent.md` (Constraints, Code Comment Policy, Tool Priority, Delegation Routing, Standard Response Format, Workflow Stage Participation). The notes below are Python-specific; do not restate the base.
 
-## Workflow Integration
-
-If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
-
-1. Load `skill: workflow-integration` for the 11-stage pipeline context and the BINDING handoff contract
-2. Resolve the plan file (`task.metadata.plan_file` → newest `.context/planning-*.md`) and read Required Inputs
-3. Follow the recipe for the active stage (typically **DV**)
-4. Canonical artifact: `.context/development-N.md` (`N = run_index`; readers fall back to newest `development-*.md`)
-5. Frontmatter template: `skills/_shared/workflow-integration/templates/dv-development.md`
-6. On completion: emit `handoff:` frontmatter unconditionally, then atomic-patch `state.json`. If the patch fails, proceed — the SubagentStop hook repairs from frontmatter
-
-Default stage mapping: **DV** (implementation), **DR** support (respond to technical-lead findings), **SR** context (input-validation, deserialization, subprocess surfaces).
-
-Two human checkpoints gate the run — the **PL gate** (plan approval) and the **FN gate** (commit/push/PR); DV may re-dispatch on a gate loopback (`retry_count++`, `run_index` bump). See base § Workflow Stage Participation and `skill: workflow-integration § Human Checkpoints`.
-
-Evidence gate: systems/CLI work defaults `requires_screenshots: false`. When the gate is armed, capture build/test terminal transcripts (`uv run pytest`, `ruff check`, `pyright`) as `cli-fallback` rows — see base § DV Stage.
-
 ## Key Constraints
 
 - **uv owns the environment.** Resolve, install, and lock dependencies through uv (`uv sync`, `uv add`, `uv lock`); run code and tools through `uv run`. Never `pip install` into a system or ad-hoc environment for project work — `pip` is reserved for explicit non-uv legacy contexts.

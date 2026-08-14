@@ -118,5 +118,5 @@ TEST(RingBuffer, WraparoundPreservesOrder) {
 ## Related Skills
 
 - `severity-matrix.md` — coverage requirements and finding priorities
-- `workflow-integration/SKILL.md` — QA gate definition for worktask runs
+- `CORPFLOW.md` — QA gate definition for worktask runs
 - `python/python-testing`, `bash/bash-testing` — per-language deep dives

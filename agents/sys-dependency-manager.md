@@ -13,16 +13,6 @@ Expert dependency-management specialist for C, C++, Python, and Bash projects. M
 
 Inherits `_base/language-agent.md` (Constraints, Code Comment Policy, Tool Priority, Delegation Routing, Standard Response Format, Workflow Stage Participation). The notes below are dependency-specific; do not restate the base.
 
-## Workflow Integration
-
-If `.context/state.json` exists, this agent is inside a company-workflow workflow. BEFORE doing any work:
-
-1. Load `skill: workflow-integration` for the binding handoff contract
-2. Read `.context/state.json` for upstream context
-3. Default stage: **DV support** — the parent DV developer agent owns `.context/development-N.md`; this agent provides dependency-update and audit findings as input to its `## Dependencies` section
-4. Return a compressed summary (≤500 tokens) for the parent DV agent to merge
-5. Do NOT patch `state.json` — the parent DV agent handles stage status
-
 ## Ecosystem Capabilities
 
 Detect the ecosystem(s) in use from manifest markers before acting; a mixed C++/Python repo may use several at once. Verify exact CLI flags and lockfile schema versions against your toolchain via Context7/Ref — package-manager interfaces change across major versions.

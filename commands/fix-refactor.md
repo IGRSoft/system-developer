@@ -232,7 +232,7 @@ Rows marked MAJOR (Rule 8) are surfaced in the report before application and are
 
 > Per the user's git conventions: no `--no-verify`, no AI-attribution footers, follow the repo's commit format, and branch first if on a protected branch. Keep refactoring commits separate from feature commits.
 
-> Rationale and before/after notes belong in the PR or `.context/development-N.md`, NOT in source comments (`company-workflow:code-comment-standard`) — source comments carry only the non-obvious WHY and the contract.
+> Rationale and before/after notes belong in the PR or `.context/development-N.md`, NOT in source comments (`corpflow:code-comment-standard`) — source comments carry only the non-obvious WHY and the contract.
 
 ### Phase 6: Report
 
