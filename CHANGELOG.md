@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
 per the company-workflow `/cc-update` convention.
 
+## [1.6.2] — 2026-08-15
+
+### Fixed
+
+- **Audit rows are no longer duplicated across installed plugins.** Every installed dev
+  plugin registers its own copy of `hooks/audit-tooluse.sh` and `hooks/audit-subagent.sh`,
+  and all of them fire on the same event, so one tool call was recorded six times — twelve
+  for subagent-stop, which fires twice per stop. A measured five-hour run produced 2,837
+  audit rows of which 2,265 (80%) were advisory duplicates, and every reader of
+  `audit.jsonl` paid to parse them.
+
+  `metadata.dedupe_key` was already present and already identical across all copies;
+  nothing consulted it. The header comment in both hooks promised that "the orchestrator's
+  audit-dedup hook" would reconcile these rows, but no such hook exists. Both hooks now
+  reconcile at the point of writing: if the key is already present in the tail of
+  `audit.jsonl`, the advisory row is dropped.
+
+  The canonical orchestrator row is never suppressed — it is written by a different hook
+  that carries no advisory flag and performs no such check. Distinct events are unaffected;
+  only exact `dedupe_key` repeats are dropped.
+
 ## [1.6.1] — 2026-08-15
 
 ### Changed
