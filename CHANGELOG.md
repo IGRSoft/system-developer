@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/). Version strings move
 together across `plugin.json`, `marketplace.json`, `README.md`, and `MEMORY.md`
 per the company-workflow `/cc-update` convention.
 
+## [1.6.1] — 2026-08-15
+
+### Changed
+
+- corpflow contract: the worktask state ledger moved from `stages.<CODE>` to `tasks.<ID>`
+  (`state.json` `version: 2`), so `CORPFLOW.md` names the new path. corpflow retired Claude Code's
+  Task System after CC 2.1.233 removed those tools on every model it dispatches.
+- `hooks/README.md`: corpflow's audit hook now matches `Write|Edit|Bash`, recording Bash rows only
+  for ledger patches.
+
 ## [1.6.0] — 2026-07-29
 
 Cross-language correctness audit. This plugin serves four languages with genuinely
