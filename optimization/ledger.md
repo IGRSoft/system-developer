@@ -12,7 +12,7 @@
 
 | path | type | status | done by | words before → after | note |
 |---|---|---|---|---|---|
-| commands/analyze-accessibility.md | command | todo |  | 1654 → | |
+| commands/analyze-accessibility.md | command | done | commands/analyze-accessibility.md | 1654 → 1116 | Merged shouted rules into 3 plain ones, dropped extended-thinking/plan-mode/version lines, Task→Agent tool, judge prompt now carries provisional severities instead of an unreachable skill ref |
 | commands/analyze-tech-debt.md | command | todo |  | 2806 → | |
 | commands/arch-review.md | command | todo |  | 3122 → | |
 | commands/arch-select.md | command | todo |  | 3117 → | |
@@ -39,7 +39,7 @@
 | agents/sys-security-auditor.md | agent | todo |  | 1170 → | |
 | agents/sys-test-generator.md | agent | todo |  | 1225 → | |
 | agents/system-architector.md | agent | todo |  | 1506 → | |
-| agents/system-developer.md | agent | todo |  | 831 → | |
+| agents/system-developer.md | agent | done | commands/analyze-accessibility.md | 831 → 428 | Merged agent table into routing tables, removed dead refs (Return Verification contract, Workflow Stage Participation in base), cut verbose Response Approach |
 | skills/SKILL.md | skill | todo |  | 1317 → | |
 | skills/_shared/secure-coding/SKILL.md | skill | todo |  | 1359 → | |
 | skills/bash/SKILL.md | skill | todo |  | 593 → | |
@@ -67,3 +67,8 @@
 
 ## Needs decision
 
+- `inherits: _base/language-agent.md` (all 11 agents) is not a Claude Code frontmatter field, so the base file is never loaded into subagents; its Constraints/Mandatory Requirements only reach agents that restate them. Decide: inline what matters per agent, or keep as documentation only. (found by commands/analyze-accessibility.md)
+- Several agents still cite a "Workflow Stage Participation" section in `_base/language-agent.md` that no longer exists (moved to CORPFLOW.md): bash-, c-, cpp-, python-developer, system-architector, sys-*. Fix in their own rows. (found by commands/analyze-accessibility.md)
+- `skill: severity-matrix` / `skill: language-detection` point at `skills/_shared/*.md`, which are not registered skills (no SKILL.md), so the `skill:` form can't be loaded by name; subagents running in a user project can't resolve them by path either. (found by commands/analyze-accessibility.md)
+- `mcp__Ref__*` tools in agent `tools:` lists: confirm the Ref MCP server is still expected; it is not bundled by this plugin. (found by commands/analyze-accessibility.md)
+- `estimated-cost` command frontmatter is not a Claude Code field; kept because README/MEMORY/CHANGELOG document it as a convention. Confirm whether anything consumes it. (found by commands/analyze-accessibility.md)
