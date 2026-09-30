@@ -63,11 +63,11 @@ scripts/detect_language.py --path /repo --json   # full verdict: language, confi
 It counts tracked sources via `git ls-files` (never `node_modules`, `build*/`,
 `.venv/`, vendored dirs), falling back to a pruned filesystem walk outside a git
 checkout. It routes to the dominant language's agent only when that language holds
->70% of source files; otherwise to the router (tie-break 7). The script **mirrors**
+>70% of source files; otherwise to the router (tie-break 7). The script mirrors
 this file — keep the two in sync when a rule changes.
 
 ## Related Skills
 
 - `CORPFLOW.md` — how the routed agent participates in DV
-- `model-selection.md` — model/effort to pass with the routed `Task()` call
+- `model-selection.md` — model/effort for the routed agent
 - `version-feature-matrix.md` — standard/version floors once the language is known

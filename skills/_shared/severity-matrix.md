@@ -70,10 +70,3 @@ Low Impact  └──────────────┴──────�
 | Business logic | 75% | 80%+ |
 | Utilities | 60% | 70%+ |
 | CLI surfaces / glue scripts | 50% | 60%+ |
-
-## Usage
-
-Reference this file in commands using:
-```markdown
-See: skills/_shared/severity-matrix.md for severity definitions
-```

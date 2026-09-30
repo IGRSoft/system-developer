@@ -1,14 +1,13 @@
 # Skills Index
 
 Root index for all system-developer skills (C, C++, Python, Bash, embedded, and
-shared tooling). **25 SKILL.md across 7 domains, plus shared references.** Start
-at [`SKILL.md`](SKILL.md) for the routing entry point.
+shared tooling). [`SKILL.md`](SKILL.md) is the routing entry point.
 
 ## Domains
 
 | Directory | Index | Skills | Description |
 |-----------|-------|--------|-------------|
-| [_shared/](_shared/_index.md) | [`_index.md`](_shared/_index.md) | 2 + refs | Cross-cutting patterns: workflow integration, secure coding, versions, routing, severity, testing principles |
+| [_shared/](_shared/_index.md) | [`_index.md`](_shared/_index.md) | 1 + refs | Secure coding, versions, routing, model selection, severity, testing principles |
 | [c/](c/SKILL.md) | [`_index.md`](c/_index.md) | 1 + 2 leaves | C17/C23 standard selection, C23 features, memory ownership, undefined behavior, C11/C17 concurrency |
 | [cpp/](cpp/SKILL.md) | [`_index.md`](cpp/_index.md) | 1 + 2 leaves | C++17/20/23 standard selection (plus C++26 emerging — DIS 2026), RAII and modern idioms, ranges, concepts, coroutines, concurrency |
 | [python/](python/SKILL.md) | [`_index.md`](python/_index.md) | 1 + 5 leaves | Python 3.12-3.14 features, typing, concurrency, uv/ruff tooling, pytest testing |
@@ -85,7 +84,7 @@ at [`SKILL.md`](SKILL.md) for the routing entry point.
 
 | Index Path | Contents |
 |------------|----------|
-| [`_shared/_index.md`](_shared/_index.md) | Shared skills: workflow, secure coding, versions, routing, severity, testing |
+| [`_shared/_index.md`](_shared/_index.md) | Shared: secure coding, versions, routing, model selection, severity, testing |
 | [`c/_index.md`](c/_index.md) | C entry + modern-c + c-memory-ownership |
 | [`cpp/_index.md`](cpp/_index.md) | C++ entry + modern-cpp + cpp-concurrency |
 | [`cpp/modern-cpp/references/_index.md`](cpp/modern-cpp/references/_index.md) | modern-cpp deep-dive references (C++17/20/23 features, ranges, error handling) |

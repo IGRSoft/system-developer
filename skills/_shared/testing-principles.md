@@ -22,7 +22,7 @@ Shared testing patterns, framework selection, coverage requirements, and quality
 
 ## Framework Matrix
 
-Detect the existing framework first — never introduce a second framework into a project that already has one.
+Detect the existing framework first; don't add a second framework to a project that already has one.
 
 | Language | Unit framework | Property / fuzz | Coverage tool | Focused run |
 |----------|----------------|-----------------|---------------|-------------|

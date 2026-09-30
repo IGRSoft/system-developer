@@ -2,11 +2,6 @@
 
 Quick navigation for cross-cutting references shared by all system-developer agents, commands, and skills.
 
-## Workflow Integration
-
-| File | Description |
-|------|-------------|
-
 ## Routing & Versions
 
 | File | Description |

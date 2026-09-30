@@ -43,7 +43,7 @@ Probe a specific feature instead of guessing: `scripts/check_feature_support.sh 
 
 **Fallback rows**:
 - Pre-3.14 t-strings: no backport — keep building safe DSLs with explicit escaping functions.
-- Pre-3.14 deferred annotations: keep `from __future__ import annotations`; **on 3.14 stop adding it** (PEP 649 supersedes it; the future import forces the older string semantics).
+- Pre-3.14 deferred annotations: keep `from __future__ import annotations`; on 3.14 stop adding it (PEP 649 supersedes it; the future import forces the older string semantics).
 - Pre-3.13/3.14 free-threading: use `multiprocessing` or C-extension GIL release for CPU parallelism.
 - Minimums for tooling assumed by this plugin: `uv` and `ruff` are version-independent of CPython within 3.12-3.14; pin them in `pyproject.toml`/`uv.lock`, not prose.
 
@@ -53,7 +53,7 @@ Probe a specific feature instead of guessing: `scripts/check_feature_support.sh 
 |---------|-------------------|-------------------------|
 | 5.2 | Most current Linux distros; Homebrew | `patsub_replacement` (`&` in `${var/pat/rep}`), `varredir_close`, improved `wait -p` |
 | 5.3 | Current stable — widely shipped in distros and Homebrew by mid-2026 | `${ command; }` no-fork command substitution, `GLOBSORT`, plus smaller builtins/readline improvements |
-| 3.2 (fallback row) | **macOS `/bin/bash`** (frozen for licensing reasons) | None of the above — no associative arrays, no `${var,,}`, no `mapfile`; target POSIX sh or require Homebrew bash via `#!/usr/bin/env bash` + a version guard |
+| 3.2 (fallback row) | macOS `/bin/bash` (frozen for licensing reasons) | None of the above — no associative arrays, no `${var,,}`, no `mapfile`; target POSIX sh or require Homebrew bash via `#!/usr/bin/env bash` + a version guard |
 
 Version guard snippet:
 
@@ -85,9 +85,9 @@ floor. The script mirrors this table; keep the two in sync.
 
 ## Usage Rules
 
-1. **Feature-test before version-test** in C/C++: prefer `__has_include`, `__cpp_lib_*`, `__STDC_VERSION__` checks over compiler version comparisons.
-2. **Every skill claim that names a standard links here** — do not restate minimum versions elsewhere; one table to update.
-3. **Hedge volatile minutiae**: where this table says *(verify)*, the support landed across several minor releases — confirm on the actual CI image before pinning.
+1. Feature-test before version-test in C/C++: prefer `__has_include`, `__cpp_lib_*`, `__STDC_VERSION__` checks over compiler version comparisons.
+2. Skill claims that name a standard link here instead of restating minimum versions, so there is one table to update.
+3. Hedge volatile minutiae: where this table says *(verify)*, the support landed across several minor releases — confirm on the actual CI image before pinning.
 
 ## Related Skills
 
