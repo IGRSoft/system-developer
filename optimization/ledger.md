@@ -13,7 +13,7 @@
 | path | type | status | done by | words before → after | note |
 |---|---|---|---|---|---|
 | commands/analyze-accessibility.md | command | done | commands/analyze-accessibility.md | 1654 → 1116 | Merged shouted rules into 3 plain ones, dropped extended-thinking/plan-mode/version lines, Task→Agent tool, judge prompt now carries provisional severities instead of an unreachable skill ref |
-| commands/analyze-tech-debt.md | command | todo |  | 2806 → | |
+| commands/analyze-tech-debt.md | command | done | commands/analyze-tech-debt.md | 2806 → 2019 | Dropped shouted rules/extended-thinking/plan-mode/date lines, merged 4 language prompts into one template + focus table, taxonomy headings now match --focus axes (fixed dead "Standards & Language Level" and "Rule 7" refs), inlined P0-P3 ranking, Task→Agent tool |
 | commands/arch-review.md | command | todo |  | 3122 → | |
 | commands/arch-select.md | command | todo |  | 3117 → | |
 | commands/build-test.md | command | todo |  | 2369 → | |
@@ -29,16 +29,16 @@
 | commands/review-code.md | command | todo |  | 2693 → | |
 | commands/sanitize-check.md | command | todo |  | 2742 → | |
 | agents/_base/language-agent.md | agent | todo |  | 775 → | |
-| agents/bash-developer.md | agent | todo |  | 1443 → | |
-| agents/c-developer.md | agent | todo |  | 1120 → | |
-| agents/cpp-developer.md | agent | todo |  | 1509 → | |
-| agents/python-developer.md | agent | todo |  | 1387 → | |
+| agents/bash-developer.md | agent | done | commands/analyze-tech-debt.md | 1443 → 1252 | Removed BINDING/forbidden emphasis and base restatements, Response Approach reduced to implementation notes |
+| agents/c-developer.md | agent | done | commands/analyze-tech-debt.md | 1120 → 919 | Plain-language constraints, Build Outputs + Response Approach merged into Build and Verify, dropped unresolvable version-feature-matrix path and dead base-section list |
+| agents/cpp-developer.md | agent | done | commands/analyze-tech-debt.md | 1509 → 1110 | Removed dated "Standard reality 2026" compiler claims and duplicate C++26 paragraph (folded into table row), fixed wrong cpp-skills § refs, Response Approach cut to one paragraph |
+| agents/python-developer.md | agent | done | commands/analyze-tech-debt.md | 1387 → 1021 | Condensed constraints and tooling, dropped volatile ty/pyrefly maturity labels and unresolvable matrix path, Response Approach cut to one paragraph |
 | agents/sys-code-fixer.md | agent | todo |  | 938 → | |
 | agents/sys-dependency-manager.md | agent | todo |  | 1100 → | |
 | agents/sys-performance-engineer.md | agent | todo |  | 1433 → | |
 | agents/sys-security-auditor.md | agent | todo |  | 1170 → | |
 | agents/sys-test-generator.md | agent | todo |  | 1225 → | |
-| agents/system-architector.md | agent | todo |  | 1506 → | |
+| agents/system-architector.md | agent | done | commands/analyze-tech-debt.md | 1506 → 1319 | Merged 6-step workflow into modes + guardrails, plain-language complexity triage (no MANDATORY/NO), removed dead Workflow Stage Participation ref |
 | agents/system-developer.md | agent | done | commands/analyze-accessibility.md | 831 → 428 | Merged agent table into routing tables, removed dead refs (Return Verification contract, Workflow Stage Participation in base), cut verbose Response Approach |
 | skills/SKILL.md | skill | todo |  | 1317 → | |
 | skills/_shared/secure-coding/SKILL.md | skill | todo |  | 1359 → | |
@@ -72,3 +72,6 @@
 - `skill: severity-matrix` / `skill: language-detection` point at `skills/_shared/*.md`, which are not registered skills (no SKILL.md), so the `skill:` form can't be loaded by name; subagents running in a user project can't resolve them by path either. (found by commands/analyze-accessibility.md)
 - `mcp__Ref__*` tools in agent `tools:` lists: confirm the Ref MCP server is still expected; it is not bundled by this plugin. (found by commands/analyze-accessibility.md)
 - `estimated-cost` command frontmatter is not a Claude Code field; kept because README/MEMORY/CHANGELOG document it as a convention. Confirm whether anything consumes it. (found by commands/analyze-accessibility.md)
+- `skill: version-feature-matrix` / `skill: testing-principles` (and path refs to `skills/_shared/*.md`) have the same problem as severity-matrix/language-detection: not registered skills and not reachable by relative path from a user project. Removed from analyze-tech-debt and the 4 language agents; still used elsewhere. (found by commands/analyze-tech-debt.md)
+- Agent "DR Focus" sections and system-architector's complexity triage name worktask artifacts (`development-N.md`, `metadata.complexity_score`, AR stage) although CORPFLOW.md says only it should know corpflow. Kept; decide whether they move to CORPFLOW.md. (found by commands/analyze-tech-debt.md)
+- Skills referenced by the processed agents (build-systems, ffi-interop, diagnostics, modern-c, c-memory-ownership, modern-cpp, cpp-skills, cpp-concurrency, modern-python, python-typing, python-concurrency, python-testing, secure-coding) are pointers only, not preloaded (no `skills:` frontmatter), so they were left for their own rows. (found by commands/analyze-tech-debt.md)
