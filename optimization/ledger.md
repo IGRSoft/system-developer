@@ -14,7 +14,7 @@
 |---|---|---|---|---|---|
 | commands/analyze-accessibility.md | command | done | commands/analyze-accessibility.md | 1654 → 1116 | Merged shouted rules into 3 plain ones, dropped extended-thinking/plan-mode/version lines, Task→Agent tool, judge prompt now carries provisional severities instead of an unreachable skill ref |
 | commands/analyze-tech-debt.md | command | done | commands/analyze-tech-debt.md | 2806 → 2019 | Dropped shouted rules/extended-thinking/plan-mode/date lines, merged 4 language prompts into one template + focus table, taxonomy headings now match --focus axes (fixed dead "Standards & Language Level" and "Rule 7" refs), inlined P0-P3 ranking, Task→Agent tool |
-| commands/arch-review.md | command | todo |  | 3122 → | |
+| commands/arch-review.md | command | done | commands/arch-review.md | 3122 → 1998 | Plain rules replace CRITICAL list/extended-thinking/plan-mode/date lines; dropped detection-signal and API/ABI tables duplicated in system-architector; inlined P0-P3 (severity-matrix unreachable); fixed wrong `--abi` phase number and trust-boundary prompt that needed a detection result while running in parallel; Task→Agent tool |
 | commands/arch-select.md | command | todo |  | 3117 → | |
 | commands/build-test.md | command | todo |  | 2369 → | |
 | commands/debug.md | command | todo |  | 3145 → | |
@@ -36,7 +36,7 @@
 | agents/sys-code-fixer.md | agent | todo |  | 938 → | |
 | agents/sys-dependency-manager.md | agent | todo |  | 1100 → | |
 | agents/sys-performance-engineer.md | agent | todo |  | 1433 → | |
-| agents/sys-security-auditor.md | agent | todo |  | 1170 → | |
+| agents/sys-security-auditor.md | agent | done | commands/arch-review.md | 1170 → 998 | One-line role, removed caller-facing Model Notes (in model-selection.md/README) and dead base-section ref, Response Approach cut to one paragraph, output format defers to caller's format/P0-P3 |
 | agents/sys-test-generator.md | agent | todo |  | 1225 → | |
 | agents/system-architector.md | agent | done | commands/analyze-tech-debt.md | 1506 → 1319 | Merged 6-step workflow into modes + guardrails, plain-language complexity triage (no MANDATORY/NO), removed dead Workflow Stage Participation ref |
 | agents/system-developer.md | agent | done | commands/analyze-accessibility.md | 831 → 428 | Merged agent table into routing tables, removed dead refs (Return Verification contract, Workflow Stage Participation in base), cut verbose Response Approach |
@@ -75,3 +75,4 @@
 - `skill: version-feature-matrix` / `skill: testing-principles` (and path refs to `skills/_shared/*.md`) have the same problem as severity-matrix/language-detection: not registered skills and not reachable by relative path from a user project. Removed from analyze-tech-debt and the 4 language agents; still used elsewhere. (found by commands/analyze-tech-debt.md)
 - Agent "DR Focus" sections and system-architector's complexity triage name worktask artifacts (`development-N.md`, `metadata.complexity_score`, AR stage) although CORPFLOW.md says only it should know corpflow. Kept; decide whether they move to CORPFLOW.md. (found by commands/analyze-tech-debt.md)
 - Skills referenced by the processed agents (build-systems, ffi-interop, diagnostics, modern-c, c-memory-ownership, modern-cpp, cpp-skills, cpp-concurrency, modern-python, python-typing, python-concurrency, python-testing, secure-coding) are pointers only, not preloaded (no `skills:` frontmatter), so they were left for their own rows. (found by commands/analyze-tech-debt.md)
+- `disallowed-tools: Write, Edit` on sys-security-auditor and sys-performance-engineer: Claude Code's subagent field is `disallowedTools`, so the kebab-case key is likely ignored; harmless because `tools:` already omits Write/Edit. Decide whether to rename (README, MEMORY, model-selection.md document the kebab form) or drop it. (found by commands/arch-review.md)

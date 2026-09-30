@@ -12,169 +12,109 @@ estimated-cost:
 ---
 
 # Architecture Review
-<!-- Updated: July 2026 -->
 
-Review an existing C, C++, Python, or Bash codebase against the architecture pattern it actually implements — or the one you name with `--pattern`. Detection runs from structural evidence (build graph, header tiers, registration tables, concurrency and ownership markers), then `system-developer:system-architector` grades the codebase and reports violations with `file:line` and a P0-P3 severity.
+Review an existing C, C++, Python, or Bash codebase against the architecture pattern it actually implements, or the one named with `--pattern`. You sweep structural evidence (build graph, header tiers, registration tables, concurrency and ownership markers); `system-developer:system-architector` then detects the pattern, grades the codebase, and reports violations with `file:line` and P0-P3 severity. Most of these defects (target cycles, leaked internal headers, accidental exports) are invisible in a single-file read and obvious in the build graph, so the sweep comes first.
 
-This command is **read-only**. It never edits a source file, a `CMakeLists.txt`, or a `pyproject.toml`. Remediation is a separate, explicit step: `/system-developer:fix-refactor`.
+## Rules
 
-[Extended thinking: An architecture review of systems code fails in ways an app-layer review does not — a cycle between library targets, an internal header that leaked into the installed public tier, a default-visible symbol that silently became an ABI promise, an ownership model nobody can name, a thread-pool bolted onto an event-loop core, or a Python `__all__` that no longer matches what the docs promise. Every one of those is invisible in a single-file read and obvious in the build graph plus the exported symbol table, so this command sweeps that structural evidence first and hands the architector concrete anchors instead of asking it to infer a pattern from prose. Detection precedes judgment: grading a hexagonal codebase against a layered checklist manufactures violations that are not real. Keep the review honest — a codebase whose structure fits its constraints gets a short report saying so.]
-
-## CRITICAL BEHAVIORAL RULES
-
-You MUST follow these rules exactly. Violating any of them is a failure.
-
-1. **Read-only, always.** This command MUST NOT write or edit any file — no sources, no build files, no report file. Findings are printed. Any remediation is routed to `/system-developer:fix-refactor` by name, never performed here.
-2. **Detect before you grade.** Run the evidence sweep and the detection pass first. Grade only against the detected pattern (or an explicit `--pattern`). Do NOT evaluate a codebase against a pattern it never adopted.
-3. **State detection confidence.** Report the detected pattern with `high`/`medium`/`low` confidence and its `file:line` evidence. At `low` confidence, say so in the report and treat every violation as provisional rather than asserting a pattern the evidence does not support.
-4. **Every violation carries an anchor and a severity.** No finding ships without `file:line` (or a target/module name for build-graph findings) and a P0-P3 rating from `skill: severity-matrix`.
-5. **State ABI/API impact per fix.** Any proposed change touching a public struct layout, function signature, exported symbol, `enum` value, or Python public name MUST be labelled with its ABI/API impact and routed through a semver-major plan.
-6. **Tool-missing never hard-fails.** If `nm`, `readelf`, `otool`, or a build tool is unavailable, print the install hint, note the reduced depth for that check, and continue with source-level evidence.
-7. **No manufactured violations.** If the structure fits, say so plainly. Do NOT pad the report with P3 preferences, and do NOT recommend a wholesale pattern switch for a local mismatch.
-8. **Never enter plan mode.** This command IS the procedure — execute it.
+- Read-only: write no file, not even a report. Print the findings and route remediation to `/system-developer:fix-refactor`.
+- Detect before grading, and grade only against the detected pattern or `--pattern`. Grading against a pattern the code never adopted manufactures violations.
+- Report detection confidence (`high`/`medium`/`low`) with evidence. At `low`, mark every violation provisional.
+- Every violation has an anchor (`file:line`, or a target/module for build-graph findings) and a P0-P3 severity.
+- Any fix touching a public struct layout, function signature, exported symbol, `enum` value, or Python public name states its ABI/API impact and needs a semver-major plan.
+- A missing `nm`/`readelf`/`otool`/`cmake` never fails the run: print the install hint, note the reduced depth, and continue on source-level evidence.
+- If the structure fits, say so. Don't pad with P3 preferences or recommend a wholesale pattern switch for a local mismatch.
 
 ## Usage
 
 ```bash
-# Review the current project's architecture as-is
-/system-developer:arch-review .
-
-# Review one library subtree
-/system-developer:arch-review src/codec/
-
-# Grade against an expected pattern instead of the detected one
-/system-developer:arch-review . --pattern hexagonal
-
-# Audit exported symbols and public-header exposure for ABI risk
-/system-developer:arch-review . --abi
-
-# Force the language when detection is ambiguous
-/system-developer:arch-review scripts/ --lang bash
-
-# Add a trust-boundary pass and a migration outline for a big mismatch
-/system-developer:arch-review . --trust-boundaries --deep
+/system-developer:arch-review .                               # review as detected
+/system-developer:arch-review src/codec/                      # one library subtree
+/system-developer:arch-review . --pattern hexagonal           # grade against an expected pattern
+/system-developer:arch-review . --abi                         # exported-symbol audit
+/system-developer:arch-review scripts/ --lang bash            # extensionless scripts
+/system-developer:arch-review . --trust-boundaries --deep     # boundary pass + migration outline
 ```
 
 ## Options
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `scope` | `.` | Directory or file to review. The evidence sweep is rooted here. |
-| `--pattern NAME` | detected | Grade against an expected pattern (`layered`, `hexagonal`, `plugin`, `pipeline`) instead of the detected one. Detection still runs; a mismatch between expected and detected is itself reported as a finding. |
-| `--lang c\|cpp\|python\|bash` | auto | Force the language instead of detecting. Use for extensionless scripts or to narrow a mixed repo. **Coverage is not uniform:** the detection signals, violation classes, and API/ABI rules below are written for C, C++, and Python. `--lang bash` grades only the structural classes that have a shell analogue (cyclic `source`, boundary bypass, sourced-library vs entry-point split) and always reports `low` confidence — say so in the report rather than grading a shell tree against native-ABI criteria. |
-| `--abi` | off | Add the exported-symbol and public-header exposure audit (Phase 4). Off by default because it needs a built artifact. |
-| `--trust-boundaries` | off | Add a read-only boundary/trust-zone pass from `system-developer:sys-security-auditor` alongside the architecture review. |
-| `--deep` | off | Ask the architector for Deep Refactor Mode deliverables — current→target map, incremental migration path, coexistence strategy, risk points. Text only; nothing is applied. |
-
-## Scope & Language Resolution
-
-Resolve the review scope **once**, then pass that exact file list to every downstream pass.
-
-1. **Explicit arg** — a directory (scan recursively) or a single file (read it plus its directory siblings and the build file that owns it).
-2. **No arg** — the repository root (`.`).
-
-Exclude vendored and generated trees from the list: `build/`, `builddir/`, `.venv/`, `node_modules/`, `third_party/`, `vendor/`, and any configured CMake/Meson output directory.
-
-Detect the languages present using the canonical `skill: language-detection` marker table — do not fork its routing rules. Summary: `CMakeLists.txt`/`meson.build`/`Makefile` → C or C++ (tie-break on `.cpp`/`.cc`/`.hpp` sources, `project(x CXX)`, or `CMAKE_CXX_STANDARD`); `pyproject.toml`/`uv.lock` → Python; `*.sh`/`*.bats` → Bash. A mixed repo is reviewed per-root, and the roots are named in the report.
-
-## Architecture Detection Signals
-
-Infer the current pattern from evidence, mirroring the architector's signal table. Record a `file:line` (or target name) for every signal you match.
-
-| Signal | Pattern |
-|--------|---------|
-| Public-header dir + acyclic library targets, `PUBLIC`/`PRIVATE` link scope | Layered libraries |
-| Interface headers / ABCs (`Protocol`, pure-virtual) wrapping I/O, OS, or device calls | Hexagonal / ports-adapters |
-| Registration tables, `dlopen`/`LoadLibrary`, `register_*` callbacks, entry-point groups | Plugin / registry |
-| Stage structs/functions chained by queues or generators; `yield`/`co_yield` producers | Pipeline / dataflow |
-| `asyncio`/`epoll`/`kqueue`, single-threaded reactor, `await` fan-out | Event-loop concurrency |
-| `std::jthread`/`thread_pool`, pthreads, `ThreadPoolExecutor`, `Py_mod_gil` slots | Thread-pool concurrency |
-| `multiprocessing`, `fork`/`exec`, `InterpreterPoolExecutor`, worker processes | Process-pool concurrency |
-| Arena/region/bump allocator, per-request scratch, bulk `free` | Arena/region ownership |
-| `unique_ptr`/`shared_ptr`, Rule of Zero, no naked `new`/`delete` | RAII ownership |
-| Manual `retain`/`release`, refcount fields, `Py_INCREF`/`Py_DECREF` at the boundary | Refcount / GC-boundary ownership |
-| Sourced `lib*.sh`/`common.sh` libraries with a thin `main`-style entry script; `case`-based subcommand dispatch | Layered / plugin-registry (Bash) |
-
-Concurrency and ownership are two orthogonal axes over a structural pattern — report all three, not one label.
+| `scope` | `.` | Directory (recursive) or file. A file is reviewed with its directory siblings and the build file that owns it. |
+| `--pattern NAME` | detected | Grade against `layered`, `hexagonal`, `plugin`, or `pipeline`. Detection still runs; an expected-vs-detected mismatch is itself a finding. |
+| `--lang c\|cpp\|python\|bash` | auto | Force the language. The violation classes and ABI rules target C, C++, and Python; `--lang bash` grades only classes with a shell analogue (cyclic `source`, boundary bypass, library vs entry-point split) and always reports `low` confidence. |
+| `--abi` | off | Add the exported-symbol audit (Phase 3). Needs an already-built shared library. |
+| `--trust-boundaries` | off | Add a read-only trust-boundary pass by `system-developer:sys-security-auditor`. |
+| `--deep` | off | Add the architector's Deep Refactor deliverables: current→target map, incremental migration path, coexistence strategy, risk points. Text only. |
 
 ## Violation Classes
 
-The classes this review is responsible for finding. Each needs an anchor and a P0-P3 rating.
-
 | Class | What it looks like |
 |-------|--------------------|
-| **Cyclic dependency** | Two library targets or Python packages that import/link each other, directly or transitively. Break the cycle or extract the shared tier. |
-| **Leaked internal header** | An `internal/`, `detail/`, or `_private` header reachable from the installed public tier, or pulled in by a public header's `#include`. |
-| **Accidental ABI exposure** | Default-visible symbols with no `-fvisibility=hidden` + explicit export macro; a public struct with exposed layout where an opaque handle was intended. |
-| **Ownership ambiguity** | A pointer whose owner is unnamed at the boundary — raw `T*` returned without a documented free contract, mixed arena/refcount lifetimes, unclear `PyObject*` reference ownership at an FFI seam. |
-| **Concurrency mismatch** | Blocking calls inside an event loop, shared mutable state handed to a process pool, a thread pool bolted onto a single-threaded reactor core. |
-| **Boundary bypass** | A caller reaching past a port/adapter or layer interface into the implementation tier. |
-| **Python public-API drift** | `__all__`, the documented surface, and the actually-importable names disagree; a removal shipped without a deprecation cycle. |
-| **Cyclic `source` (Bash)** | Two shell libraries `source` each other, directly or transitively, or an entry script is sourced back by a library — re-entrant definitions and order-dependent behavior. |
+| Cyclic dependency | Library targets or Python packages that import/link each other, directly or transitively |
+| Leaked internal header | An `internal/`, `detail/`, or `_private` header reachable from the installed public tier or a public header's `#include` |
+| Accidental ABI exposure | Default-visible symbols without `-fvisibility=hidden` plus an export macro; exposed public struct layout where an opaque handle was intended |
+| Ownership ambiguity | A pointer whose owner is unnamed at the boundary: raw `T*` returned without a free contract, mixed arena/refcount lifetimes, unclear `PyObject*` ownership at an FFI seam |
+| Concurrency mismatch | Blocking calls in an event loop, shared mutable state handed to a process pool, a thread pool bolted onto a single-threaded reactor |
+| Boundary bypass | A caller reaching past a port/adapter or layer interface into the implementation tier |
+| Public-API drift (Python) | `__all__`, the documented surface, and the importable names disagree; a removal shipped without deprecation |
+| Cyclic `source` (Bash) | Shell libraries that `source` each other, or a library that sources an entry script |
 
-Anchors: `skill: build-systems` (targets, link scope, visibility), `skill: ffi-interop` (boundary and `PyObject*` ownership), `skill: c-memory-ownership`, `skill: modern-cpp`, `skill: cpp-concurrency`, `skill: python-concurrency`.
+## Severity
 
-## API / ABI Rules Applied
-
-Grade the public surface against these rules; every violation here is at least P1.
-
-| Concern | Rule |
-|---------|------|
-| **Semver** | MAJOR on any source- or binary-incompatible change; MINOR additive; PATCH fixes. Shared libraries carry a SONAME/ABI version distinct from the marketing version. |
-| **Symbol visibility** | Default-hidden (`-fvisibility=hidden`) with deliberate exports. A visible symbol is an ABI promise; an accidentally-exported internal is a future break. |
-| **`extern "C"` boundaries** | Plain C types only across the seam — no exceptions or STL, opaque handles over exposed structs. |
-| **Stable C ABI over C++** | Any library with external or cross-toolchain consumers should present a C facade; the C++ ABI is fragile across compilers and standard-library versions. |
-| **Python public API** | The public surface is what `__all__` and the docs promise. Deprecate before removal; keep the `pyproject.toml` version and the API contract moving together. |
-
-ABI breaks are silent at compile time and lethal at load time — flag any change to a public struct layout, function signature, exported symbol, or `enum` value as a potential break.
+| Priority | Meaning |
+|----------|---------|
+| P0 | Structure broken or an ABI break shipping; also an accidental export of an internal struct layout or documented-private symbol |
+| P1 | Fix before the next release. Every public API/ABI rule violation is at least P1 |
+| P2 | Should fix |
+| P3 | Nice to have |
 
 ## Workflow
 
-### Phase 1: Scope, Language, Evidence Sweep (read-only, no agent)
+### Phase 1: Scope and evidence sweep
 
-1. Resolve the scope and the language set (see Scope & Language Resolution). Print the roots and file count before delegating.
-2. Sweep for structural evidence with Glob/Grep/Read, collecting `file:line` anchors:
-   - **Build graph** — `target_link_libraries` scope keywords, `add_library` kinds (`STATIC`/`SHARED`/`OBJECT`/`INTERFACE`), Meson `declare_dependency`, Python intra-package imports.
-   - **Header tiers** — `include/` public dirs vs `src/`, `internal/`, `detail/`; `install(FILES ...)`/`install(DIRECTORY ...)` lists.
-   - **Visibility** — `-fvisibility=hidden`, `CXX_VISIBILITY_PRESET`, `VISIBILITY_INLINES_HIDDEN`, export macros, version scripts (`*.map`, `*.sym`).
-   - **Extension/registry** — `dlopen`, `register_*`, static registration tables, `[project.entry-points]`.
-   - **Concurrency & ownership** — the markers from the signal table.
-   - **Python surface** — `__all__`, `__init__.py` re-exports, documented API pages.
-3. If an already-configured build dir exists, optionally read its dependency graph (`cmake --graphviz` output, `meson introspect --targets`) for a precise target-level cycle check. Skip silently if absent — never configure a build here.
+Resolve the scope once and pass the same file list to every agent. Exclude `build/`, `builddir/`, `.venv/`, `node_modules/`, `third_party/`, `vendor/`, and configured CMake/Meson output directories. Detect languages from build manifests, extensions, and shebangs (`--lang` overrides; tie-breaks in `skills/_shared/language-detection.md`); review a mixed repo per root and name the roots. Print roots and file count.
 
-### Phase 2: Pattern Detection & Review
+Then collect `file:line` anchors with Glob/Grep/Read:
 
-**Use Task tool with subagent_type="system-developer:system-architector"**
+- **Build graph**: `target_link_libraries` scope keywords, `add_library` kinds, Meson `declare_dependency`, Python intra-package imports.
+- **Header tiers**: `include/` vs `src/`, `internal/`, `detail/`; `install(FILES|DIRECTORY ...)` lists.
+- **Visibility**: `-fvisibility=hidden`, `CXX_VISIBILITY_PRESET`, `VISIBILITY_INLINES_HIDDEN`, export macros, version scripts (`*.map`, `*.sym`).
+- **Extension points**: `dlopen`, `register_*`, static registration tables, `[project.entry-points]`.
+- **Concurrency and ownership**: event loops (`asyncio`, `epoll`/`kqueue`), thread/process pools, arenas, smart pointers, refcounts, `Py_INCREF`/`Py_DECREF`.
+- **Python surface**: `__all__`, `__init__.py` re-exports, documented API pages.
+- **Bash**: sourced `lib*.sh`/`common.sh` libraries, thin entry scripts, `case`-based subcommand dispatch.
 
-Prompt: "Read-only architecture review of `{scope}` (languages: {languages}; build system: {system}). Structural evidence already collected: {evidence anchors with file:line}. File list: {file_list}. Step 1 — detect the current structural pattern plus its ownership and concurrency axes, using your Architecture Detection signal table; report confidence (high/medium/low) with `file:line` evidence. {If --pattern: 'The expected pattern is `{pattern}` — report any mismatch with the detected pattern as its own finding.'} Step 2 — grade the codebase against that pattern and report violations in these classes: cyclic library/target or package dependencies, leaked internal headers, accidental ABI exposure (default-visible symbols, exposed public struct layout), ownership ambiguity, concurrency-model mismatch, boundary bypass, and Python public-API drift (`__all__` vs docs). Every violation needs `file:line` (or target/module name) and a P0-P3 severity. Step 3 — give a concrete fix per violation with its ABI/API impact stated; anything touching a public struct layout, signature, exported symbol, `enum` value, or Python public name must be routed through a semver-major plan. Step 4 — emit the pattern-specific PR checklist with pass/fail per item. Use your **For Architecture Review** output format. Do NOT edit any file. Prefer the smallest fix that resolves each violation; do not recommend a wholesale pattern switch unless the mismatch is severe. If the structure fits its constraints, say so directly."
+If a configured build directory already exists, read its target graph (`cmake --graphviz` output, `meson introspect --targets`) for an exact cycle check. Never configure a build.
 
-Add when `--deep` is set: "Also run Deep Refactor Mode: current→target map, incremental migration path (each phase independently buildable and testable), coexistence strategy including any ABI shim or facade needed to hold a published interface, and the risk points. Text only — apply nothing."
+### Phase 2: Review (parallel)
 
-### Phase 3: Exported-Symbol Audit (`--abi` only)
+Launch the architector and, with `--trust-boundaries`, the auditor in one message with the Agent tool.
 
-Run only when `--abi` is set and a built shared library exists. Never build one here — if no artifact is present, note the skip and rely on Phase 1's source-level visibility evidence.
+**Architector**: `subagent_type="system-developer:system-architector"`:
 
-1. List the dynamic symbol table of each built shared library, read-only:
-   - Linux: `nm -D --defined-only <lib.so>` or `readelf --dyn-syms -W <lib.so>`
-   - macOS: `nm -gU <lib.dylib>` or `otool -TV <lib.dylib>`
-2. Diff the exported set against the deliberate export surface from Phase 1 (export macros, version script, public headers).
-3. Every symbol exported but absent from the public surface is an **accidental ABI exposure** finding — P1 by default, P0 when it exposes an internal struct layout or a symbol the project already documents as private.
-4. Feed the delta back to the architector output as evidence; do not re-run Phase 2.
+"Read-only architecture review of `{scope}` (languages: {languages}; build system: {system}). Evidence: {anchors with file:line}. File list: {file_list}.
+1. Detect the structural pattern plus its ownership and concurrency axes; give confidence (high/medium/low) with `file:line` evidence. {If --pattern: The expected pattern is `{pattern}`; report a mismatch with the detected pattern as its own finding.} {If Bash: sourced libraries with a thin entry script or `case` dispatch indicate layered or plugin-registry structure; confidence is low.}
+2. Grade against that pattern. Violation classes: cyclic target/package dependencies, leaked internal headers, accidental ABI exposure, ownership ambiguity, concurrency mismatch, boundary bypass, Python public-API drift (`__all__` vs docs){, cyclic `source` for Bash}. Each needs `file:line` (or target/module) and a severity: P0 structure broken or ABI break shipping, P1 fix before next release (any public API/ABI rule violation is at least P1), P2 should fix, P3 nice to have.
+3. Give the smallest fix per violation with its ABI/API impact (none / additive MINOR / breaking MAJOR with SONAME bump).
+4. End with the pattern-specific PR checklist, pass/fail per item.
+Use your Architecture Review output format. Don't edit any file. If the structure fits its constraints, say so."
 
-### Phase 4: Trust-Boundary Pass (`--trust-boundaries` only)
+With `--deep`, append: "Also give Deep Refactor deliverables: current→target map, incremental migration path (each phase independently buildable and testable), coexistence strategy including any ABI shim or facade that holds a published interface, and risk points. Text only."
 
-**Use Task tool with subagent_type="system-developer:sys-security-auditor"**
+**Auditor** (`--trust-boundaries` only): `subagent_type="system-developer:sys-security-auditor"`:
 
-Prompt: "Read-only trust-boundary review of `{scope}` (languages: {languages}). Detected architecture: {pattern + ownership + concurrency}. For each architectural boundary in this list — {ports/adapters, public API/ABI surface, FFI seams, plugin load points, process/IPC edges} — state which side is trusted, what crosses it, and whether the crossing data is validated at the boundary. Flag boundaries where untrusted input reaches a parser, a process spawn, a path operation, or a deserializer without validation. Do NOT edit any file. Return findings as `{file, line, boundary, severity (P0-P3), why, fix}`. If the boundaries are sound, say so directly."
+"Read-only trust-boundary review of `{scope}` (languages: {languages}). Evidence: {anchors}. For each boundary (ports/adapters, public API/ABI surface, FFI seams, plugin load points, process/IPC edges), state which side is trusted, what crosses it, and whether crossing data is validated there. Flag untrusted input reaching a parser, process spawn, path operation, or deserializer without validation. Don't edit any file. Return `{file, line, boundary, severity (P0-P3), why, fix}`, or say the boundaries are sound."
 
-Runs in parallel with Phase 2 when both are requested — it has no dependency on the detection result beyond the scope.
+### Phase 3: Exported-symbol audit (`--abi` only)
 
-### Phase 5: Synthesis & Report
+Needs an already-built shared library; never build one. Without an artifact, note the skip and rely on Phase 1 visibility evidence.
 
-1. Merge the architector findings with the Phase 3 symbol delta and any Phase 4 boundary findings; deduplicate at the same `{file, line}`, keeping the higher severity and the clearer fix.
-2. Normalize each survivor to `{anchor, class, severity, why, fix, abi_impact}` — severity per `skill: severity-matrix`.
-3. Rank P0→P3 and emit the Output Format report. Print it; write nothing.
-4. Point remediation at `/system-developer:fix-refactor`, and name `/system-developer:build-test` as the gate any applied fix must pass.
+List each library's dynamic symbols (Linux: `nm -D --defined-only` or `readelf --dyn-syms -W`; macOS: `nm -gU` or `otool -TV`) and diff them against the deliberate export surface from Phase 1 (export macros, version script, public headers). Each symbol exported but not in that surface is an accidental ABI exposure: P1, or P0 when it exposes an internal struct layout or a documented-private symbol. This can run while Phase 2 agents work.
+
+### Phase 4: Synthesis
+
+Merge the architector findings, the symbol delta, and any boundary findings; deduplicate on `{file, line}`, keeping the higher severity and clearer fix. Normalize to `{anchor, class, severity, why, fix, abi_impact}`, rank P0→P3, and print the Output Format.
 
 ## Output Format
 
@@ -265,7 +205,6 @@ Suggestion: Build first with /system-developer:build-test, then re-run with --ab
 ```
 
 ### Symbol tool missing (reduced depth)
-Print the hint, note the reduced depth in the report, and continue — never hard-fail:
 
 | Missing tool | Install hint |
 |--------------|--------------|
@@ -274,18 +213,12 @@ Print the hint, note the reduced depth in the report, and continue — never har
 | `cmake` (graph introspection) | `brew install cmake` |
 
 ### Ambiguous language
-Apply the `skill: language-detection` shebang and tie-break rules. If still ambiguous, route the scope to `system-developer:system-developer` and note the routing in the report.
+Route a scope that detection can't place to `system-developer:system-developer` and note it in the report.
 
 ## See Also
 
-- `skill: language-detection` — canonical marker → language → agent routing (keep the resolution section in sync).
-- `skill: severity-matrix` — the P0-P3 definitions every violation is rated against.
-- `skill: build-systems` — targets, `PUBLIC`/`PRIVATE` link scope, symbol visibility, version scripts.
-- `skill: ffi-interop` — `extern "C"` boundary doctrine and `PyObject*` ownership at the C-API seam.
-- `skill: c-memory-ownership`, `skill: modern-cpp` — arena/refcount and RAII ownership models.
-- `skill: cpp-concurrency`, `skill: python-concurrency` — event-loop vs thread-pool vs process-pool decision tables.
-- `/system-developer:arch-select` — pick the target pattern when this review reports a severe mismatch.
-- `/system-developer:fix-refactor` — apply the remediation this command only recommends.
-- `/system-developer:build-test` — the build/test gate every applied fix must pass.
-- `/system-developer:review-code` — line-level correctness and security review, complementary to this structural pass.
+- `/system-developer:arch-select` — pick a target pattern when this review reports a severe mismatch.
+- `/system-developer:fix-refactor` — apply the remediation this command recommends.
+- `/system-developer:build-test` — the gate every applied fix must pass.
+- `/system-developer:review-code` — line-level correctness and security review.
 - `/system-developer:analyze-tech-debt` — quantify and prioritize the debt these violations represent.
