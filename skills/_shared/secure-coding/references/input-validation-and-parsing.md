@@ -1,31 +1,10 @@
 # Input Validation and Parsing (C / C++ / Python / Bash)
 
-Use this when:
-
-- You accept bytes from outside the process — CLI args, env vars, files, network, IPC, or an external API response.
-- You parse untrusted numbers, lengths, encodings, or structured data.
-- You canonicalize a path that contains user-controlled components.
-- You deserialize data and need to know which formats are safe.
-
-Skip this file if:
-
-- You are spawning a subprocess or building a command line. Use `command-execution-and-injection.md`.
-- You only need the rule summary. Use the parent `SKILL.md`.
-
-Jump to:
-
-- Validation Doctrine
-- Length, Encoding, and Range Checks
-- Safe Integer Parsing
-- Path Canonicalization and Traversal
-- TOCTOU-Resistant File Access
-- Deserialization Risks
-- External API Responses
-- Validation Checklist
+Validating and parsing bytes from outside the process: lengths, encodings, numbers, paths, deserialization, and API responses. Spawning processes is in `command-execution-and-injection.md`.
 
 ## Validation Doctrine
 
-Treat the process boundary as a trust boundary. Every value crossing it is hostile until proven otherwise. Three properties must hold before an untrusted value is used:
+Treat the process boundary as a trust boundary. Every value crossing it is hostile until proven otherwise. Before use, an untrusted value must be:
 
 1. **Bounded** — length and count are within a known maximum (reject, never truncate silently when truncation changes meaning).
 2. **Well-formed** — encoding, type, and structure match the expected grammar.
@@ -33,7 +12,7 @@ Treat the process boundary as a trust boundary. Every value crossing it is hosti
 
 Validate **once, at the boundary**, into a typed internal representation; do not re-validate ad hoc deep in the call stack. Prefer allow-lists (enumerate what is permitted) over deny-lists (enumerate what is forbidden) — deny-lists always miss a case.
 
-Fail closed: on any validation failure, reject the whole input and return an error. Never "best-effort fix" attacker data.
+Fail closed: on any validation failure, reject the whole input and return an error. Don't "best-effort fix" attacker data.
 
 ## Length, Encoding, and Range Checks
 
@@ -53,7 +32,7 @@ static int parse_name(const char *buf, size_t len, char out[64]) {
 }
 ```
 
-- Never use `strcpy`, `strcat`, `sprintf`, `gets`. Use `snprintf` with an explicit size and check the return value; if `snprintf` returns `>= size`, the output was truncated — treat that as an error when truncation matters.
+- Don't use `strcpy`, `strcat`, `sprintf`, `gets`. Use `snprintf` with an explicit size and check the return value; if `snprintf` returns `>= size`, the output was truncated — treat that as an error when truncation matters.
 - For network/file reads, carry an explicit length; do not rely on a trailing `\0`.
 - `strncpy` does **not** guarantee NUL termination — set `out[n-1] = '\0'` yourself, or prefer `snprintf`.
 
@@ -72,7 +51,7 @@ bool valid_token(std::string_view s) {
 ```
 
 - `string_view`/`span` carry their length — never read past `.size()`.
-- **Lifetime trap**: a `string_view`/`span` is a non-owning view. Never return one referring to a local, a temporary, or a freed buffer. If the source can outlive the view, copy into a `std::string`/owning container.
+- A `string_view`/`span` doesn't own its data. Don't return one referring to a local, a temporary, or a freed buffer. If the source can outlive the view, copy into a `std::string`/owning container.
 
 ### Python — validate before use, normalize encoding explicitly
 
@@ -107,7 +86,7 @@ fi
 
 ## Safe Integer Parsing
 
-Parsing user-supplied numbers is where overflow and silent truncation enter. Never use `atoi`/`atol` (no error reporting) or unbounded `int(...)` on adversarial input that feeds a size.
+Parsing user-supplied numbers is where overflow and silent truncation enter. Don't use `atoi`/`atol` (no error reporting) or unbounded `int(...)` on adversarial input that feeds a size.
 
 ### C — `strtol` family with `errno`
 
@@ -130,7 +109,7 @@ int parse_index(const char *s, long *out) {
 
 - Always set `errno = 0` before, check `ERANGE` after, and verify `end` consumed the whole string.
 - Then apply the **domain** range check for your actual type (`INT_MAX`, array bound, etc.).
-- Feeding a parsed length into allocation? Use checked arithmetic — `ckd_mul(&total, n, size)` (**C23**, `<stdckdint.h>`; fallback `__builtin_mul_overflow` on GCC/Clang). Verify against your toolchain for exact minimum versions.
+- Feeding a parsed length into allocation? Use checked arithmetic — `ckd_mul(&total, n, size)` (**C23**, `<stdckdint.h>`; fallback `__builtin_mul_overflow` on GCC/Clang).
 
 ### C++ — `std::from_chars`
 
@@ -163,7 +142,7 @@ def parse_index(s: str, *, lo: int = 0, hi: int = 1_000_000) -> int:
     return v
 ```
 
-- `int(s)` is safe and total — it raises on malformed input. **Never** `eval(s)` to "parse" a number; that is arbitrary code execution.
+- `int(s)` raises on malformed input. Don't `eval(s)` to parse a number; that is code execution.
 - Python integers are arbitrary precision, so the overflow risk is not in Python arithmetic — it is at the **C-extension / `ctypes` boundary**, where a huge Python int silently wraps or is rejected when narrowed to a C type. Range-check against the target C type before crossing.
 
 ## Path Canonicalization and Traversal
@@ -224,17 +203,15 @@ if (!S_ISREG(st.st_mode)) { close(fd); return -1; }
 // write to fd
 ```
 
-- The rule: **resolve once, operate on the descriptor.** Never `access()`-then-`open()`, never `stat()`-then-`open()` by path.
-- Temp files: use `mkstemp` (C/C++) / `tempfile.mkstemp` / `tempfile.NamedTemporaryFile` (Python) — they create+open atomically with `O_EXCL`. **Never** `mktemp`, `tmpnam`, `tempnam`, or a hand-built `/tmp/$$` name — those are predictable and racy.
+- Resolve once, operate on the descriptor: no `access()`-then-`open()` or `stat()`-then-`open()` by path.
+- Temp files: use `mkstemp` (C/C++) / `tempfile.mkstemp` / `tempfile.NamedTemporaryFile` (Python) — they create+open atomically with `O_EXCL`. Not `mktemp`, `tmpnam`, `tempnam`, or a hand-built `/tmp/$$` name — those are predictable and racy.
 
 ```python
 import tempfile, os
 fd, path = tempfile.mkstemp(dir=base)   # atomic, 0600, O_EXCL
-try:
-    with os.fdopen(fd, "w") as f:
-        f.write(data)
-finally:
-    pass  # remove when done
+with os.fdopen(fd, "w") as f:
+    f.write(data)
+# os.unlink(path) when done
 ```
 
 ## Deserialization Risks
@@ -261,20 +238,6 @@ A response from a remote service is untrusted input even when the service is "ou
 - Validate the parsed structure (schema) before use; never trust a field to be present, in range, or non-malicious.
 - Keep TLS verification on. Do not set `verify=False` (Python `requests`/`httpx`), `CURLOPT_SSL_VERIFYPEER=0`, or equivalent — that enables MITM. For a self-signed dev cert, add the CA to the trust store; if you must disable verification, it requires a documented, reviewed justification and must never reach production.
 
-## Validation Checklist
-
-- [ ] Every external value is length-bounded before copy/parse.
-- [ ] Encoding is decoded strictly (no `ignore`/`replace` on security data); Unicode normalized before comparison.
-- [ ] Numbers parsed with `strtol`+errno / `from_chars` / `int()` — never `atoi`/`eval`; domain range checked after.
-- [ ] Size/index arithmetic uses checked ops (`ckd_*` C23 / `in_range` C++20 / boundary check in Python).
-- [ ] Paths canonicalized and confined (`resolve`+`is_relative_to` / `openat`+`O_NOFOLLOW` / `realpath`+prefix) before open.
-- [ ] File access is TOCTOU-safe — operate on a descriptor, not a re-resolved path.
-- [ ] Temp files via `mkstemp`, never `mktemp`/`tmpnam`.
-- [ ] No `pickle`/full-`yaml.load` on untrusted data; parsed structures schema-validated.
-- [ ] External API responses size-bounded, status/type-checked, schema-validated; TLS verification on.
-
 ## Related
 
-- `command-execution-and-injection.md` — safe process execution and the dynamic-code-execution ban
-- `../SKILL.md` — non-negotiable rules, bug-class and integer-safety tables, diagnostic table
-- `../../tooling/diagnostics/SKILL.md` — sanitizer flag sets for fuzzing parsers
+- `../../../tooling/diagnostics/SKILL.md` — sanitizer flag sets for fuzzing parsers
