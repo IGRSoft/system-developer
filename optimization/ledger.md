@@ -116,3 +116,32 @@
 - commands/gen-tests.md (done) cites `system-developer:diagnostics` for "coverage tooling (llvm-cov/gcovr/kcov)", which the skill has never covered (sys-test-generator carries a coverage table). Repoint or drop the line. (found by skills/tooling/diagnostics/SKILL.md)
 - skills/tooling/ffi-interop/references/pybind11-nanobind.md sends cibuildwheel / multi-platform wheel CI to build-systems ci-pipelines.md, which has never covered wheels. Decide whether ci-pipelines gains a short cibuildwheel job or ffi-interop drops the pointer. (found by skills/tooling/build-systems/SKILL.md) ffi-interop dropped the pointer and keeps a one-line cibuildwheel mention; ci-pipelines still has no wheel job. (by skills/tooling/ffi-interop/SKILL.md)
 - build-systems keeps `import std` as "Clang 17+" and Conan's `CMakeConfigDeps` as the generator that replaces `CMakeDeps`; CMake documents `CMAKE_CXX_MODULE_STD` for Clang 18.1.2+ with libc++, and I couldn't confirm `CMakeConfigDeps` is out of incubation in Conan 2.29. Kept as written; verify both against current docs. (found by skills/tooling/build-systems/SKILL.md)
+
+## Decisions (2026-10-03)
+
+Answers to the items above. Apply each; mark it `[applied]` here when done.
+
+1. `_base/language-agent.md`: keep in agents/ as docs; add frontmatter with a minimal `tools` list. Leave `inherits:` lines as is.
+2. Commands' `allowed-tools`: add `Agent` wherever a command delegates, `Skill` where it runs another command, `Edit` where it applies fixes.
+3. `disallowed-tools` → rename to `disallowedTools` in both auditors; update README, MEMORY.md, model-selection.md.
+4. `debug` escalation to `debugging-toolkit:debugging-toolkit-debugger`: keep.
+5. `_shared/*.md` refs (severity-matrix, language-detection, version-feature-matrix, testing-principles): inline what each remaining caller needs; drop the dead `skill:`/path refs.
+6. Agents' "DR Focus" sections and the architect's complexity triage: move pipeline text into CORPFLOW.md; strip it from agents.
+7. Inside a worktask, build/test only through `/system-developer:build-test`: sys-test-generator and sys-code-fixer stop calling the toolchain directly (give them `Skill`).
+8. Remove `mcp__Ref__*` from every `tools` list.
+9. Behaviour changes made by tasks: keep all.
+10. `build-test --type RelWithDebInfo`: not added; commands keep their own rebuild step.
+11. `fix-modernize` below C++17 / C17: refuse with a clear message.
+12. `sanitize-check` MSan: keep warn-and-run.
+13. `sanitize-check` ASan: add `-fsanitize-recover=address` with `halt_on_error=0`; set `detect_leaks=1` on Linux only.
+14. ShellCheck gate: `--severity=info` everywhere (wrap_lint_command.sh, scaffold, bash-testing, commands).
+15. `fix-quick --fix`: apply `shellcheck -f diff` patches; keep the fixture README expectation.
+16. `fix-refactor` thin coverage: keep as a warning.
+17. Empty C project test framework: Unity; change gen-tests.
+18. `severity-matrix.md`: keep both scales; rename the impact×effort levels so they don't collide with P0-P3.
+19. `fix-performance` Python memory: a `python -X tracemalloc` runner script written under `$OUT`.
+20. `secure-coding`: add a short supply-chain section.
+21. Apply the simple fixes: `--locked` in sys-dependency-manager; sanitizer_flags.sh + _shared/scripts/README section names; README skill count; desc-lint.sh + MEMORY.md stale note; scaffold's ignored `severity=` line (and tests); gen-tests coverage pointer; skills/bash/SKILL.md prologue wording; model-selection override column → opus only; drop unread `_shared/*.md` frontmatter. `estimated-cost` stays.
+22. Verify unconfirmed facts against docs or local tools and correct: C23 minimums in c23-features.md; `import std` Clang version; Conan `CMakeConfigDeps` status; subinterpreter `__main__` functions; osv-scanner on vcpkg.json.
+23. Enforce section-lint's 1000-char cap on reference files too.
+24. Fill gaps: `to_expected` void branch; cibuildwheel job in ci-pipelines.md; bash header/exit-code convention for gen-docs; Python/Bash ownership rows in system-architector. develop-feature step numbers stay.
