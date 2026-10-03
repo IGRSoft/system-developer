@@ -6,17 +6,24 @@ Error-reporting policy: which mechanism per failure class, `noexcept` rules, exc
 
 Pick a mechanism per failure class. Decide per API, write the decision into the header comment, and be consistent within a layer.
 
+### Recoverable failures
+
 | Failure class | Mechanism | Rationale |
 |---------------|-----------|-----------|
 | Expected, frequent, caller-must-handle (parse failure, lookup miss, validation) | `std::expected<T, E>` (C++23; `tl::expected` pre-23) | failure is part of the signature; no hidden control flow; fast |
 | Absence that needs no explanation ("not found" with one obvious cause) | `std::optional<T>` | lighter than `expected`; don't smuggle error info into `nullopt` |
-| Rare, exceptional, cross-cutting (resource exhaustion, broken invariants surfacing far from cause, constructor failure) | exceptions | zero cost on the success path; propagate through layers that can't handle them |
 | OS/syscall results, system-level errors | `std::error_code` (alone, or as `E` in `expected<T, std::error_code>`) | preserves the platform error + domain without losing fidelity |
+
+### Exceptional, boundary, and constrained cases
+
+| Failure class | Mechanism | Rationale |
+|---------------|-----------|-----------|
+| Rare, exceptional, cross-cutting (resource exhaustion, broken invariants surfacing far from cause, constructor failure) | exceptions | zero cost on the success path; propagate through layers that can't handle them |
 | Crossing `extern "C"`, plugin ABIs, or mixed-toolchain shared libraries | integer codes + out-parameters | the only representation every ABI understands |
 | Programming bugs (precondition violations, impossible states) | assertions / `std::terminate` paths, not recoverable errors | bugs aren't inputs; don't design recovery for them |
 | `-fno-exceptions` targets (some embedded, games, kernels) | `expected` / error codes exclusively | `throw` doesn't compile and library throws abort |
 
-Cross-cutting rules:
+### Cross-cutting rules
 
 - Destructors don't report failures: log and swallow, or terminate.
 - Constructors may throw; it's the one place exceptions are hard to replace. Where exceptions are banned, use a named factory, `static std::expected<Conn, Error> Conn::open(…)`, with a private constructor.
@@ -46,8 +53,14 @@ try {
 }                       // anything else propagates, on purpose
 ```
 
+### Throw and catch rules
+
 - Throw by value, catch by `const&`. Catching by value slices derived types; throwing pointers creates ownership puzzles.
 - Derive from the `std::exception` hierarchy (`runtime_error` for environmental failures, `logic_error` for contract violations you still want catchable) so generic boundaries can `catch (const std::exception&)`.
+- `catch (...)` only at the three sinks (`main`, thread entry points, `extern "C"` boundaries), and log there before converting or terminating.
+
+### Nested context and RAII
+
 - Add context with `std::throw_with_nested` / `std::rethrow_if_nested`, which keep the original cause as a chain:
 
 ```cpp
@@ -55,14 +68,13 @@ try { parse(file); }
 catch (...) { std::throw_with_nested(ConfigError{std::format("while loading {}", path)}); }
 ```
 
-- `catch (...)` only at the three sinks (`main`, thread entry points, `extern "C"` boundaries), and log there before converting or terminating.
 - Exception safety needs RAII: with every resource in a destructor-cleaned owner, unwinding can't leak; manual cleanup between acquire and release isn't exception-safe however careful the catches. Ownership rules: [../SKILL.md](../SKILL.md).
 
 ## The noexcept Policy
 
 `noexcept` is a promise enforced by terminate: an exception escaping a `noexcept` function calls `std::terminate`, with no unwinding to a caller's catch. Since C++17 it is part of the function's type. Treat it as API contract, not optimization.
 
-Mark `noexcept`:
+### What to mark noexcept
 
 | What | Why |
 |------|-----|
@@ -71,6 +83,8 @@ Mark `noexcept`:
 | Destructors | already implicitly `noexcept`; don't write `noexcept(false)`: a destructor throwing during unwinding terminates |
 | Hash functions, comparators handed to containers | container invariant code assumes it |
 | Leaf utilities that genuinely cannot throw | documentation value |
+
+### Pinning a noexcept move
 
 ```cpp
 class Buffer {
@@ -82,6 +96,8 @@ public:
 };
 static_assert(std::is_nothrow_move_constructible_v<Buffer>);  // pin it in tests
 ```
+
+### Conditional noexcept and when not to mark
 
 Don't blanket-`noexcept` everything that currently doesn't throw: removing it later breaks callers' types and assumptions, and a future allocation inside turns an error into process death. When the truth is conditional, say so:
 
@@ -102,6 +118,8 @@ Every function provides one of these; the review question is which:
 | Strong | on failure, state is unchanged (commit-or-rollback) | may require copies; copy-and-swap idiom |
 | Basic | on failure, invariants hold and nothing leaks, but state may have changed | the floor every function must meet; RAII gives it nearly for free |
 | None | leaks or broken invariants on failure | a bug, not a choice |
+
+### Copy-and-swap and when strong is worth it
 
 ```cpp
 // Strong guarantee via copy-and-swap: all throwing work before the commit point
@@ -134,6 +152,8 @@ if (auto f = open_file(p); !f) {
     else log("open failed: {}", f.error().message());
 }
 ```
+
+### error_code vs error_condition
 
 `error_code` is the exact (possibly platform-specific) error; `std::error_condition` (what `std::errc` values become) is the portable meaning. `ec == std::errc::…` goes through the category's mapping, so it is the portable spelling.
 
@@ -168,6 +188,8 @@ template <> struct std::is_error_code_enum<ParseErrc> : std::true_type {};
 // Now: std::expected<Ast, std::error_code> parse(…);  return std::unexpected(ParseErrc::eof);
 ```
 
+### Category rules and when to skip a domain
+
 Value `0` means success by convention; the category must be a singleton (compared by address); `message()` may allocate since it runs on error paths only. `throw std::system_error{ec, "context"}` bridges any `error_code` into exceptions.
 
 Use a plain project enum as `E` instead when errors never leave your module and need no `errno`/OS interop; `error_code` earns its keep at OS and cross-library boundaries.
@@ -188,12 +210,16 @@ std::expected<Reply, std::error_code> handle(Socket& s) {
 }
 ```
 
+### Choosing the operation
+
 | Need | Use | Callable shape |
 |------|-----|----------------|
 | next fallible step | `and_then(f)` | `T → expected<U, E>` |
 | infallible mapping of the value | `transform(f)` | `T → U` |
 | recover from / inspect error | `or_else(f)` | `E → expected<T, F>` |
 | convert the error type (layer boundary) | `transform_error(f)` | `E → F` |
+
+### Usage rules
 
 - Chain linear pipelines; early-return for branching logic. When step 3 needs values from steps 1 and 2, nesting lambdas to keep both in scope is worse than:
 
@@ -215,7 +241,11 @@ The `E` in `expected<T, E>` is API:
 
 - Small: an enum, or enum + small context struct. A `std::string` message member makes every failure allocate; acceptable at top layers, wrong in inner loops.
 - Actionable: callers branch on what to do (`retry`, `not_found`, `invalid_input`). Prose goes in `message()`/formatting, not the discriminant.
-- Add context by composition when needed:
+- Avoid `expected<T, std::string>`: callers can't branch on it, and the message format becomes API.
+
+### Adding context
+
+Add context by composition when needed:
 
 ```cpp
 struct IoError {
@@ -226,7 +256,6 @@ struct IoError {
 ```
 
 - `std::source_location` default arguments capture the call site for free (C++20). For post-mortem context, add a `std::stacktrace` member captured at construction (C++23; link caveats in `cpp23-features.md`), on error paths only.
-- Avoid `expected<T, std::string>`: callers can't branch on it, and the message format becomes API.
 
 ## Boundary Translation
 
@@ -273,7 +302,9 @@ Throwing across a shared-library boundary is safe only when both sides share com
 
 ## The extern "C" Edge
 
-An exception propagating out of an `extern "C"` entry point into C callers has no defined behavior (commonly terminate, sometimes worse; C frames may lack unwind tables). Every `extern "C"` entry point that calls C++ must be a firewall:
+An exception propagating out of an `extern "C"` entry point into C callers has no defined behavior (commonly terminate, sometimes worse; C frames may lack unwind tables). Every `extern "C"` entry point that calls C++ must be a firewall.
+
+### The firewall pattern
 
 ```cpp
 // public_api.h — consumable from C
@@ -302,7 +333,7 @@ extern "C" lib_status lib_process(const char* input, char* out, size_t out_len) 
 extern "C" const char* lib_last_error_message(void) noexcept { return g_last_error.c_str(); }
 ```
 
-Rules for the C edge:
+### Rules for the C edge
 
 - `catch (...)` at every entry point; one missed exception type is UB, not a bug report.
 - Mark the definitions `noexcept`, so a hole in the firewall terminates instead of corrupting a C caller.
@@ -357,7 +388,7 @@ extern "C" int svc_load(const char* name, Document** out) noexcept {
 }
 ```
 
-What each boundary does:
+### What each boundary does
 
 - Storage → domain: `transform_error` runs only on failure. The OS error is discarded on purpose; nothing above this layer should branch on `errno`.
 - Within domain: `and_then` maps the parser's `nullopt` to a named domain error.
@@ -365,18 +396,30 @@ What each boundary does:
 
 ## Anti-Patterns That Pass Review
 
+### Throwing, catching, and noexcept
+
 | Anti-pattern | Why it bites | Do instead |
 |--------------|--------------|------------|
 | `catch (std::exception e)` (by value) | slices the derived type; loses the real message/type | `catch (const std::exception& e)` |
 | `catch (...) {}` (empty) outside the three sinks | swallows bugs; failures vanish silently | handle a specific type, or let it propagate |
+| Exception thrown across `extern "C"` or into a C callback | undefined behavior (terminate or worse) | `noexcept` firewall with `catch (...)` |
+| Destructor that can throw | throwing during unwinding → terminate | log-and-swallow; no `noexcept(false)` |
 | `noexcept` on a function that allocates an error string | one `bad_alloc` → `std::terminate`, no recovery | drop `noexcept`, or pre-size/avoid the allocation |
 | Throwing move constructor (no `noexcept`) | `vector` reallocation silently switches to copies | `noexcept` + `static_assert(is_nothrow_move_constructible_v<T>)` |
+
+### Error types and layering
+
+| Anti-pattern | Why it bites | Do instead |
+|--------------|--------------|------------|
 | `expected<T, std::string>` as a public API | callers can't branch; message format frozen into the ABI | enum / small struct `E`; prose in formatting |
 | Reusing one error enum across unrelated modules | every caller handles cases that can't occur; coupling | per-module enum, translate at the boundary |
-| Exception thrown across `extern "C"` or into a C callback | undefined behavior (terminate or worse) | `noexcept` firewall with `catch (...)` |
 | `error_category` instance per call (not a singleton) | identity compares by address → comparisons silently fail | `static` local; return by reference |
 | Mixing throw and `expected` for the *same* failure class in one layer | every caller must handle both paths | one mechanism per layer; translate at edges |
-| Destructor that can throw | throwing during unwinding → terminate | log-and-swallow; no `noexcept(false)` |
+
+### Checking results
+
+| Anti-pattern | Why it bites | Do instead |
+|--------------|--------------|------------|
 | `if (expected_value.value())` to test success | `value()` throws on error; it isn't a test | `if (e)` / `if (e.has_value())` |
 | Ignoring an `expected`/`error_code` return | `[[nodiscard]]` on the type catches it; without it, errors leak | mark fallible returns `[[nodiscard]]`; check every one |
 
