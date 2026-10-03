@@ -26,6 +26,8 @@ Routes C, C++, Python, Bash, and embedded work to the skill that covers it. Path
 
 ## I need help with...
 
+### C and C++
+
 | Task | Skill |
 |------|-------|
 | Choosing `-std` (C17 vs C23) or adopting a C23 feature | [`modern-c`](c/modern-c/SKILL.md) |
@@ -33,15 +35,30 @@ Routes C, C++, Python, Bash, and embedded work to the skill that covers it. Path
 | Which C++ standard a feature needs | [`cpp-skills`](cpp/SKILL.md) |
 | RAII, smart pointers, ranges, `std::expected`, `std::print` | [`modern-cpp`](cpp/modern-cpp/SKILL.md) |
 | Threads, atomics, coroutines, or a C++ data race | [`cpp-concurrency`](cpp/cpp-concurrency/SKILL.md) |
+
+### Python
+
+| Task | Skill |
+|------|-------|
 | A Python 3.14 feature or its fallback | [`modern-python`](python/modern-python/SKILL.md) |
 | asyncio vs threads vs free-threading vs subinterpreters | [`python-concurrency`](python/python-concurrency/SKILL.md) |
 | Type annotations, PEP 695 generics, strict pyright/mypy | [`python-typing`](python/python-typing/SKILL.md) |
 | uv/ruff setup, dependencies, lockfiles, project layout | [`python-tooling`](python/python-tooling/SKILL.md) |
 | Writing or triaging pytest tests | [`python-testing`](python/python-testing/SKILL.md) |
+
+### Bash and embedded
+
+| Task | Skill |
+|------|-------|
 | Hardening a Bash script or fixing a quoting bug | [`bash-scripting`](bash/bash-scripting/SKILL.md) |
 | bats tests, shellcheck/shfmt wiring | [`bash-testing`](bash/bash-testing/SKILL.md) |
 | MMIO, ISRs, startup, linker scripts, cross-compilation | [`embedded-systems`](embedded/embedded-systems/SKILL.md) |
 | Embedded C++ subset (`-fno-exceptions -fno-rtti`, freestanding stdlib) | [`embedded-cpp`](embedded/embedded-cpp/SKILL.md) |
+
+### Builds, diagnostics, and cross-cutting
+
+| Task | Skill |
+|------|-------|
 | CMakeLists, a broken build, choosing a package manager | [`build-systems`](tooling/build-systems/SKILL.md) |
 | Picking a sanitizer, debugger, or profiler for a symptom | [`diagnostics`](tooling/diagnostics/SKILL.md) |
 | Binding C/C++ to Python or designing an ABI boundary | [`ffi-interop`](tooling/ffi-interop/SKILL.md) |
@@ -51,7 +68,7 @@ Routes C, C++, Python, Bash, and embedded work to the skill that covers it. Path
 
 ## Version Snapshot
 
-Summary only. Minimum toolchains and fallbacks are in [`_shared/version-feature-matrix.md`](_shared/version-feature-matrix.md); compiler support shifts between minor releases, so verify on your toolchain.
+Summary only; minimum toolchains and fallbacks are in [`_shared/version-feature-matrix.md`](_shared/version-feature-matrix.md).
 
 | Language | Baseline | Newest | Headline of the newest |
 |----------|----------|--------|------------------------|
