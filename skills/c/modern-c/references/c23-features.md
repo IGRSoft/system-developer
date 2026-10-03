@@ -1,48 +1,26 @@
 # C23 Feature Catalog
 
-Use this when:
+Every C23 (ISO/IEC 9899:2024) change with per-feature compiler minimums and
+the C17 fallback. Threads and atomics are in
+[c-concurrency-atomics.md](c-concurrency-atomics.md).
 
-- You need the complete list of C23 (ISO/IEC 9899:2024) changes with per-feature compiler support.
-- You are deciding whether a specific C23 feature is safe for your minimum toolchain.
-- You need the C17 fallback for a feature you cannot adopt yet.
-
-Skip this file if:
-
-- You only need the headline quick wins and selection table. Use [../SKILL.md](../SKILL.md).
-- Your question is about threads or atomics. Use [c-concurrency-atomics.md](c-concurrency-atomics.md).
-
-Jump to:
-
-- Support Summary
-- Language Features
-- Preprocessor Features
-- Library Additions
-- Removals and Semantic Changes
-- Migration Checklist (C17 -> C23)
-
-Version minimums below reflect first usable releases as commonly documented;
-point releases and target-specific gaps exist — verify against your toolchain
-(`gcc --version`, `clang --version`, and a one-line compile probe) before
-committing a hard dependency. MSVC C23 support is partial and evolving; treat
-MSVC as C17-only unless you have verified a specific feature.
+Minimums are first usable releases; confirm a hard dependency with a one-line
+compile probe on your oldest toolchain. Treat MSVC as C17-only unless you have
+verified a specific feature.
 
 ## Support Summary
 
 | Tier | Features | Minimum toolchain |
 |------|----------|-------------------|
-| Core (adopt freely) | `nullptr`, `bool` keywords, `{}` init, `typeof`, `constexpr` objects, digit separators, binary literals, attributes, `static_assert` 1-arg | GCC 13+ / Clang 16+ |
-| Near-core | enum underlying types, `auto`, `<stdckdint.h>`, `unreachable()` | GCC 13+ / Clang 16-17+ (verify) |
-| Late arrivals | `_BitInt` (GCC), `constexpr` (Clang), `<stdbit.h>` | GCC 14+ / Clang 19+ |
+| Core (adopt freely) | `nullptr`, `bool` keywords, `{}` init, `typeof`, digit separators, binary literals, attributes, `static_assert` 1-arg | GCC 13+ / Clang 16+ |
+| Near-core | enum underlying types, `auto`, `unreachable()` | GCC 13+ / Clang 17-18+ |
+| Late arrivals | `<stdckdint.h>`, `_BitInt` (GCC), `constexpr` objects (Clang), `<stdbit.h>` | GCC 14+ / Clang 18-19+ |
 | Latest | `#embed` | GCC 15+ / Clang 19+ |
 | Library-bound | `memset_explicit`, `%b`/`%wN` printf, `free_sized` | Depends on libc, not compiler |
 
 `-std` spelling: `-std=c23` exists from GCC 14 and Clang 18; older releases
 (GCC 9-13, Clang 9-17) accept the same features under `-std=c2x`.
 Feature-test macro: `__STDC_VERSION__ >= 202311L`.
-
-Forward note: **C2y** (the next WG14 revision) is in active drafting — no
-adoption yet, nothing to target. C23 stays the modern goal and C17 the
-universal baseline.
 
 ---
 
@@ -90,16 +68,14 @@ bool ready = false;     // no include needed in C23
 
 ### Empty Initializer {}
 
-`= {}` zero-initializes any complete object type, matching C++ syntax. Also
-valid for VLAs (which `{0}` never was).
+`= {}` zero-initializes any object type, including padding, matching C++
+syntax. It is also the only initializer a VLA accepts.
 
 ```c
 struct sockaddr_in addr = {};
 int matrix[4][4] = {};
 size_t n = runtime_size();
-char vla[n];
-// C23: char vla[n] = {}; is still NOT allowed - VLAs cannot be initialized.
-// Use memset for VLAs in every standard.
+char vla[n] = {};      // C23 only; C17: memset
 ```
 
 | Toolchain | Minimum |
@@ -108,15 +84,15 @@ char vla[n];
 | Clang | 16 (extension before) |
 | C17 fallback | `= {0}` (first member zeroed, rest implicitly zero) |
 
-Note: neither `{}` nor `{0}` guarantees padding bytes are zeroed when you
-later `memcmp` structs — use `memset` if byte-exact zeroing matters.
+C17's `{0}` does not guarantee zeroed padding; use `memset` before `memcmp`
+or hashing structs when the code must also build as C17.
 
 ### constexpr (Objects Only)
 
 `constexpr` declares an object whose value is a compile-time constant, usable
 in array bounds, `case` labels, `static_assert`, and other constant
-expressions. **C has no constexpr functions** — that is C++ only. This is the
-single most common C/C++ confusion in C23 adoption.
+expressions. C has no constexpr functions (C++ only), the most common C/C++
+confusion in C23 adoption.
 
 ```c
 constexpr size_t PAGE = 4096;
@@ -135,7 +111,7 @@ be `nullptr` or address constants; no `constexpr` on VLA types.
 |-----------|---------|
 | GCC | 13 |
 | Clang | 19 |
-| C17 fallback | `enum { PAGE = 4096 }` for ints; `#define` for other types. `static const` is NOT a constant expression in C |
+| C17 fallback | `enum { PAGE = 4096 }` for ints; `#define` for other types. `static const` is not a constant expression in C |
 
 ### typeof and typeof_unqual
 
@@ -175,7 +151,7 @@ never in public headers or struct definitions.
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 |
-| Clang | 16+ (completeness varies by release — verify against your toolchain) |
+| Clang | 18 |
 | C17 fallback | Spell the type; in macros use `__auto_type` (GNU extension, GCC 4.9+/Clang 3.8+) |
 
 ### Enums with Fixed Underlying Type
@@ -202,8 +178,7 @@ struct packet {
 
 ### _BitInt(N)
 
-Bit-precise integers with exact width and — critically — **no integer
-promotion**: `_BitInt(8) + _BitInt(8)` stays 8 bits wide instead of silently
+Bit-precise integers with exact width and no integer promotion: `_BitInt(8) + _BitInt(8)` stays 8 bits wide instead of silently
 promoting to `int`. Literal suffixes `wb` (signed) and `uwb` (unsigned).
 
 ```c
@@ -215,13 +190,12 @@ unsigned _BitInt(3) priority = 7uwb;
 unsigned _BitInt(3) doubled = priority + priority;  // wraps in 3 bits (unsigned)
 ```
 
-Width limit is `BITINT_MAXWIDTH` (`<limits.h>`), at least `ULLONG_WIDTH`;
-real caps are large but implementation-defined — verify against your
-toolchain. Signed `_BitInt` overflow is still UB, like all signed overflow.
+Width limit is `BITINT_MAXWIDTH` (`<limits.h>`), at least `ULLONG_WIDTH`,
+otherwise implementation-defined. Signed `_BitInt` overflow is still UB.
 
 | Toolchain | Minimum |
 |-----------|---------|
-| GCC | 14 (initially 64-bit targets — verify yours) |
+| GCC | 14 (64-bit targets first) |
 | Clang | 14 (`_ExtInt` precursor since 11) |
 | C17 fallback | Fixed-width `uintN_t` + manual masking: `(x + y) & 0x7u` |
 
@@ -332,7 +306,7 @@ Pair with assertions in debug builds: `assert(!"unreachable"); unreachable();`
 
 ### Empty Parentheses Mean (void); K&R Definitions Removed
 
-In C23, `void f();` declares a function taking **no arguments** — identical
+In C23, `void f();` declares a function taking no arguments, identical
 to `void f(void);`. Before C23 it declared an unspecified parameter list, and
 calls with any arguments compiled silently. K&R (identifier-list) definitions
 are removed entirely.
@@ -361,7 +335,7 @@ flags is exactly what C23 will break.
 Signed integers are two's complement, period. `INT_MIN == -INT_MAX - 1` is
 guaranteed; bit patterns of negative numbers are portable.
 
-**What did NOT change**: signed overflow is still undefined behavior. Use
+Signed overflow is still undefined behavior. Use
 `<stdckdint.h>` or unsigned arithmetic for wraparound.
 
 | Toolchain | Minimum |
@@ -421,8 +395,7 @@ static const size_t model_len = sizeof model;
 #endif
 ```
 
-Orders of magnitude faster than compiling `xxd -i` output; no build-step
-codegen to maintain.
+Much faster to compile than `xxd -i` output, with no codegen step.
 
 | Toolchain | Minimum |
 |-----------|---------|
@@ -491,13 +464,13 @@ for (size_t i = 0; i < n; i++) {
 }
 ```
 
-Replaces the error-prone manual idioms (`a > SIZE_MAX / b`,
-`a > INT_MAX - b`) — those stay correct but are easy to get wrong per-type.
+Replaces manual idioms (`a > SIZE_MAX / b`, `a > INT_MAX - b`) that are easy
+to get wrong per type.
 
 | Toolchain | Minimum |
 |-----------|---------|
-| GCC | 13 (compiler-provided header) |
-| Clang | 16+ (verify the header ships with your installation) |
+| GCC | 14 (compiler-provided header) |
+| Clang | 18 |
 | C17 fallback | `__builtin_add_overflow(a, b, &r)` family (GCC 5+/Clang 3.8+), identical semantics |
 
 ### <stdbit.h> — Bit Utilities
@@ -521,8 +494,8 @@ size_t cap = stdc_bit_ceil((size_t)needed);               // next power of 2
 
 | Toolchain | Minimum |
 |-----------|---------|
-| GCC | 14 (header availability also depends on libc — glibc 2.39+; verify) |
-| Clang | 19 (verify) |
+| GCC | 14 builtins; the header comes from libc (glibc 2.39+) |
+| Clang | Header from libc (glibc 2.39+) |
 | C17 fallback | `__builtin_popcount`/`__builtin_clz`/`__builtin_ctz` (beware UB on 0 for clz/ctz); endianness via `__BYTE_ORDER__` |
 
 ### memset_explicit
@@ -539,8 +512,8 @@ free(secret_buf);
 | Platform | Status |
 |----------|--------|
 | glibc | 2.37+ |
-| musl | recent releases (verify) |
-| macOS / BSD libc | Not as of this writing — use `memset_s` (macOS, with `__STDC_WANT_LIB_EXT1__`) or `explicit_bzero` (BSD/glibc) |
+| musl / BSD | Check your release |
+| macOS | Absent; use `memset_s` (with `__STDC_WANT_LIB_EXT1__`) |
 | C17 fallback | `explicit_bzero`, `memset_s`, or `memset` + compiler barrier `__asm__ __volatile__("" ::: "memory")` |
 
 ### POSIX Functions Absorbed: strdup, strndup, memccpy, gmtime_r, localtime_r, timegm
@@ -557,7 +530,7 @@ gmtime_r(&epoch, &tm);                // reentrant, now portable C
 
 | Toolchain | Minimum |
 |-----------|---------|
-| glibc/musl/BSD | Functions existed for decades; C23-mode visibility without feature macros depends on libc headers — verify |
+| glibc/musl/BSD | Functions existed for decades; visibility in strict C23 mode without feature macros depends on libc headers |
 | C17 fallback | Same functions with `#define _DEFAULT_SOURCE` (glibc) or equivalent |
 
 ### printf/scanf: %b and %wN Length Modifiers
@@ -572,8 +545,8 @@ printf("%w64d\n", (int64_t)x);    // no PRId64
 
 | Platform | Status |
 |----------|--------|
-| glibc | `%b` 2.35+; `%wN` 2.38+ |
-| musl / BSD | Varies — verify |
+| glibc | `%b` 2.35+; `%wN` 2.39+ |
+| musl / BSD | Varies |
 | C17 fallback | `<inttypes.h>` `PRId64` macros; manual binary printing loop |
 
 ### free_sized and free_aligned_sized
@@ -583,7 +556,7 @@ lookup and double-checks the caller's size bookkeeping.
 
 | Platform | Status |
 |----------|--------|
-| All mainstream libcs | Little to no adoption as of this writing — verify; treat as future-facing |
+| Mainstream libcs | Little adoption; treat as future-facing |
 | C17 fallback | `free(p)` — also the correct C23 fallback today |
 
 ### Math and Numeric Additions (brief)
@@ -591,8 +564,8 @@ lookup and double-checks the caller's size bookkeeping.
 | Addition | What |
 |----------|------|
 | `<float.h>` `*_IS_IEC_60559`, `INFINITY`/`NAN` tightening | Detect IEEE 754 conformance properly |
-| Decimal FP (`_Decimal32/64/128`) | Optional Annex; GCC supports on some targets, Clang largely not — verify before use |
-| `<math.h>` additions (`roundeven`, `fromfp`, `llogb`, `powr`, etc.) | IEC 60559:2019 binding; libc-dependent — verify |
+| Decimal FP (`_Decimal32/64/128`) | Optional; GCC on some targets, Clang largely not |
+| `<math.h>` additions (`roundeven`, `fromfp`, `llogb`, `powr`, etc.) | IEC 60559:2019 binding; libc-dependent |
 | `<limits.h>` `*_WIDTH` macros | Bit widths for every integer type (also in C17 via TS) |
 
 ---
@@ -603,7 +576,7 @@ lookup and double-checks the caller's size bookkeeping.
 |--------|--------|--------|
 | K&R function definitions removed | Old code errors out | Convert to prototypes (mechanical; `-Wold-style-definition` finds them in C17) |
 | `void f()` means `void f(void)` | Calls-with-args through empty declarations become errors | Audit with `-Wstrict-prototypes` before migrating |
-| Trigraphs removed | `??=` etc. no longer translate | Virtually nobody is affected; grep for `??` if paranoid |
+| Trigraphs removed | `??=` etc. no longer translate | Grep for `??` in old sources |
 | `realloc(p, 0)` is undefined behavior | Code using it as `free` is broken | `if (n == 0) { free(p); return NULL; }` explicitly |
 | `ATOMIC_VAR_INIT` removed (deprecated since C17) | Build error | Plain initialization: `_Atomic int n = 0;` |
 | `__alignof_is_defined` / `<stdalign.h>` content emptied | Keywords replace macros | Use `alignas`/`alignof` keywords |
@@ -614,32 +587,26 @@ lookup and double-checks the caller's size bookkeeping.
 
 ## Migration Checklist (C17 -> C23)
 
-1. **Pre-flight in C17 mode**: add `-Wstrict-prototypes -Wold-style-definition
-   -Wimplicit-fallthrough -Werror`; fix everything it reports. This is the
-   complete list of hard C23 breaks in most codebases.
-2. **Grep for removed items**: `ATOMIC_VAR_INIT`, `realloc` with
-   possibly-zero size, trigraph sequences.
-3. **Flip one target**: change `-std=c17` to `-std=c23` (or `-std=c2x` on
-   GCC 13/Clang 16-17) on a leaf library first; build clean with the
+1. Pre-flight in C17 mode with `-Wstrict-prototypes -Wold-style-definition
+   -Wimplicit-fallthrough -Werror` and fix what it reports; in most codebases
+   that is every hard C23 break.
+2. Grep for removed items: `ATOMIC_VAR_INIT`, `realloc` with possibly-zero
+   size, trigraphs.
+3. Flip one leaf target from `-std=c17` to `-std=c23` (`-std=c2x` on GCC
+   13/Clang 16-17) and build clean with the
    [hygiene flags](../SKILL.md#hygiene-flags).
-4. **Adopt core quick wins mechanically**: `NULL` -> `nullptr` in new code
-   (do not mass-rewrite), drop `<stdbool.h>` includes opportunistically,
-   `{0}` -> `{}` where intent is "zero everything".
-5. **Adopt safety features deliberately**: every `malloc(a * b)` becomes a
-   `ckd_mul` guard; every secret wipe becomes `memset_explicit` (with libc
-   fallback shim); switch-over-enum tails get `unreachable()`. Pair the build
-   with hardening flags — GCC 14+ bundles the recommended set behind the
-   `-fhardened` umbrella (and `-ftrivial-auto-var-init=zero` zero-inits locals);
-   see the [hardening flags](../SKILL.md#hygiene-flags) in modern-c and
-   `${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md`.
-6. **Gate public headers**: keep installed headers C17-compatible or guard
-   with `#if __STDC_VERSION__ >= 202311L` so downstream C17 and C++
-   consumers keep building.
-7. **Verify in CI on the oldest supported toolchain** — feature availability
-   tables above are gates, not guarantees; a one-line compile probe per
-   gated feature in CI ends the debate permanently.
+4. Adopt quick wins in new code: `nullptr` (no mass rewrite of `NULL`), drop
+   `<stdbool.h>` opportunistically, `{0}` -> `{}` where the intent is "zero
+   everything".
+5. Adopt safety features deliberately: `malloc(a * b)` gets a `ckd_mul`
+   guard, secret wipes use `memset_explicit` (with a libc fallback shim),
+   switch-over-enum tails get `unreachable()`. Hardening flags:
+   [secure-coding](../../../_shared/secure-coding/SKILL.md).
+6. Keep installed headers C17-compatible or guard C23-isms with
+   `#if __STDC_VERSION__ >= 202311L` so C17 and C++ consumers keep building.
+7. In CI, build on the oldest supported toolchain with a one-line compile
+   probe per gated feature.
 
-Cross-references: standard selection and quick-win summary in
-[../SKILL.md](../SKILL.md); canonical toolchain minimums in
-`${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md`; sanitizer
-verification workflow in `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md`.
+Canonical toolchain minimums:
+[version-feature-matrix.md](../../../_shared/version-feature-matrix.md).
+Sanitizer workflow: [diagnostics](../../../tooling/diagnostics/SKILL.md).
