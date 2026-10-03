@@ -10,6 +10,8 @@ C++20 (`<ranges>`, `<algorithm>`). Three kinds of things:
 - View: a lightweight range (O(1) copy/move/destroy) describing a computation over another range without performing it. Created by adaptors in `std::views`.
 - Constrained algorithm: `std::ranges::sort(vec)` instead of `std::sort(vec.begin(), vec.end())`; takes whole ranges, uses concepts, supports projections.
 
+### A first pipeline
+
 ```cpp
 std::vector<Order> orders = load();
 
@@ -23,7 +25,7 @@ for (double t : totals) sum += t;                  // work happens here, not abo
 
 The pipeline expression builds a view object; nothing iterates `orders` until the `for` loop. Adaptors compose left to right with `|`, and a partial pipeline (`auto pipeline = views::filter(p) | views::transform(f);`) is itself a reusable object you can apply to multiple ranges.
 
-Core C++20 adaptor vocabulary:
+### Core adaptors: selecting and transforming
 
 | Adaptor | Produces | Notes |
 |---------|----------|-------|
@@ -33,6 +35,11 @@ Core C++20 adaptor vocabulary:
 | `views::take_while(p)` / `drop_while(p)` | prefix rules | `drop_while` caches `begin()` |
 | `views::reverse` | reversed | needs `bidirectional_range` |
 | `views::keys` / `values` / `elements<N>` | tuple/pair projections | maps, zip results |
+
+### Core adaptors: structure and sources
+
+| Adaptor | Produces | Notes |
+|---------|----------|-------|
 | `views::join` | flattens range-of-ranges | |
 | `views::split(delim)` / `lazy_split` | subranges between delimiters | `split` (post-P2210) gives contiguous subranges over contiguous input, usable for `string_view{sub.begin(), sub.end()}` |
 | `views::common` | view with same iterator/sentinel types | bridge to pre-ranges APIs taking `(first, last)` |
@@ -44,6 +51,8 @@ Core C++20 adaptor vocabulary:
 
 Gate on feature-test macros, not compiler versions: C++23 adaptors landed piecemeal across libstdc++/libc++/MSVC.
 
+### Core ranges and the first C++23 adaptors
+
 | Feature | Standard | Feature-test macro | Fallback |
 |---------|----------|--------------------|----------|
 | Core ranges + C++20 views | C++20 | `__cpp_lib_ranges >= 201911L` | range-v3 on C++17 |
@@ -52,6 +61,11 @@ Gate on feature-test macros, not compiler versions: C++23 adaptors landed piecem
 | `views::chunk` / `chunk_by` | C++23 | `__cpp_lib_ranges_chunk >= 202202L` / `_chunk_by` | range-v3; manual index math |
 | `views::slide` | C++23 | `__cpp_lib_ranges_slide >= 202202L` | range-v3 `views::sliding` |
 | `views::stride` | C++23 | `__cpp_lib_ranges_stride >= 202207L` | range-v3; index loop with `i += n` |
+
+### More C++23 adaptors and algorithms
+
+| Feature | Standard | Feature-test macro | Fallback |
+|---------|----------|--------------------|----------|
 | `views::cartesian_product` | C++23 | `__cpp_lib_ranges_cartesian_product >= 202207L` | nested loops; range-v3 |
 | `views::join_with` | C++23 | `__cpp_lib_ranges_join_with >= 202202L` | range-v3 `views::join(r, delim)` |
 | `views::adjacent` / `pairwise` | C++23 | `__cpp_lib_ranges_zip` (same paper family) | `views::slide(2)`; range-v3 |
@@ -59,6 +73,8 @@ Gate on feature-test macros, not compiler versions: C++23 adaptors landed piecem
 | `ranges::to` | C++23 | `__cpp_lib_ranges_to_container >= 202202L` | iterator-pair container ctor; range-v3 `ranges::to` |
 | `ranges::contains` / `contains_subrange` | C++23 | `__cpp_lib_ranges_contains >= 202207L` | `ranges::find(r, x) != end(r)` |
 | `ranges::find_last` | C++23 | `__cpp_lib_ranges_find_last >= 202207L` | `find` over `views::reverse` |
+
+### Gating example
 
 ```cpp
 #include <version>
@@ -81,7 +97,7 @@ auto first = *expensive.begin();        // parses element 0
 for (auto&& doc : expensive) use(doc);  // parses all elements, element 0 again
 ```
 
-Consequences:
+### Consequences
 
 - Transforms re-run on every pass and every dereference. If the transform is expensive, materialize once (`ranges::to`) and iterate the container.
 - Keep view callables pure: `filter`/`transform` callables may run more or fewer times, or in a different order, than a naive reading suggests (`filter` calls its predicate during `begin()` caching; algorithms may dereference repeatedly). Do side effects in the terminal loop.
@@ -167,14 +183,21 @@ Opt your own type in (`template<> inline constexpr bool std::ranges::enable_borr
 
 ## Pitfalls That Pass Review and Fail in Production
 
+### Lifetime and mutation
+
 | Pitfall | Symptom | Rule |
 |---------|---------|------|
 | View over local returned from function | ASan use-after-free / garbage | return `ranges::to<std::vector>()` instead |
+| View stored as class member referencing another member | dangles on move/copy of the class | store the container; build views in accessors |
 | Filter view reused after container mutation | skipped/duplicated elements, crashes | rebuild pipeline after mutation |
 | Mutation through `filter` changing membership | elements skipped, invariant breakage | plain loop or collect-then-mutate |
+
+### Types, cost, and termination
+
+| Pitfall | Symptom | Rule |
+|---------|---------|------|
 | Expensive `transform` iterated twice | 2× CPU, mysterious slowness | materialize once with `ranges::to` |
 | `const` view member / `const auto&` view param | "no member named 'begin'" compile error | pass views by value; don't store as `const` members |
-| View stored as class member referencing another member | dangles on move/copy of the class | store the container; build views in accessors |
 | `views::split` on the fly vs `lazy_split` confusion | subranges lack expected operations | `split` for forward+ ranges (contiguous-friendly); `lazy_split` for input ranges / const iteration |
 | Pipeline into old API taking `(first, last)` | iterator/sentinel type mismatch error | append `\| views::common` |
 | `iota(0)` filtered on never-true predicate | infinite loop in `begin()` | bound the source: `iota(0, n)` or `take(n)` before filter |
@@ -193,6 +216,8 @@ auto max = std::ranges::max_element(people, {}, &Person::age);
 ```
 
 Projections can be member pointers, member functions, or free functions. View adaptors take no projection parameter; use `views::transform` or pass member pointers to adaptors that accept invocables.
+
+### Projection with a comparator
 
 ```cpp
 // Projection + comparator together: descending sort by computed key
@@ -215,6 +240,8 @@ Two adaptors:
 | `views::split` | `forward_range`+ | `subrange` preserving the source's iterator strength | normal case — strings, vectors |
 | `views::lazy_split` | `input_range` (works on single-pass) | an inner *range of ranges* with weaker iterators | streaming input; const-iterating the split view |
 
+### Allocation-free tokenizing
+
 Over contiguous input (`std::string`, `string_view`), `split` yields contiguous subranges that convert to `string_view`, giving allocation-free tokenizing:
 
 ```cpp
@@ -226,7 +253,7 @@ auto fields = line
     | std::ranges::to<std::vector>();        // ["alpha", "beta", "", "gamma"]
 ```
 
-Notes:
+### Delimiters, empty fields, and the C++20 spelling
 
 - The delimiter may be a single element (`','`) or a sub-pattern (`std::string_view{"::"}`); the pattern overload requires `forward_range` input.
 - Adjacent delimiters produce empty fields (`""` above); filter them (`views::filter([](auto f) { return !f.empty(); })`) when runs of delimiters count as one.
@@ -342,6 +369,8 @@ std::optional<int> mx = std::ranges::fold_left_first(values, std::ranges::max);
 auto folded = std::ranges::fold_right(items, std::string{}, concat);
 ```
 
+### Choosing a fold
+
 | Function | Init | Returns | Use when |
 |----------|------|---------|----------|
 | `fold_left(r, init, f)` | explicit | value | normal reduction |
@@ -372,11 +401,13 @@ auto sizes = names
 auto grid = rows | std::ranges::to<std::vector<std::vector<int>>>();
 ```
 
+### Behavior and when to materialize
+
 It reserves capacity when the source size is known (`sized_range`), forwards extra constructor arguments (allocators), and works with any container constructible from a range, iterator pair, or via `push_back`/`insert`.
 
 Use `ranges::to` when a pipeline's result is iterated more than once, returned, or stored; there, staying lazy is a bug or a perf trap.
 
-Pre-23 fallback:
+### Pre-23 fallback
 
 ```cpp
 auto common = view | std::views::common;
