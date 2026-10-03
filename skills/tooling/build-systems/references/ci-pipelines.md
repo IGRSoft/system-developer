@@ -1,6 +1,6 @@
 # CI Pipelines Reference
 
-Wiring build, test, sanitize, and lint into CI for C/C++/Python/Bash projects. Local build
+Wiring build, test, sanitize, lint, and wheel jobs into CI for C/C++/Python/Bash projects. Local build
 recipes: [cmake-modern.md](cmake-modern.md). Reading a sanitizer report:
 [sanitizers.md](../../diagnostics/references/sanitizers.md).
 
@@ -121,6 +121,41 @@ Run in report-or-fail mode; don't auto-fix in CI.
 
 ty (Astral, beta) is report-only: surface its findings but keep pyright/mypy as the type
 gate.
+
+## Python Wheels (cibuildwheel)
+
+For native extensions (scikit-build-core, pybind11, nanobind), cibuildwheel builds and tests
+one wheel per interpreter inside manylinux/musllinux containers on Linux and natively on
+macOS and Windows. Run it as its own job, one runner per OS:
+
+```yaml
+  wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v3        # pin an exact release or SHA in real CI
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}   # artifact names must be unique per job
+          path: wheelhouse/*.whl
+```
+
+### Configuration
+
+Keep the settings in `pyproject.toml` so local `cibuildwheel` runs match CI:
+
+```toml
+[tool.cibuildwheel]
+build = "cp312-* cp313-* cp314-*"   # cp314-* doesn't match free-threaded cp314t-*
+test-requires = ["pytest"]
+test-command = "pytest {project}/tests"
+```
+
+- An abi3 (`STABLE_ABI`) extension needs only the lowest supported interpreter per platform.
+- Add `cp314t-*` only when the module declares free-threading support.
 
 ## Reproducible Builds
 

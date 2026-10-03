@@ -98,6 +98,31 @@ Gate 5.x features behind a `BASH_VERSINFO` check or they break on macOS 3.2.
 Guards, POSIX fallbacks, and GNU vs BSD tools:
 [bash-versions-and-portability.md](references/bash-versions-and-portability.md).
 
+## Script Header and Exit Codes
+
+Put a header comment right below the shebang. `Usage` is the real synopsis
+the argument parser accepts; `Exit` lists every status the script can return:
+
+```bash
+#!/usr/bin/env bash
+# Purpose:  rotate and upload the nightly archive.
+# Usage:    backup.sh [--dry-run] <src-dir> <dest-bucket>
+# Exit:     0 ok | 1 upload failed | 2 bad arguments | 3 lock held
+# Requires: aws-cli, gzip
+```
+
+| Status | Meaning |
+|--------|---------|
+| 0 | success |
+| 1 | general runtime failure |
+| 2 | usage error: unknown flag, missing or invalid argument (as Bash builtins do) |
+| 3-125 | script-specific failures, each listed in the header |
+| 127 | a required command is missing (the shell's own meaning) |
+| 126, 128+N | reserved by the shell (not executable, killed by signal N); don't reuse |
+
+Functions get a short contract comment: positional arguments, what goes to
+stdout, return status, and globals read or modified.
+
 ## Diagnostic Table
 
 | shellcheck / symptom | Fix | Reference |

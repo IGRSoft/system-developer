@@ -78,7 +78,7 @@ Severity: `--help` absent or exiting non-zero **P1**; no usage synopsis, or opti
 
 ## Workflow
 
-1. **Scope.** Confirm `path` exists. Detect languages from extensions and shebangs (`--lang` overrides; tie-breaks in `skills/_shared/language-detection.md`). Find CLI entry points: `main()`, `if __name__ == "__main__"`, `[project.scripts]` in `pyproject.toml`, executable `*.sh`, `bin/` targets. Stop with the matching Error Handling message if the path, sources, or entry points are missing.
+1. **Scope.** Confirm `path` exists. Detect languages from extensions and shebangs (`--lang` overrides; a bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`). Find CLI entry points: `main()`, `if __name__ == "__main__"`, `[project.scripts]` in `pyproject.toml`, executable `*.sh`, `bin/` targets. Stop with the matching Error Handling message if the path, sources, or entry points are missing.
 2. **Sweep.** Run the greps for each in-scope check, recording hits as `file:line` with a provisional severity from the check's guide. For each color-emission site, read enough context to tell whether a `NO_COLOR`/`isatty`/`TERM` guard actually dominates it. Try `<program> --help`, capturing output, line widths, and exit code.
 3. **Judge.** With zero hits, report PASS directly. Otherwise delegate as below.
 4. Emit the Output Format.

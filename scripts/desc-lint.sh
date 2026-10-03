@@ -14,8 +14,8 @@
 #   skills/**/SKILL.md      → 600  — skill descriptions are deliberately
 #                                     trigger-engineered (they must fire the
 #                                     right skill), so 600 is a regression
-#                                     brake set just above today's worst
-#                                     (embedded-cpp), NOT a target. It is a
+#                                     brake well above today's longest
+#                                     description, NOT a target. It is a
 #                                     diet pending measured trigger evals — do
 #                                     not tighten without eval evidence that a
 #                                     shorter description still fires reliably.

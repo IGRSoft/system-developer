@@ -73,7 +73,7 @@ Review an existing C, C++, Python, or Bash codebase against the architecture pat
 
 ### Phase 1: Scope and evidence sweep
 
-Resolve the scope once and pass the same file list to every agent. Exclude `build/`, `builddir/`, `.venv/`, `node_modules/`, `third_party/`, `vendor/`, and configured CMake/Meson output directories. Detect languages from build manifests, extensions, and shebangs (`--lang` overrides; tie-breaks in `skills/_shared/language-detection.md`); review a mixed repo per root and name the roots. Print roots and file count.
+Resolve the scope once and pass the same file list to every agent. Exclude `build/`, `builddir/`, `.venv/`, `node_modules/`, `third_party/`, `vendor/`, and configured CMake/Meson output directories. Detect languages from build manifests, extensions, and shebangs (`--lang` overrides; a bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`; helper scripts such as `scripts/*.sh` don't make a root a Bash root); review a mixed repo per root and name the roots. Print roots and file count.
 
 Then collect `file:line` anchors with Glob/Grep/Read:
 

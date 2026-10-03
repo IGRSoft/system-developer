@@ -1,8 +1,3 @@
----
-name: version-feature-matrix
-description: Canonical lookup mapping language standards and versions (C17/C23, C++17/20/23/26-emerging, Python 3.12-3.15, Bash 5.2/5.3) to minimum toolchain versions and headline features. Reference before asserting feature availability or pinning a standard.
----
-
 # Version & Feature Matrix
 
 Canonical lookup for "which toolchain do I need for this standard, and what do I get". Every version-specific claim in this plugin's skills should link here rather than restate minimums. Compiler-support tables shift between minor releases — for entries marked *(verify)*, confirm against your toolchain (`gcc --version`, `clang --version`, `python3 -VV`, `bash --version`) and the vendor's C/C++ status pages before relying on a feature in CI.

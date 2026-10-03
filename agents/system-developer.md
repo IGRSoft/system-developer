@@ -13,7 +13,12 @@ You are the routing coordinator for C, C++, Python, and Bash: detect the languag
 
 ## Routing
 
-Route on file extension, build marker, or keyword. When markers are ambiguous (e.g. `CMakeLists.txt` plus `pyproject.toml`), apply `skill: language-detection`.
+Route on file extension, build marker, or keyword. Precedence: the user's stated language, then build manifests, then lockfiles, then the source-file census, then shebangs. Tie-breaks:
+
+- CMake/Meson with only `.c`/`.h` sources is C; any C++ source, `project(x CXX)`, or `CMAKE_CXX_STANDARD` makes it C++. A bare `.h` is C unless the tree has C++ markers.
+- Helper scripts, a wrapper `Makefile`, or one stray `tools/helper.py` don't change the project's language; route edits to those files to their own language agent.
+- `pyproject.toml` plus C/C++ extension sources (scikit-build-core, pybind11, nanobind, `setup.py` `ext_modules`) is FFI work: handle it here and delegate per file.
+- No dominant language (no single language over ~70% of sources and no deciding manifest): handle it here and split the work.
 
 ### Languages
 

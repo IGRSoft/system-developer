@@ -125,7 +125,7 @@ Answers to the items above. Apply each; mark it `[applied]` here when done.
 2. Commands' `allowed-tools`: add `Agent` wherever a command delegates, `Skill` where it runs another command, `Edit` where it applies fixes. [applied]
 3. `disallowed-tools` → rename to `disallowedTools` in both auditors; update README, MEMORY.md, model-selection.md. [applied]
 4. `debug` escalation to `debugging-toolkit:debugging-toolkit-debugger`: keep.
-5. `_shared/*.md` refs (severity-matrix, language-detection, version-feature-matrix, testing-principles): inline what each remaining caller needs; drop the dead `skill:`/path refs.
+5. `_shared/*.md` refs (severity-matrix, language-detection, version-feature-matrix, testing-principles): inline what each remaining caller needs; drop the dead `skill:`/path refs. [applied]
 6. Agents' "DR Focus" sections and the architect's complexity triage: move pipeline text into CORPFLOW.md; strip it from agents. [applied]
 7. Inside a worktask, build/test only through `/system-developer:build-test`: sys-test-generator and sys-code-fixer stop calling the toolchain directly (give them `Skill`). [applied]
 8. Remove `mcp__Ref__*` from every `tools` list. [applied]
@@ -138,10 +138,10 @@ Answers to the items above. Apply each; mark it `[applied]` here when done.
 15. `fix-quick --fix`: apply `shellcheck -f diff` patches; keep the fixture README expectation. [applied]
 16. `fix-refactor` thin coverage: keep as a warning.
 17. Empty C project test framework: Unity; change gen-tests. [applied]
-18. `severity-matrix.md`: keep both scales; rename the impact×effort levels so they don't collide with P0-P3.
+18. `severity-matrix.md`: keep both scales; rename the impact×effort levels so they don't collide with P0-P3. [applied]
 19. `fix-performance` Python memory: a `python -X tracemalloc` runner script written under `$OUT`. [applied]
-20. `secure-coding`: add a short supply-chain section.
-21. Apply the simple fixes: `--locked` in sys-dependency-manager; sanitizer_flags.sh + _shared/scripts/README section names; README skill count; desc-lint.sh + MEMORY.md stale note; scaffold's ignored `severity=` line (and tests); gen-tests coverage pointer; skills/bash/SKILL.md prologue wording; model-selection override column → opus only; drop unread `_shared/*.md` frontmatter. `estimated-cost` stays. [applied: `--locked` in sys-dependency-manager; gen-tests coverage pointer (dropped). The rest is open]
+20. `secure-coding`: add a short supply-chain section. [applied]
+21. Apply the simple fixes: `--locked` in sys-dependency-manager; sanitizer_flags.sh + _shared/scripts/README section names; README skill count; desc-lint.sh + MEMORY.md stale note; scaffold's ignored `severity=` line (and tests); gen-tests coverage pointer; skills/bash/SKILL.md prologue wording; model-selection override column → opus only; drop unread `_shared/*.md` frontmatter. `estimated-cost` stays. [applied]
 22. Verify unconfirmed facts against docs or local tools and correct: C23 minimums in c23-features.md; `import std` Clang version; Conan `CMakeConfigDeps` status; subinterpreter `__main__` functions; osv-scanner on vcpkg.json.
 23. Enforce section-lint's 1000-char cap on reference files too.
-24. Fill gaps: `to_expected` void branch; cibuildwheel job in ci-pipelines.md; bash header/exit-code convention for gen-docs; Python/Bash ownership rows in system-architector. develop-feature step numbers stay. [applied: system-architector ownership rows only; the rest is open]
+24. Fill gaps: `to_expected` void branch; cibuildwheel job in ci-pipelines.md; bash header/exit-code convention for gen-docs; Python/Bash ownership rows in system-architector. develop-feature step numbers stay. [applied]

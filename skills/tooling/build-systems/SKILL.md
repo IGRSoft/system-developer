@@ -130,7 +130,7 @@ Dependencies come from `dependency()` with `subprojects/*.wrap` fallbacks; see
 
 ## Related
 
-- [ci-pipelines.md](references/ci-pipelines.md): build, test, sanitize, and lint jobs in CI
+- [ci-pipelines.md](references/ci-pipelines.md): build, test, sanitize, lint, and wheel jobs in CI
 - [ffi-interop](../ffi-interop/SKILL.md): building native Python extensions
 - [version-feature-matrix](../../_shared/version-feature-matrix.md): CMake, Conan, and compiler floors per standard
 - [secure-coding](../../_shared/secure-coding/SKILL.md): hardening flags belong in the build

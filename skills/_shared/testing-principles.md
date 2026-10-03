@@ -1,8 +1,3 @@
----
-name: testing-principles
-description: Test pyramid, per-language framework matrix, coverage thresholds, and testing best practices for C, C++, Python, and Bash
----
-
 # Testing Principles Reference
 
 Shared testing patterns, framework selection, coverage requirements, and quality gates for systems work.

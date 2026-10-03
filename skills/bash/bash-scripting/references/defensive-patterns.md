@@ -182,8 +182,8 @@ while getopts ':vo:j:h' opt; do
     o) output="$OPTARG" ;;
     j) jobs="$OPTARG" ;;
     h) usage 0 ;;
-    :) log_error "option -$OPTARG requires an argument"; usage 1 ;;
-    \?) log_error "unknown option: -$OPTARG"; usage 1 ;;
+    :) log_error "option -$OPTARG requires an argument"; usage 2 ;;
+    \?) log_error "unknown option: -$OPTARG"; usage 2 ;;
   esac
 done
 shift $((OPTIND - 1))    # drop parsed options; "$@" now holds positional args
@@ -204,7 +204,7 @@ while [[ $# -gt 0 ]]; do
     --output=*)   output="${1#*=}"; shift ;;
     -h|--help)    usage 0 ;;
     --)           shift; break ;;     # everything after -- is positional
-    -*)           log_error "unknown option: $1"; usage 1 ;;
+    -*)           log_error "unknown option: $1"; usage 2 ;;
     *)            break ;;            # first non-option → positional args
   esac
 done
@@ -218,7 +218,7 @@ data starting with `-` isn't read as a flag.
 
 ```bash
 : "${API_TOKEN:?API_TOKEN must be set}"          # fail immediately if unset/empty
-[[ -n "$output" ]] || { log_error "-o/--output is required"; usage 1; }
+[[ -n "$output" ]] || { log_error "-o/--output is required"; usage 2; }
 [[ "$jobs" =~ ^[0-9]+$ ]] || { log_error "jobs must be numeric: $jobs"; exit 2; }
 [[ -r "$input" ]] || { log_error "cannot read: $input"; exit 2; }
 ```
@@ -334,13 +334,13 @@ main() {
       s) src="$OPTARG" ;;
       d) dst="$OPTARG" ;;
       h) usage 0 ;;
-      :) log_error "-$OPTARG requires a value"; usage 1 ;;
-      \?) log_error "unknown option -$OPTARG"; usage 1 ;;
+      :) log_error "-$OPTARG requires a value"; usage 2 ;;
+      \?) log_error "unknown option -$OPTARG"; usage 2 ;;
     esac
   done
   shift $((OPTIND - 1))
 
-  [[ -n "$src" && -n "$dst" ]] || usage 1
+  [[ -n "$src" && -n "$dst" ]] || usage 2
   [[ -d "$src" ]] || { log_error "src not a directory: $src"; exit 2; }
   command -v rsync >/dev/null 2>&1 || { log_error "rsync required"; exit 127; }
 

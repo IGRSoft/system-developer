@@ -71,7 +71,7 @@ Check every marker the architector returns against the probed floor. Common ones
 ### Phase 1: Resolve scope, language, and toolchain
 
 1. Decide whether `scope` is a path or prose. A missing path → Error Handling.
-2. For a path, detect languages and build system from manifests, extensions, and shebangs (`--lang` overrides; tie-breaks in `skills/_shared/language-detection.md`). Exclude `build/`, `builddir/`, `.venv/`, and vendored trees.
+2. For a path, detect languages and build system from manifests, extensions, and shebangs (`--lang` overrides; a CMake/Meson tree with only `.c`/`.h` sources is C; a bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`). Exclude `build/`, `builddir/`, `.venv/`, and vendored trees.
 3. Probe the toolchain floor: grep build files for `-std=`, `CMAKE_C_STANDARD`/`CMAKE_CXX_STANDARD`, `cpp_std`, `requires-python`; run `cmake --version` / `python3 --version` / `bash --version` where a version matters. Record unknowns as unknown.
 4. Detect the published surface (installed headers, SONAME/`VERSION` target properties, `__all__`, entry points). If found, enable `--abi-stable`.
 5. Print the resolved scope, languages, build system, and toolchain floor.

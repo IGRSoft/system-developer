@@ -117,7 +117,7 @@ All non-mutating. Check `command -v` first; a missing tool leaves its dimension 
 
 ### Phase 0: Scope
 
-Confirm `path` exists. Enumerate sources, excluding `build/`, `builddir/`, `.venv/`, `node_modules/`, and vendored third-party trees. Detect languages from build manifests, extensions, and shebangs (`--lang` overrides; tie-breaks in `skills/_shared/language-detection.md`). Print the scope, per-language file counts, and which languages get a reviewer. Stop with the matching Error Handling message if the path or sources are missing.
+Confirm `path` exists. Enumerate sources, excluding `build/`, `builddir/`, `.venv/`, `node_modules/`, and vendored third-party trees. Detect languages from build manifests, extensions, and shebangs (`--lang` overrides; a bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`). Print the scope, per-language file counts, and which languages get a reviewer. Stop with the matching Error Handling message if the path or sources are missing.
 
 ### Phase 1: Measure
 

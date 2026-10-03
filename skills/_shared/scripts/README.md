@@ -26,7 +26,7 @@ prose is named in its header comment; keep the two in sync.
 
 | Script | Lang | Purpose | Deps |
 |--------|------|---------|------|
-| `sanitizer_flags.sh` | bash | Emit canonical ASan/UBSan/TSan/MSan compile + link flags, runtime `*_OPTIONS`, or a CMakePresets/Makefile fragment. Mirrors `tooling/diagnostics/SKILL.md` § Copy-Paste Flag Sets. | bash, printf |
+| `sanitizer_flags.sh` | bash | Emit canonical ASan/UBSan/TSan/MSan compile + link flags, runtime `*_OPTIONS`, or a CMakePresets/Makefile fragment. Mirrors `tooling/diagnostics/SKILL.md` § Sanitizer Flag Sets. | bash, printf |
 | `detect_language.py` | python | Route a repo to a language agent (c/cpp/python/bash/router) via the marker/census rules. Mirrors `_shared/language-detection.md`. | python 3.12+ (stdlib), git (optional) |
 | `injection_audit.sh` | bash | Heuristic scan for command-injection / dynamic-code-exec patterns in C/C++/Python/Bash. Exits non-zero on findings. Mirrors `_shared/secure-coding/references/command-execution-and-injection.md`. | bash, grep, git (optional) |
 | `check_toolchain_versions.sh` | bash | Probe installed tool versions against the plugin's floors; `--strict` gates CI. Mirrors `version-feature-matrix.md` § Build/Toolchain Floor. | bash, awk, grep |

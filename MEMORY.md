@@ -220,7 +220,7 @@ C/C++/Python/Bash guidance changed.
   separately; scope includes references/).
 
 Follow-ups: the skills `description` cap (600) is a regression brake, not a target — worst
-today is 514 (`embedded-cpp`); tightening waits on eval evidence that a shorter description
+today is 435 (`modern-python`); tightening waits on eval evidence that a shorter description
 still fires the right skill. The section-lint burn-down is tracked separately.
 
 ## Refresh Log (v1.3.1 — 2026-07-08)

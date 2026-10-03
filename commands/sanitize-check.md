@@ -97,7 +97,7 @@ For a Python project with a C/C++ extension, the extension is what gets instrume
 ### Phase 1: Detect and plan
 
 1. Confirm `path` exists, else stop with "Path not found".
-2. Resolve the build system with `/system-developer:build-test`'s priority table and C/C++ tie-break. Only C, C++, and Python-with-native-extension trees are sanitizable (tie-breaks in `skills/_shared/language-detection.md`); for pure Python or Bash, emit "Nothing to sanitize" and stop.
+2. Resolve the build system with `/system-developer:build-test`'s priority table and C/C++ tie-break. Only C, C++, and Python-with-native-extension trees are sanitizable (native extension: `pyproject.toml` plus C/C++ sources built through `CMakeLists.txt`, `setup.py` `ext_modules`, or scikit-build-core/pybind11/nanobind config); for pure Python or Bash, emit "Nothing to sanitize" and stop.
 3. Expand `kind` into runs per the matrix, resolving `lsan` by platform.
 4. For each run, check the compiler supports it (`msan` needs Clang: `cc --version` / `clang --version`). Drop unsupported runs with the install hint.
 

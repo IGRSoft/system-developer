@@ -196,7 +196,7 @@ wheel.py-api = "cp314"                       # abi3 tag, needs STABLE_ABI + SABI
 - Without the SABI component nanobind cannot build against the limited API. Free-threaded builds have no stable ABI in 3.14, so `STABLE_ABI` is ignored there and can be combined with `FREE_THREADED`.
 - pybind11: `requires = ["scikit-build-core>=0.10", "pybind11"]`, `find_package(pybind11 CONFIG REQUIRED)`, `pybind11_add_module(...)`.
 - Editable installs recompile only with `editable.rebuild = true`, which needs `build-dir` set and `--no-build-isolation`.
-- Build manylinux/macOS/Windows wheels in CI with cibuildwheel.
+- Build manylinux/macOS/Windows wheels in CI with cibuildwheel: [ci-pipelines.md](../../build-systems/references/ci-pipelines.md) > Python Wheels.
 
 ## Stub Generation
 

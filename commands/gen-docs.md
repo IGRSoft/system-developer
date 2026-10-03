@@ -89,8 +89,8 @@ Document what the signature doesn't say: ownership, lifetime, thread-safety, err
 ```bash
 #!/usr/bin/env bash
 # Purpose: rotate and upload the nightly archive.
-# Usage:   backup.sh <src-dir> <dest-bucket> [--dry-run]
-# Exit:    0 ok | 1 bad args | 2 upload failed | 3 lock held
+# Usage:   backup.sh [--dry-run] <src-dir> <dest-bucket>
+# Exit:    0 ok | 1 upload failed | 2 bad arguments | 3 lock held
 # Requires: aws-cli, gzip
 ```
 

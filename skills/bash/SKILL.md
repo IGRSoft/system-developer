@@ -26,7 +26,7 @@ Shell is glue: launching processes, pipelines, filesystem plumbing, CI steps. Mo
 | Bash (`#!/usr/bin/env bash`) | Default when you control the interpreter; gives arrays, `[[ ]]`, `local`, `mapfile`, process substitution |
 | POSIX sh (`#!/bin/sh`) | Init scripts, container entrypoints (BusyBox `ash`, Debian `dash`), `configure`-style portability |
 
-Avoid `#!/bin/bash` in portable scripts: macOS `/bin/bash` is frozen at 3.2. Use `#!/usr/bin/env bash` plus a `BASH_VERSINFO` guard (in the [bash-scripting](bash-scripting/SKILL.md) prologue) so a 3.2 run fails loudly instead of misbehaving.
+Avoid `#!/bin/bash` in portable scripts: macOS `/bin/bash` is frozen at 3.2. Use `#!/usr/bin/env bash` plus a `BASH_VERSINFO` guard (`prologue_generator.sh --with-version-guard`, see [bash-scripting](bash-scripting/SKILL.md)) so a 3.2 run fails loudly instead of misbehaving.
 
 ## Skill Selection
 

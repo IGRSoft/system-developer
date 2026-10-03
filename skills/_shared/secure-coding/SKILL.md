@@ -1,6 +1,6 @@
 ---
 name: secure-coding
-description: Security rules and bug-class defenses for C, C++, Python, and Bash — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, and secrets hygiene. Use when writing or reviewing systems code that touches untrusted input, spawns processes, parses data, handles paths, or manages credentials.
+description: Security rules and bug-class defenses for C, C++, Python, and Bash — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene, and dependency supply-chain trust. Use when writing or reviewing systems code that touches untrusted input, spawns processes, parses data, handles paths, manages credentials, or adds a dependency.
 ---
 
 # Secure Coding (C / C++ / Python / Bash)
@@ -99,6 +99,18 @@ if not target.is_relative_to(base.resolve()):
 | Scrub after use | `memset_explicit` (**C23**); fallback `explicit_bzero` or `SecureZeroMemory`. Plain `memset` can be optimized away | `str`/`bytes` can't be overwritten; keep lifetime short, prefer `bytearray` then `del` | `unset VAR` |
 | Don't log secrets | Redact before any print/log | Filter in logging formatters | No `set -x` around secret lines |
 | Pass via env or fd, not argv | argv is visible to other users via `ps` and `/proc/PID/cmdline` | same | Export or read from fd/file, never `--password=$PW` |
+
+## Supply Chain
+
+A new dependency runs with your process's privileges, so treat adding one like accepting untrusted code.
+
+| Rule | How |
+|------|-----|
+| Pin exactly and commit the lock | `uv.lock`, vcpkg `builtin-baseline` + `overrides`, `conan.lock`; FetchContent by commit SHA, not a branch or tag |
+| Verify what you fetch | `--require-hashes` for pip requirements; `URL_HASH SHA256=` for FetchContent/ExternalProject downloads |
+| Vet before adding | Maintained, from the expected publisher (watch for typosquats), license fits, no open critical CVEs (`osv-scanner`, `pip-audit`) |
+| Use trusted sources only | No `curl ... \| sh` installers in builds; no extra package indexes that can shadow internal names (dependency confusion) |
+| Keep CI least-privilege | Pin third-party CI actions by SHA; no secrets in jobs that build untrusted pull requests |
 
 ## Diagnostic Table
 

@@ -24,7 +24,7 @@ shared tooling). [`SKILL.md`](SKILL.md) is the routing entry point.
 | **secure-coding** | [`_shared/secure-coding/SKILL.md`](_shared/secure-coding/SKILL.md) | Non-negotiable security rules and bug-class defenses for C, C++, Python, and Bash — injection-safe process execution, memory-corruption sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene |
 | version-feature-matrix | [`_shared/version-feature-matrix.md`](_shared/version-feature-matrix.md) | Standards/versions → minimum toolchains and headline features (canonical lookup) |
 | language-detection | [`_shared/language-detection.md`](_shared/language-detection.md) | Marker → language → agent routing table, detection priority, tie-breaking |
-| model-selection | [`_shared/model-selection.md`](_shared/model-selection.md) | Per-agent model/effort/maxTurns assignments and opus+xhigh override paths |
+| model-selection | [`_shared/model-selection.md`](_shared/model-selection.md) | Per-agent model/effort/maxTurns assignments and opus override paths |
 | severity-matrix | [`_shared/severity-matrix.md`](_shared/severity-matrix.md) | Severity levels, P0-P3 review priorities, effort/impact quadrant, coverage requirements |
 | testing-principles | [`_shared/testing-principles.md`](_shared/testing-principles.md) | Test pyramid, per-language framework matrix, quality gates, anti-patterns |
 

@@ -239,7 +239,12 @@ template <class F>
 auto to_expected(F&& f) noexcept
     -> std::expected<std::invoke_result_t<F>, std::error_code> {
     try {
-        return std::forward<F>(f)();
+        if constexpr (std::is_void_v<std::invoke_result_t<F>>) {
+            std::invoke(std::forward<F>(f));
+            return {};                                          // expected<void, E>: success
+        } else {
+            return std::invoke(std::forward<F>(f));
+        }
     } catch (const std::system_error& e) {
         return std::unexpected(e.code());                       // preserve the domain
     } catch (const std::bad_alloc&) {

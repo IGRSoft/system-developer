@@ -1,8 +1,3 @@
----
-name: language-detection
-description: Shared marker-to-language-to-agent routing table for system-developer commands and the router agent. Reference when deciding which language agent owns a file, directory, or repository.
----
-
 # Language Detection & Agent Routing
 
 Single source of truth for the marker → language → agent mapping used by `system-developer` (router), the orchestrator's platform router, and every command that scopes work per language. Keep command-local detection logic in sync with this file — do not fork the table.

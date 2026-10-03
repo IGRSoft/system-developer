@@ -1,9 +1,3 @@
----
-name: model-selection
-description: Model and effort selection for system-developer agents — cost tiers, per-agent assignments, and opus+xhigh override paths. Reference when delegating to or overriding a system-developer specialist.
-effort: low
----
-
 # Model & Effort Selection (system-developer)
 
 Per-agent model/effort assignments and override paths for system-developer.
@@ -31,14 +25,14 @@ Frontmatter in `agents/*.md` is the source of truth; keep this table in sync.
 | Agent | Model | Effort | maxTurns | Override path |
 |-------|-------|--------|----------|---------------|
 | `system-developer` (router) | sonnet | medium | 40 | — routes work to specialists |
-| `c-developer` | sonnet | high | 50 | → `opus` + `xhigh` for novel design / cross-subsystem work |
-| `cpp-developer` | sonnet | high | 50 | → `opus` + `xhigh` for novel design / template-heavy refactors |
-| `python-developer` | sonnet | high | 50 | → `opus` + `xhigh` for free-threading / C-extension boundary work |
+| `c-developer` | sonnet | high | 50 | → `opus` for novel design / cross-subsystem work |
+| `cpp-developer` | sonnet | high | 50 | → `opus` for novel design / template-heavy refactors |
+| `python-developer` | sonnet | high | 50 | → `opus` for free-threading / C-extension boundary work |
 | `bash-developer` | sonnet | high | 50 | — sonnet sufficient for shell work |
 | `system-architector` | opus | xhigh | 60 | already top tier; self-limits scope at Low complexity per § Complexity Triage |
 | `sys-test-generator` | sonnet | high | 50 | — sonnet sufficient for pattern work |
-| `sys-performance-engineer` | sonnet | high | 50 | → `opus` + `xhigh` for deep trace analysis (review-only: `disallowedTools: Write, Edit`) |
-| `sys-security-auditor` | sonnet | high | 50 | → `opus` + `xhigh` for deep threat modeling (review-only: `disallowedTools: Write, Edit`) |
+| `sys-performance-engineer` | sonnet | high | 50 | → `opus` for deep trace analysis (review-only: `disallowedTools: Write, Edit`) |
+| `sys-security-auditor` | sonnet | high | 50 | → `opus` for deep threat modeling (review-only: `disallowedTools: Write, Edit`) |
 | `sys-code-fixer` | haiku | medium | 30 | — deterministic minimal-diff remediation |
 | `sys-dependency-manager` | haiku | low | 20 | — mechanical lockfile/manifest operations |
 
