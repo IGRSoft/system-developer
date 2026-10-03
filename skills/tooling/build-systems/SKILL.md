@@ -91,8 +91,8 @@ Adopt deliberately; tooling still gates them.
   target_compile_features(math PUBLIC cxx_std_20)
   ```
 
-- `import std;` is partial and experimental (Clang 17+, GCC 15+, MSVC 2022+) and needs a
-  built standard-library module. Gate on `__cpp_lib_modules` or a toolchain probe before
+- `import std;` is experimental in CMake (Clang 18.1.2+ with libc++ or libstdc++, GCC 15+,
+  MSVC 14.36+; Ninja generators only) and needs a built standard-library module. Gate on `__cpp_lib_modules` or a toolchain probe before
   using it in portable code.
 
 Generator matrix and `import std` setup: [cmake-modern.md](references/cmake-modern.md) > C++20 Modules.
@@ -105,7 +105,7 @@ Pick one per project. Recipes and "Could NOT find" diagnosis: [package-managers.
 |--------|------|----------|------|
 | FetchContent | A few deps, vendor at configure | none (pin `GIT_TAG`) | Simplest; rebuilds deps from source. |
 | vcpkg (manifest mode) | Cross-platform binary caching, broad catalog | `vcpkg.json` + `builtin-baseline` | Integrates via toolchain file. |
-| Conan 2.29 | Versioned binary packages, profiles, enterprise | `conan.lock` (v2) | Use the `CMakeConfigDeps` generator (replaces `CMakeDeps`). |
+| Conan 2.29 | Versioned binary packages, profiles, enterprise | `conan.lock` (v2) | Use the `CMakeDeps` generator; `CMakeConfigDeps` (its replacement) is still experimental. |
 | uv | Python-only dependencies | `uv.lock` / `pylock.toml` | Not a C/C++ dependency manager. |
 
 ## Meson 1.11

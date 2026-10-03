@@ -12,8 +12,8 @@ verified a specific feature.
 
 | Tier | Features | Minimum toolchain |
 |------|----------|-------------------|
-| Core (adopt freely) | `nullptr`, `bool` keywords, `{}` init, `typeof`, digit separators, binary literals, attributes, `static_assert` 1-arg | GCC 13+ / Clang 16+ |
-| Near-core | enum underlying types, `auto`, `unreachable()` | GCC 13+ / Clang 17-18+ |
+| Core (adopt freely) | `nullptr`, `bool` keywords, `{}` init, `typeof`, digit separators, binary literals, attributes, `static_assert` 1-arg | GCC 13+ / Clang 16-17+ |
+| Near-core | enum underlying types, `auto`, `unreachable()` | GCC 13+ / Clang 17-20+ |
 | Late arrivals | `<stdckdint.h>`, `_BitInt` (GCC), `constexpr` objects (Clang), `<stdbit.h>` | GCC 14+ / Clang 18-19+ |
 | Latest | `#embed` | GCC 15+ / Clang 19+ |
 | Library-bound | `memset_explicit`, `%b`/`%wN` printf, `free_sized` | Depends on libc, not compiler |
@@ -48,7 +48,7 @@ execl("/bin/ls", "ls", "-l", nullptr);
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 |
-| Clang | 16 |
+| Clang | 17 |
 | C17 fallback | `NULL`; in varargs cast explicitly: `(char *)NULL` |
 
 ### bool, true, false as Keywords
@@ -81,7 +81,7 @@ char vla[n] = {};      // C23 only; C17: memset
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 (long-standing extension before) |
-| Clang | 16 (extension before) |
+| Clang | 17 (extension before) |
 | C17 fallback | `= {0}` (first member zeroed, rest implicitly zero) |
 
 C17's `{0}` does not guarantee zeroed padding; use `memset` before `memcmp`
@@ -173,7 +173,7 @@ struct packet {
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 |
-| Clang | 17 |
+| Clang | 20 (accepted as an extension earlier) |
 | C17 fallback | Store as `uint8_t` field + plain enum for names; `static_assert(sizeof(enum opcode) == ...)` to catch drift |
 
 ### _BitInt(N)
@@ -209,7 +209,7 @@ const int64_t  budget_ns = 16'666'667;        // 60 Hz frame budget
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 (binary literals were a GCC 4.3+ extension) |
-| Clang | 16 separators / 15 binary (extensions long before) |
+| Clang | 13 separators / 9 binary |
 | C17 fallback | Hex with comments; `0x0F` instead of `0b1111` |
 
 ### Standardized Attributes
@@ -241,8 +241,8 @@ void parse(int kind) {
 
 | Toolchain | Minimum |
 |-----------|---------|
-| GCC | 13 in `-std=c23`; accepted in `-std=c2x` since GCC 10-12 depending on attribute |
-| Clang | 16 in C23 mode; earlier in `-std=c2x`. `[[unsequenced]]`/`[[reproducible]]` parsing varies — verify |
+| GCC | 13 in `-std=c23`; accepted in `-std=c2x` since GCC 10-12 depending on attribute; `[[unsequenced]]`/`[[reproducible]]` 15 |
+| Clang | 16 in C23 mode; earlier in `-std=c2x`. `[[unsequenced]]`/`[[reproducible]]` not supported (ignored with a `-Wunknown-attributes` warning) |
 | C17 fallback | `__attribute__((warn_unused_result))`, `__attribute__((noreturn))`, `__attribute__((unused))`, `/* fallthrough */` + `-Wimplicit-fallthrough` |
 
 ### static_assert Without Message, and as Keyword
@@ -258,7 +258,7 @@ static_assert(CHAR_BIT == 8, "platform assumption");
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 (keyword); `_Static_assert` 1-arg earlier |
-| Clang | 16 (keyword) |
+| Clang | 17 (keyword) |
 | C17 fallback | `#include <assert.h>` + `static_assert(expr, "msg")` (message required) |
 
 ### Keyword Spellings: thread_local, alignas, alignof
@@ -275,7 +275,7 @@ size_t a = alignof(max_align_t);
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 |
-| Clang | 16 |
+| Clang | 17 |
 | C17 fallback | `_Thread_local`/`_Alignas`/`_Alignof`, or the convenience macros from `<threads.h>`/`<stdalign.h>` |
 
 ### unreachable()
@@ -300,8 +300,8 @@ Pair with assertions in debug builds: `assert(!"unreachable"); unreachable();`
 
 | Toolchain | Minimum |
 |-----------|---------|
-| GCC | 13 (toolchain `<stddef.h>` — verify header, not just compiler) |
-| Clang | 16 (same caveat) |
+| GCC | 13 (GCC ships its own `<stddef.h>`) |
+| Clang | 17 |
 | C17 fallback | `__builtin_unreachable()` (GCC 4.5+/Clang) |
 
 ### Empty Parentheses Mean (void); K&R Definitions Removed
@@ -358,7 +358,7 @@ const char8_t *s = u8"héllo";
 | Toolchain | Minimum |
 |-----------|---------|
 | GCC | 13 |
-| Clang | 16 |
+| Clang | 19 |
 | C17 fallback | `u8""` exists since C11 but yields `char[]`; code that needs one type across modes should use explicit `unsigned char` casts |
 
 ### Other Language Items (brief)
@@ -366,8 +366,8 @@ const char8_t *s = u8"héllo";
 | Feature | What | Support / fallback |
 |---------|------|--------------------|
 | Variadic function with no named parameter: `int f(...)` | `va_start(ap)` now takes one argument | GCC 13 / Clang 16; C17: require a named first parameter |
-| Storage-class specifiers in compound literals: `(static struct S){...}` | Compound literal with static lifetime | GCC 13 / Clang 18 (verify); C17: named `static` object |
-| Labels before declarations and at block end | `label: int x = 0;` and `label: }` both legal | GCC 11+/Clang 18 (verify); C17: add `;` after label |
+| Storage-class specifiers in compound literals: `(static struct S){...}` | Compound literal with static lifetime | GCC 13; not in Clang; C17: named `static` object |
+| Labels before declarations and at block end | `label: int x = 0;` and `label: }` both legal | GCC 11 / Clang 18; C17: add `;` after label |
 | Unnamed parameters in definitions: `void cb(int, void *ctx)` | Document-by-omission for unused params | GCC 11 / Clang 13; C17: name it + `(void)param;` |
 | `bool` conversion tightening, `(bool)x` semantics | Cleanups, rarely observable | n/a |
 | Identifier syntax follows UAX #31 | Confusable/emoji identifiers rejected | Don't use non-ASCII identifiers anyway |

@@ -6,9 +6,9 @@ Which C++ language and library features are affordable under `-fno-exceptions -f
 
 The standard requires only a small header set from a freestanding implementation, centred on language support and compile-time utilities:
 
-- **C++20:** `<cstddef>`, `<cstdint>`, `<cstdlib>` (subset), `<limits>`, `<climits>`, `<cfloat>`, `<version>`, `<new>`, `<initializer_list>`, `<compare>`, `<concepts>`, `<type_traits>`, `<bit>`, `<atomic>`.
-- **C++23** adds `<utility>`, `<tuple>`, `<ratio>`, `<iterator>`, `<ranges>`, integer `<charconv>`, and parts of `<memory>` and `<functional>`.
-- **C++26** adds partial `<array>`, `<optional>`, `<variant>`, `<string_view>`, `<expected>`, and `<span>`.
+- **C++20:** `<cstddef>`, `<cstdint>`, `<cstdlib>` (subset), `<limits>`, `<climits>`, `<cfloat>`, `<version>`, `<new>`, `<typeinfo>`, `<exception>`, `<source_location>`, `<initializer_list>`, `<compare>`, `<coroutine>`, `<cstdarg>`, `<concepts>`, `<type_traits>`, `<bit>`, `<atomic>`.
+- **C++23** adds `<utility>`, `<tuple>`, `<ratio>`, `<iterator>`, `<ranges>`, and parts of `<memory>` and `<functional>`.
+- **C++26** adds, mostly in part, `<array>`, `<optional>`, `<variant>`, `<expected>`, `<string_view>`, `<span>`, `<mdspan>`, `<inplace_vector>`, `<algorithm>`, `<numeric>`, `<charconv>` (integer), `<string>` (`char_traits`), `<cstring>`, `<cwchar>`, `<cmath>`, `<random>`, `<cerrno>`, `<system_error>`, `<execution>`, `<debugging>`, `<contracts>`, and `<stdbit.h>`.
 
 Freestanding conformance varies more than hosted, so check your library version.
 

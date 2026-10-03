@@ -10,7 +10,7 @@ package was found: [build-systems SKILL.md](../SKILL.md) > Linking Diagnostics.
 |---------|----------|----------------|--------------|----------------|
 | FetchContent | A few deps, zero extra tooling | `GIT_TAG` pin (manual) | No (rebuilds from source) | CMake built-in |
 | vcpkg (manifest) | Cross-platform, broad catalog, binary caching | `vcpkg.json` + `builtin-baseline` | Yes | CMake toolchain file |
-| Conan 2.29 | Versioned packages, profiles, lockfile-pinned graphs | `conan.lock` (v2) | Yes | `CMakeConfigDeps` + toolchain |
+| Conan 2.29 | Versioned packages, profiles, lockfile-pinned graphs | `conan.lock` (v2) | Yes | `CMakeDeps` + toolchain |
 | uv | Python-only dependencies | `uv.lock` / `pylock.toml` | Yes (wheel cache) | Not a C/C++ build dep manager |
 
 Pick one per project. Providing the same dependency through FetchContent and a package
@@ -33,7 +33,7 @@ Consume with `find_package(<Pkg> CONFIG REQUIRED)`.
 
 ## Conan 2.29
 
-Use `CMakeConfigDeps` + `CMakeToolchain` generators, run `conan install` before
+Use `CMakeDeps` + `CMakeToolchain` generators (`CMakeConfigDeps` is still experimental), run `conan install` before
 configuring, and check profiles in. Lockfile: `conan lock create .`, then
 `conan install --lockfile=conan.lock`.
 

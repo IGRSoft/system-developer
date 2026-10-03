@@ -31,7 +31,7 @@ Detect the ecosystems from manifest markers before acting; a mixed repo may use 
 ## Audit
 
 1. Enumerate direct and transitive dependencies from the lockfile, not the manifest ranges.
-2. Scan for CVEs: `pip-audit` / `uv audit` and `osv-scanner` for Python lockfiles; `osv-scanner` over vcpkg/Conan manifests, cross-checked against OSV and GitHub advisories for the specific port and version.
+2. Scan for CVEs: `pip-audit` / `uv audit` and `osv-scanner` for Python lockfiles; `osv-scanner` over `conan.lock` (it doesn't read `vcpkg.json`), cross-checked against OSV and GitHub advisories for the specific port and version.
 3. Flag license conflicts (copyleft into a permissive distribution, missing license metadata) and unmaintained or yanked packages.
 
 If a scanner is missing, print its install hint (`uv tool install pip-audit`, `brew install osv-scanner`) and fall back to manual advisory lookup via Context7.

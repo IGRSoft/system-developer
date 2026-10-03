@@ -78,7 +78,7 @@ Run discovery (filtered by `--manager`); if nothing is found, emit the "no manif
 
 **CVEs**
 
-1. With `osv-scanner` installed, scan the lockfile: `osv-scanner --lockfile=<path>/uv.lock`, `vcpkg.json`, or `conan.lock`. FetchContent has no lockfile; use the API path for its `(name, version)` pairs.
+1. With `osv-scanner` installed, scan the lockfile: `osv-scanner --lockfile=<path>/uv.lock` or `conan.lock`. osv-scanner doesn't read `vcpkg.json`, and FetchContent has no lockfile; use the API path for their `(name, version)` pairs.
 2. For uv, also run `uv audit --project <path>` (fallback `uvx pip-audit`) and report the union, de-duplicated by advisory id. For a scanner that doesn't read `uv.lock`, export the PEP 751 lockfile with `uv export --format pylock.toml --project <path> -o pylock.toml` and scan that.
 3. Without a scanner, POST each `(ecosystem, name, version)` to `https://api.osv.dev/v1/query` via WebFetch with body `{"package": {"ecosystem": "PyPI", "name": "<name>"}, "version": "<version>"}`. Native C/C++ deps: query by upstream project; osv.dev coverage is partial, so cross-check the NVD via WebSearch when it returns nothing for a well-known library.
 

@@ -24,7 +24,7 @@ description: >-
 
 ## C23 Quick Wins (adopt first)
 
-Usable from GCC 13+ / Clang 16+ unless noted; per-feature minimums and
+Usable from GCC 13+ / Clang 17+ (enum underlying types: Clang 20); per-feature minimums and
 fallbacks in [references/c23-features.md](references/c23-features.md).
 
 ```c

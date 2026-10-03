@@ -70,7 +70,7 @@ floor. The script mirrors this table; keep the two in sync.
 |------|------------------------------|--------|
 | CMake | 4.x (≈4.3.x); 3.28+ for `FILE_SET CXX_MODULES` (legacy modules floor) | `CMakePresets.json` workflow; C++20 modules; `CMAKE_POLICY_VERSION_MINIMUM` for legacy projects |
 | Meson | 1.11 | Stable `meson setup`/`compile`/`test` verbs |
-| Conan | 2.29 (`CMakeConfigDeps` generator) | Conan 2.x dependency integration (`CMakeConfigDeps` replaces `CMakeDeps`) |
+| Conan | 2.29 (`CMakeDeps` generator) | Conan 2.x dependency integration (`CMakeConfigDeps`, the planned replacement, is experimental) |
 | uv | current stable | Lockfile (`uv.lock`) + `uv run` workflows |
 | ruff | current stable | Lint + format + `--select UP` modernization |
 | cppcheck | 2.18 | Static analysis (MISRA addon) |

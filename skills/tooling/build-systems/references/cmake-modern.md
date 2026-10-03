@@ -119,10 +119,11 @@ target_link_libraries(app PRIVATE fmt::fmt)
   pins a specific port version.
 - Dependencies install into the build tree at configure time; no global `vcpkg install`.
 
-## Conan 2.29 (`CMakeConfigDeps`)
+## Conan 2.29 (`CMakeDeps`)
 
-Conan 2.x only. Use the `CMakeConfigDeps` generator; it replaces `CMakeDeps` from earlier
-Conan 2 releases.
+Conan 2.x only. Use the `CMakeDeps` generator. Its replacement, `CMakeConfigDeps`, is still
+experimental; opt in with `-c tools.cmake.cmakedeps:new=will_break_next` only if you accept
+breaking changes.
 
 ```ini
 # conanfile.txt
@@ -131,7 +132,7 @@ fmt/11.0.2
 spdlog/1.14.1
 
 [generators]
-CMakeConfigDeps
+CMakeDeps
 CMakeToolchain
 ```
 
@@ -155,7 +156,7 @@ target_link_libraries(app PRIVATE fmt::fmt)
 - `conan lock create .` writes `conan.lock` (v2); `conan install --lockfile=conan.lock`
   reproduces the graph.
 - `--build=missing` builds from source only packages with no matching cached binary.
-- `CMakeToolchain` writes `conan_toolchain.cmake`; `CMakeConfigDeps` writes the
+- `CMakeToolchain` writes `conan_toolchain.cmake`; `CMakeDeps` writes the
   `*-config.cmake` files `find_package` consumes.
 
 ## C++20 Modules (`FILE_SET CXX_MODULES`)
@@ -201,19 +202,21 @@ tooling-gated. In portable code, gate on `__cpp_lib_modules` or a configure-time
 
 | Toolchain | `import std` status | Note |
 |-----------|---------------------|------|
-| Clang 17+ | Partial / experimental | Needs libc++ built as a module and recent CMake. |
-| GCC 15+ | Partial / experimental | libstdc++ module support still maturing. |
-| MSVC 2022+ | Partial | Best-supported of the three, still version-sensitive. |
+| Clang 18.1.2+ | Partial / experimental | libc++ or libstdc++. |
+| GCC 15+ | Partial / experimental | Ubuntu before 26.04 ships broken `libstdc++.modules.json`. |
+| MSVC 14.36+ (VS 17.6) | Partial | Best-supported of the three, still version-sensitive. |
+
+CMake builds `import std` only with the Ninja generators.
 
 ```cmake
 # Opt in explicitly; CMake exposes the std module behind an experimental flag.
 set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD
-    "0e5b6991-d74f-4b3d-a41c-cf096e0b2508")   # value tracks the CMake release — verify
+    "0e5b6991-d74f-4b3d-a41c-cf096e0b2508")   # replace with your CMake's value
 set(CMAKE_CXX_MODULE_STD ON)
 ```
 
-The UUID changes between CMake releases; check your CMake version's docs before pinning
-it. Prefer `#include` for portability; adopt `import std` only where you control the
+The UUID changes between CMake releases; take it from `Help/dev/experimental.rst` in your
+CMake version's source tree. Prefer `#include` for portability; adopt `import std` only where you control the
 whole toolchain.
 
 ## Install / Export (`install(TARGETS ... EXPORT ...)`)
