@@ -1,40 +1,8 @@
 # Packaging and Project Structure
 
-Use this when:
+For the cheat sheet and two-tool rule see [../SKILL.md](../SKILL.md); for the uv command loop, workspaces, Docker, and CI see [uv-workflows.md](uv-workflows.md). Extension *code* (pybind11/nanobind, the C-API boundary) belongs to the ffi-interop skill; this file covers packaging it.
 
-- You are filling in `pyproject.toml` metadata for a library, CLI, or application.
-- You are deciding between `[dependency-groups]` (PEP 735) and `[project.optional-dependencies]`.
-- You are choosing the `src/` layout and want the full rationale, not the summary.
-- You are picking a build backend — `uv_build` for pure Python, hatchling for hooks, scikit-build-core for C/C++ extensions.
-- You are building and publishing distributions with `uv build` / `uv publish`.
-- You are choosing a versioning scheme (static, dynamic, VCS-derived).
-
-Skip this file if:
-
-- You only need the cheat sheet and the two-tool rule. Use [../SKILL.md](../SKILL.md).
-- You need the uv command loop, workspaces, Docker, or CI. Use [uv-workflows.md](uv-workflows.md).
-- You are writing the *extension code itself* (pybind11/nanobind, the C-API boundary). Use the ffi-interop skill; this file only covers how to *package* it.
-
-Jump to:
-
-- The One File: pyproject.toml
-- Required and Common Metadata
-- Dependencies, Groups, and Extras
-- Entry Points and Scripts
-- The src/ Layout
-- Build Backends
-- uv_build (pure Python)
-- hatchling (hooks, flexible layout)
-- scikit-build-core (native extensions)
-- Building Distributions
-- Publishing with uv
-- Versioning
-- Project Structure Patterns
-- Diagnostics
-
-This file is uv-first and modern-standards-first. setup.py / setup.cfg and
-poetry-specific tables are legacy — convert them to `[project]` (PEP 621). Poetry
-is not recommended for new work in this plugin; uv covers its ground.
+setup.py, setup.cfg, and poetry tables are legacy: convert them to `[project]` (PEP 621).
 
 ## The One File: pyproject.toml
 
@@ -43,6 +11,8 @@ dependencies, dependency groups (PEP 735), the build system (PEP 517/518), and
 every tool's configuration (`[tool.ruff]`, `[tool.pyright]`, `[tool.pytest.ini_options]`,
 `[tool.uv]`). No `setup.py`, no `setup.cfg`, no `requirements.txt` as the source
 of intent.
+
+### Example
 
 ```toml
 [project]
@@ -73,7 +43,7 @@ acme = "acme_widgets.cli:main"
 dev = ["pytest>=8", "ruff", "pyright"]
 
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]      # uv_build is Production/Stable (uv 0.11.x)
+requires = ["uv_build>=0.11,<0.12"]      # bound to one minor line
 build-backend = "uv_build"
 ```
 
@@ -88,8 +58,10 @@ build-backend = "uv_build"
 | `description` / `readme` | Recommended | `readme` points at a file (rendered on PyPI) |
 | `license` / `license-files` | Recommended | SPDX expression + file globs (PEP 639) |
 | `authors` / `maintainers` | Recommended | `[{ name, email }]` |
-| `classifiers` | Recommended | Trove classifiers; do **not** set a license classifier when using SPDX `license` |
+| `classifiers` | Recommended | Trove classifiers; omit the license classifier when using SPDX `license` |
 | `keywords`, `[project.urls]` | Optional | Discoverability and project links |
+
+### Applications
 
 Applications (not published) need far less: `name`, `requires-python`,
 `dependencies`, and groups — no `version` semantics, classifiers, or even a
@@ -106,9 +78,6 @@ Three buckets, three audiences:
 | Dependency groups | `[dependency-groups]` (PEP 735) | No | No | Dev/test/docs tooling, internal only |
 
 ```toml
-[project.dependencies]
-# (listed under [project] as `dependencies = [...]`)
-
 [project.optional-dependencies]
 redis = ["redis>=5"]          # consumers opt in: pip install acme-widgets[redis]
 postgres = ["psycopg[binary]>=3"]
@@ -120,12 +89,12 @@ typecheck = ["pyright", "types-requests"]   # groups can include other groups:
 all-checks = [{ include-group = "dev" }, { include-group = "typecheck" }]
 ```
 
-Decision rule:
+### Decision rule
+
 - A dependency a *user* might want → `optional-dependencies` (it becomes an
   extra they can install).
 - A dependency only *you/CI* need (linters, test runners, docs builders) →
-  `[dependency-groups]`. PEP 735 groups are the modern home for what poetry
-  called dev groups and what people used to misfile as a `dev` extra.
+  `[dependency-groups]` (poetry's dev groups map here).
 
 `uv sync` installs the default group (`dev`) automatically; scope with
 `--no-dev`, `--group docs`, `--only-group typecheck` (see
@@ -165,25 +134,19 @@ acme-widgets/
     └── test_core.py
 ```
 
-Why `src/` for anything you build or publish:
+### Why src/ for anything you build or publish
 
-1. **Tests exercise the installed package.** With `src/`, the package is not on
-   `sys.path` from the repo root, so `import acme_widgets` resolves to the wheel
-   uv installed into `.venv` — the exact artifact users get. A file missing from
-   the wheel fails *your* tests, not a user's runtime.
-2. **No accidental shadowing.** A flat `acme_widgets/` at the root can be imported
-   without installation, masking packaging mistakes and letting a same-named dir
-   or stray module shadow the package.
-3. **Clean boundaries.** Package code, `tests/`, `docs/`, and project files stay
-   visibly separate.
-4. **Editable installs still work.** `uv sync` installs the project editable into
-   `.venv`; `src/` does not cost you live-edit ergonomics.
+1. Tests import the installed package. The repo root is not on `sys.path`, so
+   `import acme_widgets` goes through what uv installed into `.venv`, not loose
+   files. Run the suite against the built wheel in CI to catch files missing
+   from it.
+2. No accidental shadowing by a same-named top-level dir or stray module.
+3. Package code, `tests/`, `docs/`, and project files stay visibly separate.
+4. Editable installs still work: `uv sync` installs the project editable.
 
-`uv init --package` scaffolds this automatically. Applications that are never
-built into a distribution may stay flat, but libraries, CLIs, and extension
-packages should use `src/`. Ship `py.typed` in the package dir for typed
-libraries so downstream type checkers trust your inline annotations (PEP 561) —
-see the python-typing skill.
+`uv init --package` scaffolds this. Applications never built into a
+distribution may stay flat. Ship `py.typed` in the package dir of a typed
+library so downstream checkers trust its annotations (PEP 561; see python-typing).
 
 ## Build Backends
 
@@ -200,14 +163,12 @@ what you ship:
 
 ### uv_build (pure Python)
 
-Native uv backend: zero-config defaults, fast, validates structure, integrates
-with uv's messaging. **Production/Stable** as of the uv 0.11.x line (current
-**0.11.21**) — the default pure-Python backend, no longer experimental.
-**Pure Python only** — it cannot compile extension modules.
+Native uv backend and the stable default for pure Python: zero-config, fast,
+validates structure. It cannot compile extension modules.
 
 ```toml
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]   # pin a bound; uv_build is stable in uv 0.11.x
+requires = ["uv_build>=0.11,<0.12"]   # keep an upper bound
 build-backend = "uv_build"
 ```
 
@@ -221,10 +182,9 @@ module-name = "acme_widgets"     # explicit module name
 module-root = "src"              # default; set "" for a root-level module
 ```
 
-The `uv` executable bundles a copy of the backend, so `uv build` is fast; other
-frontends (`python -m build`, pip) pull the published `uv_build` package. Keep
-the upper bound (`<0.12`) so a future backend release cannot silently change how
-your package builds.
+`uv build` uses the copy bundled in `uv`; other frontends (`python -m build`,
+pip) pull the published `uv_build`. The upper bound stops a future backend
+release from silently changing how your package builds.
 
 ### hatchling (hooks, flexible layout)
 
@@ -234,21 +194,21 @@ limited).
 
 ```toml
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]   # hatch-vcs only for the vcs version source
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/acme_widgets"]
 
 [tool.hatch.version]
-source = "vcs"                   # version from git tags (needs hatch-vcs)
+source = "vcs"                   # version from git tags
 ```
 
 ### scikit-build-core (native extensions)
 
-For C/C++ extension modules built with **CMake**, use scikit-build-core. This is
-the recommended path for packaging C-API/pybind11/nanobind extensions — it drives
-your `CMakeLists.txt`, produces wheels per platform, and works with `uv build`.
+For C/C++ extension modules built with CMake (C-API, pybind11, nanobind), use
+scikit-build-core: it drives your `CMakeLists.txt`, produces per-platform wheels,
+and works with `uv build`.
 
 ```toml
 [build-system]
@@ -273,8 +233,7 @@ acme-ext/
 
 For the extension *code* (binding API choice, GIL release, the `extern "C"`
 boundary, free-threaded `cp314t` builds): the ffi-interop skill. For CMake
-itself: [build-systems](${CLAUDE_SKILL_DIR}/tooling/build-systems/SKILL.md).
-Pure-Python projects never need a native backend — stay on `uv_build`.
+itself: [build-systems](../../../tooling/build-systems/SKILL.md).
 
 ## Building Distributions
 
@@ -309,10 +268,10 @@ uv publish --index testpypi      # to an alternate index (configured below)
 ```
 
 Authentication (in order of preference):
-- **Trusted Publishing (OIDC)** in CI — no long-lived token. GitHub Actions can
+- Trusted Publishing (OIDC) in CI — no long-lived token. GitHub Actions can
   mint a short-lived credential; configure the publisher on PyPI and uv detects
   it. Preferred for releases.
-- **API token** for local/manual: `UV_PUBLISH_TOKEN` env var, or
+- API token for local/manual: `UV_PUBLISH_TOKEN` env var, or
   `uv publish --token "$PYPI_TOKEN"`. Never commit tokens.
 
 Configure alternate indexes in `pyproject.toml`:
@@ -350,9 +309,8 @@ path = "src/acme_widgets/__init__.py"   # reads __version__ = "1.2.0"
 
 Follow semantic versioning for libraries (MAJOR.MINOR.PATCH; breaking → MAJOR).
 Keep `requires-python` honest — raising the floor is a MINOR/MAJOR-worthy change
-for consumers. Static versioning is the default in this plugin: it shows up in
-diffs and review, and pairs with a tag-on-merge release step. Reach for VCS
-versioning only when you have automation that tags reliably.
+for consumers. Prefer static versioning (it shows up in diffs and review); use VCS
+versioning only when automation tags reliably.
 
 ## Project Structure Patterns
 
@@ -379,7 +337,7 @@ app/
 
 ### Multi-package monorepo
 
-Use a uv **workspace** (one root `uv.lock`, members under `packages/*`) — see
+Use a uv workspace (one root `uv.lock`, members under `packages/*`) — see
 [uv-workflows.md](uv-workflows.md) § Workspaces. Each member is a normal package
 with its own `pyproject.toml`; `[tool.uv.sources]` wires in-tree dependencies.
 
@@ -395,6 +353,8 @@ with its own `pyproject.toml`; `[tool.uv.sources]` wires in-tree dependencies.
 
 ## Diagnostics
 
+### Build and layout
+
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `error: Project ... does not have a build system` on `uv build`/editable install | Library missing `[build-system]` | Add `uv_build` (pure Python) or the right native backend |
@@ -402,6 +362,11 @@ with its own `pyproject.toml`; `[tool.uv.sources]` wires in-tree dependencies.
 | Data file missing at runtime in the installed package | Not included by the backend | `uv_build`: keep data under the module root; or use backend `data`/include config |
 | `dev` extra installed by a downstream consumer | Dev tooling in `optional-dependencies` | Move it to `[dependency-groups]` (PEP 735) |
 | `uv build` cannot compile a `.c`/`.cpp` file | `uv_build` is pure-Python only | Switch to `scikit-build-core` (CMake) or `meson-python` |
+
+### Metadata and typing
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
 | `twine check` warns about long_description / metadata | `readme` misconfigured or unsupported markup | Point `readme` at a real file; use a supported content type |
 | Two packages disagree on a transitive version in a monorepo | Conflicting constraints in one workspace resolution | Reconcile constraints, or split the package into its own project |
 | License classifier vs SPDX warning | Both a `License ::` classifier and SPDX `license` set | Drop the classifier; keep SPDX `license` + `license-files` (PEP 639) |
@@ -410,9 +375,6 @@ with its own `pyproject.toml`; `[tool.uv.sources]` wires in-tree dependencies.
 
 ## Related Skills
 
-- [../SKILL.md](../SKILL.md) — entry skill (two-tool rule, ruff, pyproject summary)
-- [uv-workflows.md](uv-workflows.md) — commands, workspaces, lockfile policy, Docker, CI, publishing flow context
-- [python-typing](${CLAUDE_SKILL_DIR}/python/python-typing/SKILL.md) — `py.typed`, `.pyi` stubs, checker config in pyproject
-- [ffi-interop](${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md) — writing the C-extension code that scikit-build-core packages
-- [build-systems](${CLAUDE_SKILL_DIR}/tooling/build-systems/SKILL.md) — CMake driving native extension builds
-- [version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md) — Python and tool version minimums
+- [python-typing](../../python-typing/SKILL.md): `py.typed`, `.pyi` stubs, checker config in pyproject
+- [ffi-interop](../../../tooling/ffi-interop/SKILL.md): the C-extension code that scikit-build-core packages
+- [build-systems](../../../tooling/build-systems/SKILL.md): CMake driving native extension builds
