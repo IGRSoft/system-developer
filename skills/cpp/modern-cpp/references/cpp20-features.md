@@ -6,17 +6,24 @@ C++20 facilities with worked patterns and traps: concepts, `<=>`, `span`, `forma
 
 The core language is solid in GCC/Clang/MSVC; library features landed unevenly, and modules are the outlier. Versions are first-usable releases; canonical minimums: [version-feature-matrix.md](../../../_shared/version-feature-matrix.md).
 
+### Language features
+
 | Feature | Standard | GCC | Clang | MSVC | Fallback if unavailable |
 |---|---|---|---|---|---|
 | Concepts | C++20 | 10+ | 10+ | 19.23+ (solid by 19.30) | `enable_if`/SFINAE, `static_assert` on traits |
 | `<=>` + `<compare>` | C++20 | 10+ | 10+ | 19.20+ | Hand-written six operators |
-| `std::span` | C++20 | 10+ | 7+ (libc++) | 19.26+ | `gsl::span`, pointer + length pair |
-| `std::format` | C++20 | 13+ (libstdc++) | libc++ 14+ (maturing later) | 19.29+ | `{fmt}` library (API-compatible superset) |
 | `constinit` / `consteval` | C++20 | 10+ | 10/11+ | 19.29+ | `constexpr` + manual discipline |
 | Designated initializers | C++20 | 8+ | 10+ | 19.21+ | Ordered aggregate init + comments |
+| Modules | C++20 | 14+ (improving) | 16+ | 19.28+ (most mature) | Headers + precompiled headers |
+
+### Library features
+
+| Feature | Standard | GCC | Clang | MSVC | Fallback if unavailable |
+|---|---|---|---|---|---|
+| `std::span` | C++20 | 10+ | 7+ (libc++) | 19.26+ | `gsl::span`, pointer + length pair |
+| `std::format` | C++20 | 13+ (libstdc++) | libc++ 14+ (maturing later) | 19.29+ | `{fmt}` library (API-compatible superset) |
 | `std::bit_cast` | C++20 | 11+ | 14+ (libc++; builtin earlier) | 19.27+ | `std::memcpy` (runtime only) |
 | `std::source_location` | C++20 | 11+ | 15+ | 19.29+ | `__FILE__`/`__LINE__` macros |
-| Modules | C++20 | 14+ (improving) | 16+ | 19.28+ (most mature) | Headers + precompiled headers |
 
 ## Concepts
 
@@ -66,6 +73,8 @@ Prefer 3 for ordinary cases, 2 for constraining members of class templates, 1 wh
 
 Constrained `auto` also works on variables and return types: `std::integral auto n = parse_count(s);`.
 
+### Constraining class-template members
+
 Constraining individual members of a class template (trailing `requires`) keeps the class usable for types that lack optional capabilities:
 
 ```cpp
@@ -109,7 +118,9 @@ concept ByteSink = requires(C& c, std::span<const std::byte> data) {
 };
 ```
 
-The four requirement kinds inside `requires (...) { ... }`:
+### The four requirement kinds
+
+Inside `requires (...) { ... }`:
 
 | Kind | Syntax | Checks |
 |---|---|---|
@@ -150,7 +161,12 @@ This replaces detection-idiom machinery (`std::void_t`, `is_detected`) wholesale
 - The arrow takes a concept, not a type: `{ t.size() } -> std::size_t;` is ill-formed. Write `-> std::same_as<std::size_t>` or `-> std::convertible_to<std::size_t>`; the result type is passed as the concept's first argument.
 - `requires requires(T t) { t.foo(); }` is legal but can't participate in subsumption or be reused. Name it.
 - Concepts check syntax, not semantics: `std::equality_comparable` can't verify `==` is an equivalence relation. Document semantic requirements and cover them with property-based tests (rapidcheck, or hand-rolled under GoogleTest/Catch2).
-- When a type unexpectedly fails a concept, `static_assert` the sub-requirements to find the culprit:
+- A failed concept removes the overload silently. If a worse overload remains, you get wrong behavior with no diagnostic. Keep an unconstrained `static_assert` fallback overload in tricky overload sets while migrating.
+- Constrain the public API; let internals fail naturally. Every constraint is a contract you maintain.
+
+### Finding the failing sub-requirement
+
+When a type unexpectedly fails a concept, `static_assert` the sub-requirements to find the culprit:
 
 ```cpp
 static_assert(std::movable<Widget>);            // fails? check next lines
@@ -159,8 +175,6 @@ static_assert(std::move_constructible<Widget>);
 static_assert(std::assignable_from<Widget&, Widget>);  // ← the actual failure
 static_assert(std::swappable<Widget>);
 ```
-- A failed concept removes the overload silently. If a worse overload remains, you get wrong behavior with no diagnostic. Keep an unconstrained `static_assert` fallback overload in tricky overload sets while migrating.
-- Constrain the public API; let internals fail naturally. Every constraint is a contract you maintain.
 
 ### Subsumption basics
 
@@ -242,6 +256,8 @@ struct Id {
 
 - Don't implement `==` via `<=>`: `(a <=> b) == 0` on strings can't short-circuit on length. A defaulted `==` does the right thing.
 - A member with only `<` and `==` (legacy type) makes `auto operator<=>(...) = default;` deleted. Name the category, `std::strong_ordering operator<=>(const T&) const = default;`, and the compiler synthesizes it from the member's `<` and `==`.
+### Pitfalls: NaN, reversed operators, C++17 headers
+
 - `std::sort` with a comparator from a `partial_ordering` type is UB when NaN appears. For float-bearing structs, exclude the float, use `std::strong_order(a, b)` (total order over IEEE bits), or assert NaN-freedom at the boundary.
 - In C++20, `a == b` also considers reversed `b == a`, and `a != b` is rewritten from `==`. Asymmetric legacy operators can become ambiguous (`-Wambiguous-reversed-operator`). The classic offender:
 
@@ -282,6 +298,8 @@ mean(a);
 mean(std::span{a}.subspan(1, 2));   // view of {2, 3}
 ```
 
+### Fixed extent and byte views
+
 Fixed extent encodes length in the type and costs one word:
 
 ```cpp
@@ -305,6 +323,9 @@ std::span<std::byte> writable = std::as_writable_bytes(std::span{v});
 - Spans dangle like `string_view`: `std::span<const int> s = make_vector();` views a dead temporary. Don't return a span of a local or store one past the owner; `vector` reallocation invalidates spans into it.
 - Constness lives on the element type: `span<const T>` can't write elements; `const span<T>` can't reseat but can write. Take `span<const T>` for read-only parameters.
 - No `operator==` (identity vs element-wise is ambiguous). Use `std::ranges::equal(a, b)`.
+
+### Construction and extent limits
+
 - No construction from `initializer_list` until C++26 (P2447): `mean({1.0, 2.0})` fails on C++20; pass an array or named container.
 - Dynamic → fixed extent is explicit; a mismatched runtime size is UB, not an exception.
 - `span` is one-dimensional; `std::mdspan` is C++23. The C++20 workaround is a row accessor: `std::span<T> row(std::span<T> data, size_t i, size_t cols) { return data.subspan(i * cols, cols); }`.
@@ -325,7 +346,7 @@ std::string e  = std::format("{{literal braces}}");      // {literal braces}
 
 Spec mini-language (after the `:`): `[[fill]align][sign][#][0][width][.precision][type]` — `<` `^` `>` align, `+` sign, `#` alternate form, `b/o/x/X` integer bases, `e/f/g` floats, `{}` nested width/precision args.
 
-Runtime width/precision and chrono types:
+### Runtime width, precision, and chrono
 
 ```cpp
 std::format("{:>{}}", name, column_width);            // width from an argument
@@ -364,6 +385,10 @@ struct std::formatter<Version> : std::formatter<std::string_view> {
 std::format("release {}", Version{1, 2, 3});   // "release 1.2.3"
 ```
 
+`std::format_to(std::back_inserter(buf), ...)` appends without intermediate strings; `std::format_to_n` bounds output; `std::formatted_size` pre-computes length.
+
+### Formatters with their own spec options
+
 A formatter with its own spec options implements `parse` too:
 
 ```cpp
@@ -391,8 +416,6 @@ std::format("{:F}", Temperature{21.5});   // "70.7F"
 std::format("{}",   Temperature{21.5});   // "21.5C"
 ```
 
-`std::format_to(std::back_inserter(buf), ...)` appends without intermediate strings; `std::format_to_n` bounds output; `std::formatted_size` pre-computes length.
-
 ### Pitfalls
 
 - Library support lagged: libstdc++ shipped `<format>` in GCC 13, libc++ matured across LLVM 14–17, MSVC was first (VS 16.10). On older baselines use `{fmt}`; `std::format` is its standardized subset, so migration is mostly `fmt::` → `std::`.
@@ -414,6 +437,8 @@ The spectrum:
 | `constinit` (variable) | Static/thread-local is constant-initialized; stays mutable | Ending the static-init-order fiasco and runtime init cost |
 | `if consteval` | Branch on compile-vs-runtime context | C++23 ([cpp23-features.md](cpp23-features.md)) |
 
+### Compile-time hashing and constant initialization
+
 ```cpp
 consteval std::uint32_t fnv1a(std::string_view s) {
     std::uint32_t h = 2166136261u;
@@ -432,7 +457,9 @@ constinit std::atomic<int> request_count{0};
 constinit thread_local int tls_depth = 0;
 ```
 
-Compile-time table generation; `consteval` guarantees zero runtime cost:
+### Compile-time table generation
+
+`consteval` guarantees zero runtime cost:
 
 ```cpp
 consteval std::array<std::uint32_t, 256> make_crc32_table() {
@@ -550,7 +577,9 @@ void connect() {
 
 A defaulted `current()` is evaluated where the caller wrote the call, not where `log` is defined. `current()` is `consteval`, so the capture is free at runtime.
 
-Versus the macro approach it retires:
+### Versus `__FILE__`/`__LINE__` macros
+
+The macro approach it retires:
 
 | | `__FILE__`/`__LINE__` macros | `std::source_location` |
 |---|---|---|
@@ -584,7 +613,7 @@ void logf(fmt_loc f, Args&&... args);   // call sites: logf("x={}", x);
 
 ## Modules
 
-The language feature works; the ecosystem is the constraint.
+The language feature works; the ecosystem is the constraint. Key semantic wins: macros do not leak in or out; declaration order between modules stops mattering; internal symbols are genuinely unreachable; one parse instead of N textual inclusions.
 
 ### Syntax
 
@@ -614,6 +643,8 @@ import math;
 int main() { return add(2, 2) - 4; }
 ```
 
+### Partitions and implementation units
+
 Partitions split large modules without exposing structure to consumers:
 
 ```cpp
@@ -634,8 +665,6 @@ double math::mean(std::span<const double> xs) {
 }
 ```
 
-Key semantic wins: macros do not leak in or out; declaration order between modules stops mattering; internal symbols are genuinely unreachable; one parse instead of N textual inclusions.
-
 ### Build reality
 
 | Concern | State | Practical guidance |
@@ -645,9 +674,16 @@ Key semantic wins: macros do not leak in or out; declaration order between modul
 | Dependency scanning | Build-time scanning (`clang-scan-deps` etc.) is automatic under CMake but adds a build phase | Expect slower cold configures; incremental builds usually win overall |
 | `import std;` | C++23 feature; CMake support is experimental (opt-in flag) | Don't make it a hard requirement yet |
 | Header units (`import <vector>;`) | Portability poor across all three compilers and CMake support is limited | Avoid; use the global module fragment for legacy headers |
+
+### Distribution, tooling, and macros
+
+| Concern | State | Practical guidance |
+|---|---|---|
 | Distributing modules in libraries | BMI files are compiler-, version-, and flag-specific, not a distribution format; consumers rebuild interfaces from your `.cppm` sources | Ship module interface sources; expect mixed header/module consumers |
 | Tooling (IDEs, clangd, formatters, coverage) | Catching up; clangd module support improving but uneven | Budget for tooling friction; keep a header-based escape hatch for analysis runs |
 | Macros | Cannot be exported from modules | Config macros stay in headers or move to `consteval` functions/constants |
+
+### Minimal CMake setup
 
 ```cmake
 # Minimal CMake (3.28+) for a module library
@@ -657,7 +693,7 @@ target_sources(math
 target_compile_features(math PUBLIC cxx_std_20)
 ```
 
-Recommendations:
+### Recommendations
 
 | Situation | Verdict |
 |---|---|
@@ -668,20 +704,27 @@ Recommendations:
 
 ## Smaller Features Worth Using
 
+### Language
+
 | Feature | One-liner | Watch out for |
 |---|---|---|
-| Ranges | Composable algorithm pipelines | See [ranges.md](ranges.md) |
 | Coroutines | `co_await`/`co_yield` language support | No std library types until `std::generator` (C++23); see [coroutines](../../cpp-concurrency/references/coroutines.md) |
-| `std::jthread` | Joins on destruction + built-in `stop_token` | Prefer over `std::thread` ([cpp-concurrency](../../cpp-concurrency/SKILL.md)) |
-| `starts_with`/`ends_with` | On `string`/`string_view` | `contains` is C++23 |
-| `std::erase`/`erase_if(container, pred)` | Finally kills the erase-remove idiom | Free functions, not members |
-| `map.contains(key)` | Replaces `find() != end()` | Heterogeneous overload needs transparent comparator |
-| `std::midpoint`/`std::lerp` | Overflow-safe midpoint, correct lerp | `midpoint` of pointers requires same array |
 | `using enum` | `using enum Color;` unqualifies enumerators in a scope | Scope pollution; keep it function-local |
 | `[[likely]]`/`[[unlikely]]` | Branch hints on statements | Measure first; misuse pessimizes ([profiling-tools](../../../tooling/diagnostics/references/profiling-tools.md)) |
 | `[[no_unique_address]]` | Empty members take zero space | MSVC ignores it; use `[[msvc::no_unique_address]]` |
 | `char8_t` | Distinct type for UTF-8 | Breaking: `u8""` literals no longer convert to `const char*` |
 | Abbreviated templates | `void f(auto x)` = template | Each `auto` is an independent parameter |
+
+### Library
+
+| Feature | One-liner | Watch out for |
+|---|---|---|
+| Ranges | Composable algorithm pipelines | See [ranges.md](ranges.md) |
+| `std::jthread` | Joins on destruction + built-in `stop_token` | Prefer over `std::thread` ([cpp-concurrency](../../cpp-concurrency/SKILL.md)) |
+| `starts_with`/`ends_with` | On `string`/`string_view` | `contains` is C++23 |
+| `std::erase`/`erase_if(container, pred)` | Finally kills the erase-remove idiom | Free functions, not members |
+| `map.contains(key)` | Replaces `find() != end()` | Heterogeneous overload needs transparent comparator |
+| `std::midpoint`/`std::lerp` | Overflow-safe midpoint, correct lerp | `midpoint` of pointers requires same array |
 | `constexpr` everything | `vector`, `string`, algorithms usable in constant evaluation | Compile-time allocations cannot leak to runtime |
 | `std::numbers` | `std::numbers::pi`, `e`, `sqrt2` as variable templates | Replaces `M_PI` (which is POSIX, not standard C++) |
 
@@ -689,16 +732,25 @@ Recommendations:
 
 Flipping `-std=c++20` on C++17 code is mostly safe, but these changes bite. Audit each before the switch (`/system-developer:fix-modernize --target cpp20` builds the ledger):
 
+### Code that stops compiling
+
 | Change | Symptom | Fix |
 |---|---|---|
 | `u8""` literals became `const char8_t*` | `const char* s = u8"...";` stops compiling | Drop the `u8` prefix where you meant bytes, or adopt `char8_t` end-to-end; `-fno-char8_t`/`/Zc:char8_t-` only as a bridge |
 | Aggregates with user-declared constructors (even `= default`) are no longer aggregates (P1008) | `T{1, 2}` brace-init stops compiling for `struct T { T() = default; int a, b; };` | Remove the defaulted declaration or add a real constructor |
-| Reversed/rewritten comparison candidates | `-Wambiguous-reversed-operator` warnings, rare behavior changes | Make `operator==` const and symmetric (see `<=>` section) |
-| Implicit `this` capture in `[=]` deprecated | Deprecation warnings in lambda-heavy code | Capture `this` (or `*this`) explicitly |
-| Many `volatile` uses deprecated (compound assignment, etc.) | `-Wdeprecated-volatile` noise, especially near device registers | Split read-modify-write into explicit loads/stores (better for embedded correctness anyway) |
 | `std::allocator<void>`, `raw_storage_iterator`, others removed | Old allocator-aware code breaks | Modern allocator traits; usually dead code |
 | Two-phase template lookup tightened, ADL refinements | Previously-accepted ill-formed templates now diagnosed | Fix the template; the old code was wrong |
+
+### Behavior changes and deprecations
+
+| Change | Symptom | Fix |
+|---|---|---|
+| Reversed/rewritten comparison candidates | `-Wambiguous-reversed-operator` warnings, rare behavior changes | Make `operator==` const and symmetric (see `<=>` section) |
 | `std::variant` converting constructor narrowed (P0608) | Different alternative selected vs C++17 | Audit `variant` implicit constructions (see [cpp17-features.md](cpp17-features.md) variant pitfalls) |
+| Implicit `this` capture in `[=]` deprecated | Deprecation warnings in lambda-heavy code | Capture `this` (or `*this`) explicitly |
+| Many `volatile` uses deprecated (compound assignment, etc.) | `-Wdeprecated-volatile` noise, especially near device registers | Split read-modify-write into explicit loads/stores (better for embedded correctness anyway) |
+
+### Rollout
 
 Enable C++20 with warnings-as-errors in a branch, fix the list above, run the full suite plus ASan/UBSan ([sanitizers](../../../tooling/diagnostics/references/sanitizers.md)), and only then start using C++20 features.
 
