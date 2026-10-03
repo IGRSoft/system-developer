@@ -237,6 +237,8 @@ void parse(int kind) {
 [[unsequenced]]  int popcount64(uint64_t x);                  // stateless + independent
 ```
 
+#### Attribute Probe and Toolchain Support
+
 `__has_c_attribute(nodiscard)` probes availability in the preprocessor.
 
 | Toolchain | Minimum |
@@ -572,20 +574,29 @@ lookup and double-checks the caller's size bookkeeping.
 
 ## Removals and Semantic Changes
 
+### Removed Features
+
 | Change | Impact | Action |
 |--------|--------|--------|
 | K&R function definitions removed | Old code errors out | Convert to prototypes (mechanical; `-Wold-style-definition` finds them in C17) |
-| `void f()` means `void f(void)` | Calls-with-args through empty declarations become errors | Audit with `-Wstrict-prototypes` before migrating |
 | Trigraphs removed | `??=` etc. no longer translate | Grep for `??` in old sources |
-| `realloc(p, 0)` is undefined behavior | Code using it as `free` is broken | `if (n == 0) { free(p); return NULL; }` explicitly |
 | `ATOMIC_VAR_INIT` removed (deprecated since C17) | Build error | Plain initialization: `_Atomic int n = 0;` |
 | `__alignof_is_defined` / `<stdalign.h>` content emptied | Keywords replace macros | Use `alignas`/`alignof` keywords |
+
+### Changed Semantics
+
+| Change | Impact | Action |
+|--------|--------|--------|
+| `void f()` means `void f(void)` | Calls-with-args through empty declarations become errors | Audit with `-Wstrict-prototypes` before migrating |
+| `realloc(p, 0)` is undefined behavior | Code using it as `free` is broken | `if (n == 0) { free(p); return NULL; }` explicitly |
 | Old function-pointer laxness tightened | A few implicit conversions now diagnosed | Heed the new errors; they were latent bugs |
 | `*_HAS_SUBNORM`, `DBL_DIG`-era macros refreshed | Rarely observable | n/a |
 
 ---
 
 ## Migration Checklist (C17 -> C23)
+
+### Pre-Flight and First Target
 
 1. Pre-flight in C17 mode with `-Wstrict-prototypes -Wold-style-definition
    -Wimplicit-fallthrough -Werror` and fix what it reports; in most codebases
@@ -595,6 +606,8 @@ lookup and double-checks the caller's size bookkeeping.
 3. Flip one leaf target from `-std=c17` to `-std=c23` (`-std=c2x` on GCC
    13/Clang 16-17) and build clean with the
    [hygiene flags](../SKILL.md#hygiene-flags).
+### Feature Adoption and CI
+
 4. Adopt quick wins in new code: `nullptr` (no mass rewrite of `NULL`), drop
    `<stdbool.h>` opportunistically, `{0}` -> `{}` where the intent is "zero
    everything".

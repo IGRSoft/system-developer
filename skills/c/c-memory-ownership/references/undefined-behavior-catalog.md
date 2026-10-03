@@ -17,34 +17,51 @@ Triage findings into the right bucket before deciding severity:
 | Implementation-defined | One documented choice per implementation | `sizeof(int)`, right shift of negative values, `char` signedness | Acceptable if documented and tested on all target platforms |
 | Locale-specific | Depends on locale settings | `islower('I')` in Turkish locales | Pin the locale or use locale-independent APIs |
 
-Two common misclassifications:
+### Common Misclassifications
 
 - "GCC wraps signed overflow, so it's implementation-defined": no, it is UB; GCC emits wrapping code only until the optimizer has a reason not to. `-fwrapv` defines it, but that is a dialect flag, not standard C.
 - "Unspecified order means any interleaving": function calls are indeterminately sequenced and do not interleave. UB needs unsequenced side effects on the same scalar (see Sequencing Violations).
 
 ## Detection Cheat Sheet
 
+UBSan checks are recoverable by default; add `-fno-sanitize-recover=all` in CI so the first report fails the run, and `UBSAN_OPTIONS=print_stacktrace=1` for stacks.
+
+### Arithmetic
+
 | UB class | Primary detector | Flag / tool | Notes |
 |---|---|---|---|
 | Signed overflow | UBSan | `-fsanitize=signed-integer-overflow` | In `-fsanitize=undefined` |
 | Invalid shift | UBSan | `-fsanitize=shift` | Base and exponent checks |
 | Division by zero, `INT_MIN / -1` | UBSan | `-fsanitize=integer-divide-by-zero,signed-integer-overflow` | In `-fsanitize=undefined` |
+
+### Bounds and Pointers
+
+| UB class | Primary detector | Flag / tool | Notes |
+|---|---|---|---|
 | Heap/stack/global out-of-bounds | ASan | `-fsanitize=address` | Redzone-based; misses far-OOB strides |
 | Constant-offset array OOB | UBSan | `-fsanitize=bounds` | Compile-time-known bounds only |
 | Pointer arithmetic overflow | UBSan | `-fsanitize=pointer-overflow` | Forming the pointer, not using it |
 | Cross-object pointer compare/subtract | ASan extension | `-fsanitize=pointer-compare,pointer-subtract` + `ASAN_OPTIONS=detect_invalid_pointer_pairs=2` | GCC 8+/Clang |
+| Null dereference | UBSan | `-fsanitize=null` | ASan reports the SEGV too |
+| Misaligned access | UBSan | `-fsanitize=alignment` | |
+
+### Lifetime and Initialization
+
+| UB class | Primary detector | Flag / tool | Notes |
+|---|---|---|---|
 | Use-after-free | ASan | `-fsanitize=address` | Three-stack reports |
 | Use-after-return | ASan | `ASAN_OPTIONS=detect_stack_use_after_return=1` | Default in Clang 15+ on Linux |
 | Use-after-scope | ASan | `-fsanitize=address` | On by default in GCC 7+/Clang |
 | Uninitialized read | MSan / Valgrind | `-fsanitize=memory` / `valgrind` | MSan: Clang, Linux, all code instrumented |
-| Null dereference | UBSan | `-fsanitize=null` | ASan reports the SEGV too |
-| Misaligned access | UBSan | `-fsanitize=alignment` | |
+| Overlapping `memcpy`, bad `free` | ASan interceptors | `-fsanitize=address` | `strict_string_checks=1` widens coverage |
+
+### Aliasing, Sequencing, and Races
+
+| UB class | Primary detector | Flag / tool | Notes |
+|---|---|---|---|
 | Strict aliasing | No production sanitizer | `-Wstrict-aliasing` (GCC, shallow); experimental `-fsanitize=type` (Clang 20+) | Mitigate with `-fno-strict-aliasing` |
 | Unsequenced modification | Compiler warning only | `-Wsequence-point` (GCC), `-Wunsequenced` (Clang) | No runtime detector |
-| Overlapping `memcpy`, bad `free` | ASan interceptors | `-fsanitize=address` | `strict_string_checks=1` widens coverage |
 | Data race | TSan | `-fsanitize=thread` | Exclusive with ASan/MSan |
-
-UBSan checks are recoverable by default; add `-fno-sanitize-recover=all` in CI so the first report fails the run, and `UBSAN_OPTIONS=print_stacktrace=1` for stacks.
 
 ## Signed Integer Overflow
 
@@ -58,6 +75,8 @@ int next(int x) {
 }
 ```
 
+### Overflow Detection and Limit Checks
+
 Detection: `-fsanitize=signed-integer-overflow`. Clang's opt-in `-fsanitize=unsigned-integer-overflow` flags defined-but-suspicious unsigned wrap (noisy). `-fwrapv` is a mitigation, not a detector or a fix.
 
 Rewrite: check against the limit before the operation:
@@ -70,6 +89,8 @@ int next_checked(int x, int *out) {
     return 0;
 }
 ```
+
+### Checked Arithmetic and Promotion Traps
 
 For general arithmetic use C23 checked operations (GCC 14+/Clang 18+), with builtins as the pre-C23 fallback:
 
@@ -101,6 +122,8 @@ int mask = 1 << 31;            /* overflows int */
 int x    = -8 << 2;            /* negative left operand */
 int y    = value >> shift;     /* if shift >= 32 or negative */
 ```
+
+### Shift Detection and Rewrite
 
 Detection: `-fsanitize=shift` (`shift-base` and `shift-exponent`).
 
@@ -145,6 +168,8 @@ buf[16] = '\0';                          /* off-by-one: valid indexes 0..15 */
 int *a = malloc(n * sizeof *a);
 for (size_t i = 0; i <= n; i++) a[i] = 0;   /* <= walks one past */
 ```
+
+### Bounds Detection and Rewrite
 
 Detection: ASan (heap, stack, global redzones), `-fsanitize=bounds` (compile-time-known array bounds), `_FORTIFY_SOURCE` in production, Valgrind for heap only. A stride that jumps over the redzone (`p[1 << 20]`) lands in valid memory and goes unreported, so large indexes need an explicit bound check.
 
@@ -194,6 +219,8 @@ if (p3 >= heap_lo && p3 < heap_hi) ...   /* relational compare across objects */
 ptrdiff_t d = p_in_a - p_in_b;           /* different objects */
 ```
 
+### Pointer Detection and Rewrite
+
 Detection: `-fsanitize=pointer-overflow` at formation; `pointer-compare,pointer-subtract` for cross-object pairs (see cheat sheet); ASan only once the bad pointer is dereferenced.
 
 Rewrite: iterate with indexes, or with `end` one past the last element:
@@ -217,6 +244,8 @@ Rule (C17 6.2.4, 7.22.3): an object's lifetime ends at `free()`, scope exit, or 
 | Escaped pointer used after scope | Pointer to a block-scope object used after the block |
 | Compound literal escape | `int *p = &(int){42};` inside a block: the literal has block lifetime |
 
+### Realloc Dangling Example and Detection
+
 ```c
 /* BROKEN: realloc variant — q dangles even though realloc succeeded */
 char *q = p + offset;
@@ -225,6 +254,8 @@ use(q);                       /* UB: q points into the old block */
 ```
 
 Detection: ASan for heap variants, use-after-return, and use-after-scope (see cheat sheet); `-Wreturn-local-addr` (GCC) / `-Wreturn-stack-address` (Clang) for a direct `return &local;`; Valgrind on uninstrumented binaries.
+
+### Lifetime Rewrites
 
 Rewrite: these are ownership bugs. Establish a single owner (parent `SKILL.md`) and re-derive pointers after any `realloc`:
 
@@ -250,6 +281,8 @@ if (parse(&flags) < 0) log_flags(flags);    /* reads garbage */
 struct config c;
 send(fd, &c, sizeof c, 0);  /* leaks stack garbage in padding + unset fields */
 ```
+
+### Initialization Detection and Rewrite
 
 Detection: fix `-Wuninitialized` / `-Wmaybe-uninitialized` first; then MSan (Clang, Linux, every linked object instrumented) or Valgrind (no rebuild, ~20x slower). `-ftrivial-auto-var-init=pattern|zero` is hardening, not detection.
 
@@ -313,6 +346,8 @@ float f = 1.5f;
 uint32_t bits = *(uint32_t *)&f;     /* UB: int-typed read of a float object */
 ```
 
+### Aliasing Detection and Rewrite
+
 Detection is weak: `-Wstrict-aliasing` (GCC, `-O2`) flags only blatant cases and `-fsanitize=type` (Clang 20+) is experimental. Symptom: breaks at `-O2`, works with `-fno-strict-aliasing`.
 
 Rewrite, in order of preference:
@@ -367,6 +402,8 @@ qsort(arr, n, sizeof *arr, (int (*)(const void *, const void *))cmp_int);
 
 It works on conventional ABIs and breaks under CFI (`-fsanitize=cfi`) and arm64e pointer authentication.
 
+### Function Pointer Detection and Rewrite
+
 Detection: `-fsanitize=function` (Clang 17+ for C), `-fsanitize=cfi-icall` (Clang, LTO) as a production defense, `-Wcast-function-type` at compile time.
 
 Rewrite: match the expected signature and cast the data pointers inside:
@@ -394,6 +431,8 @@ const int limit = 100;
 *(int *)&limit = 200;                 /* UB: object defined const */
 ```
 
+### Const Detection and Rewrite
+
 Detection: usually `SIGSEGV` on a read-only page, but merged literals may silently corrupt. `-Wwrite-strings` makes literals `const char[]` so such assignments warn. No sanitizer covers this class.
 
 Rewrite: own the buffer when you intend to write:
@@ -408,15 +447,22 @@ Use `-Wwrite-strings` in new code and treat a `(char *)` cast of a literal or `c
 
 Calling a standard library function outside its contract is UB even when your own pointer arithmetic is clean (C17 7.1.4).
 
+### Formatting, Streams, and Varargs
+
+| Violation | UB form | Detection | Rewrite |
+|---|---|---|---|
+| `printf` format vs argument mismatch | Wrong-type varargs read | `-Wformat -Werror=format-security` (compile time) | Match specifiers; `%zu` for `size_t`, `PRIu64` for `uint64_t` |
+| User data as format string | Format-string attack + UB | `-Wformat-security` | `printf("%s", user)` — never `printf(user)` |
+| `fclose(NULL)`, `fflush` on closed stream | UB (unlike `free(NULL)`) | None reliable | Guard: `if (f) fclose(f);` |
+| `va_arg` past the last argument / wrong type | Indeterminate read | None reliable | Sentinel or count parameter, documented |
+
+### Memory and String Functions
+
 | Violation | UB form | Detection | Rewrite |
 |---|---|---|---|
 | `memcpy` with overlapping ranges | Restrict violation | ASan `memcpy-param-overlap` interceptor | `memmove` |
 | `strlen`/`strcpy` on a non-NUL-terminated buffer | OOB read | ASan (`strict_string_checks=1` widens) | `memchr` with a bound; track lengths |
 | `free`/`realloc` on a non-`malloc` or interior pointer | Invalid free | ASan `attempting free on address which was not malloc()-ed` | Free only stored base pointers |
-| `printf` format vs argument mismatch | Wrong-type varargs read | `-Wformat -Werror=format-security` (compile time) | Match specifiers; `%zu` for `size_t`, `PRIu64` for `uint64_t` |
-| User data as format string | Format-string attack + UB | `-Wformat-security` | `printf("%s", user)` — never `printf(user)` |
-| `fclose(NULL)`, `fflush` on closed stream | UB (unlike `free(NULL)`) | None reliable | Guard: `if (f) fclose(f);` |
-| `va_arg` past the last argument / wrong type | Indeterminate read | None reliable | Sentinel or count parameter, documented |
 | `memset(p, 0, n)` with `p == NULL`, even when `n == 0` | UB through C23 (C2y defines the zero-length case) | UBSan `nonnull-attribute` | Skip the call when the buffer is absent |
 
 Generally, passing NULL to a string/memory function that doesn't document accepting it is UB even with a zero length; guard the degenerate case.
@@ -498,6 +544,8 @@ Fix your own code with the class's rewrite; suppression files (`ASAN_OPTIONS=sup
 
 Map the phrase in a `runtime error:` line to its section:
 
+### Arithmetic and Pointer Checks
+
 | UBSan check / report phrase | Section |
 |---|---|
 | `signed integer overflow` | Signed Integer Overflow |
@@ -507,6 +555,11 @@ Map the phrase in a `runtime error:` line to its section:
 | `index ... out of bounds` (`-fsanitize=bounds`) | Out-of-Bounds Access |
 | `pointer index expression ... overflowed` | Invalid Pointer Arithmetic and Comparison |
 | `applying non-zero offset to null pointer` | Invalid Pointer Arithmetic and Comparison |
+
+### Type, Call, and Contract Checks
+
+| UBSan check / report phrase | Section |
+|---|---|
 | `load of null pointer` / `member access within null pointer` | Null Pointer Dereference |
 | `load of misaligned address` | Misaligned Access |
 | `variable length array bound evaluates to non-positive value` (`-fsanitize=vla-bound`) | Out-of-Bounds Access — VLAs |

@@ -156,15 +156,22 @@ TSan can't combine with ASan; use a separate build directory per sanitizer.
 
 ## ASan Report Diagnostic Table
 
+### Heap and Allocator Reports
+
 | Report header | Cause | Fix |
 |---|---|---|
 | `heap-use-after-free` | Access through a dangling alias after the owner freed | Single owner; NULL-after-free; fix lifetime |
 | `heap-buffer-overflow` | Wrong size math, off-by-one, unterminated string | `calloc`/`ckd_mul`; recheck bounds; FAM sizing |
-| `stack-buffer-overflow` | Local array overrun | Fix bounds; `sizeof buf` not `sizeof ptr` |
-| `stack-use-after-return` | Pointer to a local escaped | Heap or caller buffer; needs `detect_stack_use_after_return=1` (default in Clang 15+ on Linux) |
 | `double-free` | Two owners both freed | One `_destroy` path; NULL-after-free |
 | `alloc-dealloc-mismatch` | `malloc`/`delete` or cross-allocator free | Pair allocator and deallocator via `_create`/`_destroy` |
 | `attempting free on address which was not malloc()-ed` | Freeing a stack, global, interior, or arena pointer | Free only the exact pointer `malloc` returned |
+
+### Stack, Leak, and NULL Reports
+
+| Report header | Cause | Fix |
+|---|---|---|
+| `stack-buffer-overflow` | Local array overrun | Fix bounds; `sizeof buf` not `sizeof ptr` |
+| `stack-use-after-return` | Pointer to a local escaped | Heap or caller buffer; needs `detect_stack_use_after_return=1` (default in Clang 15+ on Linux) |
 | `LeakSanitizer: detected memory leaks` | A path skips `free`, often an early error return | Audit `goto cleanup`, or arena the scope |
 | `SEGV on unknown address 0x000000000000` | NULL dereference | Check returns; `-fsanitize=null` for the exact site |
 | `dynamic-stack-buffer-overflow` | VLA or `alloca` overrun | Bound the size first; prefer a fixed cap |

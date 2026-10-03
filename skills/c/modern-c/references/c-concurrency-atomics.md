@@ -131,6 +131,8 @@ void producer(void) {
 }
 ```
 
+#### Timed Waits
+
 `cnd_timedwait` takes an absolute `TIME_UTC` timespec
 (`timespec_get(&ts, TIME_UTC)` then add the timeout). There is no monotonic
 clock option — a system clock jump skews your timeout. If that matters, use
@@ -172,7 +174,7 @@ int read_counter(void) {
 }
 ```
 
-Rules of engagement:
+### Rules of Engagement
 
 - Plain reads/writes of an `_Atomic` object (`counter++`, `x = counter`) are
   atomic with `memory_order_seq_cst` — correct, but hides the ordering
@@ -184,6 +186,8 @@ Rules of engagement:
 - Whole-struct `_Atomic` works (`_Atomic struct pair p;`) but compiles to a
   lock if not lock-free — check `atomic_is_lock_free(&p)`; prefer packing
   into a `uint64_t` instead.
+
+### Lock-Free Guarantees
 
 `atomic_flag` is the only type guaranteed lock-free on all implementations:
 
@@ -212,7 +216,9 @@ macros (2 = always lock-free).
 | `memory_order_seq_cst` | Acq-rel + single global order of all seq_cst ops | Default; anything involving 2+ atomic variables whose relative order matters |
 | `memory_order_consume` | In practice promoted to acquire by all compilers | Do not use; write `acquire` |
 
-Policy: default to `seq_cst` (omit `_explicit` or spell it out). Downgrade
+### Ordering Policy
+
+Default to `seq_cst` (omit `_explicit` or spell it out). Downgrade
 to acquire/release or relaxed only with a comment justifying it and a TSan-clean
 run. The cost difference is zero on x86 for acquire/release vs plain loads and
 small everywhere; the debugging cost of a wrong relaxed is enormous.
@@ -339,7 +345,9 @@ void queue_close(struct queue *q) {             // wake everyone for shutdown
 }
 ```
 
-Ownership rule: a job pointer belongs to exactly one side at a time — the
+#### Job Ownership
+
+A job pointer belongs to exactly one side at a time — the
 producer until `queue_push` returns true, the consumer after `queue_pop`
 returns it. See [../../c-memory-ownership/SKILL.md](../../c-memory-ownership/SKILL.md).
 
@@ -389,7 +397,9 @@ only when a destructor must run (e.g., per-thread caches that own memory).
 | Thread names for debuggers | None | `pthread_setname_np` (nonportable suffix; both glibc and BSD variants exist) |
 | Semantics | Thin subset, same model | Superset; C11 threads are specified to be implementable on pthreads |
 
-Practical rule: applications targeting Linux-only may enjoy `<threads.h>`;
+### Choosing Between Them
+
+Applications targeting Linux-only may enjoy `<threads.h>`;
 portable libraries and anything touching macOS use pthreads directly. The
 atomics story is unaffected either way — `<stdatomic.h>` works with pthreads.
 
@@ -415,17 +425,29 @@ TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" ./app_tsan
 
 ## Pitfalls
 
+### Ordering and Atomics Symptoms
+
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Works on x86, crashes on ARM | Relaxed (or plain non-atomic) where release/acquire needed; x86's strong hardware ordering hid it | Publish/consume pattern; TSan on any platform finds it |
 | `error: address argument to atomic operation must be a pointer to _Atomic type` | Atomic API called on plain object | Declare the object `_Atomic`; never cast around it |
-| Deadlock in `cnd_wait` | Predicate checked with `if`, or signal sent before waiter locked | `while` loop + signal while/after holding the mutex |
-| `mtx_init` UB / lock corrupt | Relying on zero-init or copying a `mtx_t` | `mtx_init` once via `call_once`; never memcpy mutexes |
 | Counter updates lost | `x++` on plain shared int ("it's just an increment") | `_Atomic` fetch_add; plain `++` is load+add+store |
-| Timed wait fires early/late after clock change | `cnd_timedwait` uses `TIME_UTC` realtime | pthreads + `CLOCK_MONOTONIC` condattr |
-| `'threads.h' file not found` on macOS | Apple SDK does not ship it | pthreads (see matrix above) |
 | TSan reports race on `_Atomic` variable | Mixed atomic and non-atomic access to same object | All accesses through atomic ops, including init-after-share |
 | Struct atomic is mysteriously slow | Not lock-free; libatomic lock taken per op | `atomic_is_lock_free` check; pack into `uint64_t` or use a mutex honestly |
+
+### Locking and Timing Symptoms
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Deadlock in `cnd_wait` | Predicate checked with `if`, or signal sent before waiter locked | `while` loop + signal while/after holding the mutex |
+| `mtx_init` UB / lock corrupt | Relying on zero-init or copying a `mtx_t` | `mtx_init` once via `call_once`; never memcpy mutexes |
+| Timed wait fires early/late after clock change | `cnd_timedwait` uses `TIME_UTC` realtime | pthreads + `CLOCK_MONOTONIC` condattr |
+
+### Platform and Build Symptoms
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `'threads.h' file not found` on macOS | Apple SDK does not ship it | pthreads (see matrix above) |
 | `undefined reference to __atomic_*` at link | Target needs libatomic for that width | Link `-latomic` (common on RISC-V/older ARM) |
 
 Related: C23 keyword spellings and `ATOMIC_VAR_INIT` removal in
