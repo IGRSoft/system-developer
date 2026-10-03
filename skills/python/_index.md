@@ -1,7 +1,7 @@
 # Python Skills Index
 
 Quick navigation for the `skills/python/` subtree. Start at [SKILL.md](SKILL.md)
-for the guided entry with version snapshot and decision tree.
+for the version snapshot and skill selection.
 
 ## Skills
 
@@ -15,24 +15,45 @@ for the guided entry with version snapshot and decision tree.
 
 ## References
 
+### modern-python
+
 | File | Use it for |
 |------|------------|
-| [modern-python/references/python-3.14-features.md](modern-python/references/python-3.14-features.md) | Full 3.14 tour: t-string processing, `annotationlib`, zstd, PEP 758/765, improved error messages, remote debugging (PEP 768), asyncio introspection CLI |
-| [modern-python/references/python-anti-patterns.md](modern-python/references/python-anti-patterns.md) | Anti-pattern catalog with detection ruff rule IDs and fixes |
-| [python-typing/references/typing-advanced.md](python-typing/references/typing-advanced.md) | PEP 695 variance/scoping/defaults, `runtime_checkable` caveats, ParamSpec/Concatenate, overload rules, `.pyi` stubs |
-| [python-concurrency/references/asyncio-patterns.md](python-concurrency/references/asyncio-patterns.md) | TaskGroup-era asyncio (no `get_event_loop`), cancellation, timeouts |
-| [python-concurrency/references/free-threading.md](python-concurrency/references/free-threading.md) | `python3.14t`, `sys._is_gil_enabled()`, `Py_mod_gil` for extensions |
-| [python-concurrency/references/subinterpreters.md](python-concurrency/references/subinterpreters.md) | `concurrent.interpreters`, `InterpreterPoolExecutor` (PEP 734) |
-| [python-tooling/references/uv-workflows.md](python-tooling/references/uv-workflows.md) | uv sync/run/lock/tool workflows |
-| [python-tooling/references/packaging-and-project-structure.md](python-tooling/references/packaging-and-project-structure.md) | src layout, build backends, distributing packages |
-| [python-testing/references/pytest-advanced.md](python-testing/references/pytest-advanced.md) | Advanced fixtures, parametrization, plugins, coverage gating |
+| [python-3.14-features.md](modern-python/references/python-3.14-features.md) | Full 3.14 tour: t-string processing, `annotationlib`, zstd, PEP 758/765, improved error messages, remote debugging (PEP 768), asyncio introspection CLI |
+| [python-anti-patterns.md](modern-python/references/python-anti-patterns.md) | Anti-pattern catalog with detection ruff rule IDs and fixes |
+
+### python-typing
+
+| File | Use it for |
+|------|------------|
+| [typing-advanced.md](python-typing/references/typing-advanced.md) | PEP 695 variance/scoping/defaults, `runtime_checkable` caveats, ParamSpec/Concatenate, overload rules, `.pyi` stubs |
+
+### python-concurrency
+
+| File | Use it for |
+|------|------------|
+| [asyncio-patterns.md](python-concurrency/references/asyncio-patterns.md) | TaskGroup-era asyncio (no `get_event_loop`), cancellation, timeouts |
+| [free-threading.md](python-concurrency/references/free-threading.md) | `python3.14t`, `sys._is_gil_enabled()`, `Py_mod_gil` for extensions |
+| [subinterpreters.md](python-concurrency/references/subinterpreters.md) | `concurrent.interpreters`, `InterpreterPoolExecutor` (PEP 734) |
+
+### python-tooling
+
+| File | Use it for |
+|------|------------|
+| [uv-workflows.md](python-tooling/references/uv-workflows.md) | uv sync/run/lock/tool workflows |
+| [packaging-and-project-structure.md](python-tooling/references/packaging-and-project-structure.md) | src layout, build backends, distributing packages |
+
+### python-testing
+
+| File | Use it for |
+|------|------------|
+| [pytest-advanced.md](python-testing/references/pytest-advanced.md) | Advanced fixtures, parametrization, plugins, coverage gating |
 
 ## Cross-Tree
 
 | Topic | Location |
 |-------|----------|
-| Python version minimums (canonical) | `${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md` |
-| Input validation, injection, pickle/yaml/`shell=True` | `${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md` |
-| Profiling (py-spy, cProfile, tracemalloc) | `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md` |
-| C/C++/Python boundaries (pybind11, nanobind, C API) | `${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md` |
-| Workflow stage participation | `CORPFLOW.md` |
+| Python version minimums (canonical) | [version-feature-matrix.md](../_shared/version-feature-matrix.md) |
+| Input validation, injection, pickle/yaml/`shell=True` | [secure-coding](../_shared/secure-coding/SKILL.md) |
+| Profiling (py-spy, cProfile, tracemalloc) | [diagnostics](../tooling/diagnostics/SKILL.md) |
+| C/C++/Python boundaries (pybind11, nanobind, C API) | [ffi-interop](../tooling/ffi-interop/SKILL.md) |
