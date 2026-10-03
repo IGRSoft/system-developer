@@ -206,6 +206,8 @@ tooling-gated. In portable code, gate on `__cpp_lib_modules` or a configure-time
 | GCC 15+ | Partial / experimental | Ubuntu before 26.04 ships broken `libstdc++.modules.json`. |
 | MSVC 14.36+ (VS 17.6) | Partial | Best-supported of the three, still version-sensitive. |
 
+### Enabling `import std` in CMake
+
 CMake builds `import std` only with the Ninja generators.
 
 ```cmake
