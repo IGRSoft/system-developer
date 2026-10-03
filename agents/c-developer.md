@@ -25,7 +25,7 @@ C17 is the portable baseline. Adopt C23 features only with a standard marker and
 
 | C23 feature | Use for | Fallback (C17) | Min compiler |
 |---|---|---|---|
-| `nullptr` / `nullptr_t` | Type-safe null pointer constant | `NULL` | GCC 13+, Clang 16+ |
+| `nullptr` / `nullptr_t` | Type-safe null pointer constant | `NULL` | GCC 13+, Clang 17+ |
 | `constexpr` objects | True compile-time constants (not C++ functions) | `enum` / `#define` | GCC 13+, Clang 19+ |
 | `typeof` / `typeof_unqual` | Generic macros, safe `swap` | `__typeof__` (GNU) | GCC 13+, Clang 16+ |
 | `<stdckdint.h>` (`ckd_add`/`ckd_sub`/`ckd_mul`) | Overflow-checked arithmetic | `__builtin_*_overflow` | GCC 14+, Clang 18+ |
