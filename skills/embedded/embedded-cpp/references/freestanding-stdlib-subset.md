@@ -1,176 +1,103 @@
 # Freestanding C++ Standard-Library Subset
 
-Use this when:
-
-- You are deciding whether a C++ language or library feature is affordable under
-  `-fno-exceptions -fno-rtti -ffreestanding`.
-- A symbol you expected (`std::vector`, `std::function`, `dynamic_cast`) is
-  unavailable, costly, or pulls in the heap.
-- You need the idiomatic embedded replacement for a hosted-C++ feature.
-
-Skip this file if:
-
-- You need the flag set, RAII, placement-new, or ROM-able-data rules. Use
-  [../SKILL.md](../SKILL.md).
-- Your question is the language-agnostic core (MMIO, ISRs, startup). Use
-  [../../embedded-systems/SKILL.md](../../embedded-systems/SKILL.md).
-
-Jump to:
-
-- What "Freestanding" Guarantees in C++
-- Language Features Under the Subset
-- Library: Available
-- Library: Unavailable or Costly
-- The std::function Problem
-- Containers Without the Heap
-- Polymorphism Without RTTI
-- Replacement Quick Table
-- Pitfalls
+Which C++ language and library features are affordable under `-fno-exceptions -fno-rtti -ffreestanding`, and the embedded replacement for each that isn't. The flag set, RAII, placement new, and ROM-able data are in [../SKILL.md](../SKILL.md).
 
 ## What "Freestanding" Guarantees in C++
 
-The C++ standard defines a small set of headers a **freestanding implementation**
-must provide; everything else is a hosted-only quality-of-implementation matter.
-The guaranteed-useful freestanding headers cluster around language support and
-compile-time utilities, not runtime services:
+The standard requires only a small header set from a freestanding implementation, centred on language support and compile-time utilities:
 
-`<cstddef>`, `<cstdint>`, `<cstdlib>` (subset), `<limits>`, `<climits>`,
-`<cfloat>`, `<version>`, `<type_traits>`, `<concepts>` (C++20), `<bit>` (C++20),
-`<utility>` (subset), `<initializer_list>`, `<new>` (placement new),
-`<atomic>`, `<array>` (in practice, header-only and allocation-free),
-`<ratio>`, `<compare>` (C++20). C++23 widened the freestanding subset
-substantially (much of `<expected>`, `<optional>`, `<span>`, `<string_view>`,
-`<charconv>` is freestanding-friendly) — **verify against your specific
-standard-library implementation and version**; freestanding conformance varies
-more than hosted.
+- **C++20:** `<cstddef>`, `<cstdint>`, `<cstdlib>` (subset), `<limits>`, `<climits>`, `<cfloat>`, `<version>`, `<new>`, `<initializer_list>`, `<compare>`, `<concepts>`, `<type_traits>`, `<bit>`, `<atomic>`.
+- **C++23** adds `<utility>`, `<tuple>`, `<ratio>`, `<iterator>`, `<ranges>`, integer `<charconv>`, and parts of `<memory>` and `<functional>`.
+- **C++26** adds partial `<array>`, `<optional>`, `<variant>`, `<string_view>`, `<expected>`, and `<span>`.
 
-Anything touching the heap, the OS, locales, or I/O (`<iostream>`, `<string>`,
-`<vector>`, `<map>`, `<thread>`, `<filesystem>`, `<regex>`, `<chrono>` clocks)
-is hosted-only in principle. libstdc++/libc++ often *let* you include them on a
-bare-metal target, but using them links `malloc`, exception machinery, and
-static init you are trying to avoid.
+Freestanding conformance varies more than hosted, so check your library version.
+
+### Hosted-only
+
+Anything touching the heap, the OS, locales, or I/O (`<iostream>`, `<string>`, `<vector>`, `<map>`, `<thread>`, `<filesystem>`, `<regex>`, `<chrono>` clocks) is hosted-only. libstdc++/libc++ often let you include them on bare metal, but using them links `malloc`, exception machinery, and static init.
 
 ## Language Features Under the Subset
 
 | Feature | Status | Notes / replacement |
 |---------|--------|--------------------|
-| Classes, RAII, destructors | Available | Destructors run on normal scope exit; core idiom |
-| Templates, `constexpr`, `consteval`, `constinit` | Available, encouraged | Compile-time work → FLASH, no runtime cost |
-| References, `auto`, structured bindings, lambdas | Available | Lambdas are fine; their *captures into `std::function`* are the cost |
-| `std::array`, `std::span`, `std::string_view`, `std::optional` | Available (allocation-free) | The vocabulary types you keep |
-| `throw` / `try` / `catch` | **Disabled** by `-fno-exceptions` | `throw` → `std::terminate`; use error-return types |
-| `dynamic_cast`, `typeid` | **Disabled** by `-fno-rtti` | Tagged union, `std::variant`, virtual `kind()` |
-| Virtual functions | Available | vtable in FLASH; avoid only in hot/size-critical known-type paths |
-| Function-local `static` with non-trivial init | Available but adds a guard | `-fno-threadsafe-statics` drops the lock (single-threaded); or `constinit` global |
-| Global with non-trivial constructor | Available, costs startup + RAM | Prefer `constexpr`/`constinit`; mind init-order fiasco |
+| Classes, RAII, destructors | Available | Destructors run on normal scope exit |
+| Templates, `constexpr`, `consteval`, `constinit` | Encouraged | Compile-time work lands in FLASH |
+| Lambdas, `auto`, structured bindings | Available | Only lambdas stored in `std::function` cost |
+| `throw` / `try` / `catch` | Disabled (`-fno-exceptions`) | `throw` → `std::terminate`; use error-return types |
+| `dynamic_cast`, `typeid` | Disabled (`-fno-rtti`) | See Polymorphism Without RTTI |
+| Virtual functions | Available | vtable in FLASH |
+| Function-local `static`, non-trivial init | Adds a guard | `-fno-threadsafe-statics`, or a `constinit` global |
+| Global with non-trivial constructor | Costs startup + RAM | `constexpr`/`constinit`; mind init order |
 
 ## Library: Available
 
-These are allocation-free and freestanding-friendly — use them freely:
+Allocation-free; use freely:
 
-- `std::array<T, N>` — fixed-size, no heap, the default container.
-- `std::span<T>` (C++20) — non-owning view over contiguous storage; the right
-  parameter type for "a buffer and its length."
-- `std::string_view` — non-owning view over characters; replaces `const
-  std::string&` parameters (mind dangling, same as hosted).
-- `std::optional<T>` — in-object presence, no heap.
-- `std::expected<T, E>` (C++23) — the embedded error-handling type, no heap.
-- `std::variant<...>` — closed set of types, no heap; the RTTI-free way to be
-  polymorphic over a known set.
-- `<type_traits>`, `<concepts>`, `<bit>`, `<utility>`, `<limits>` — pure
-  compile-time / header-only.
-- `std::atomic<T>` — for the ISR/`main` sharing problem (see embedded-systems).
-- Algorithms over fixed ranges (`std::sort`, `std::find`, ... on `array`/`span`)
-  — they do not allocate; only the *containers* do.
+- `std::array<T, N>` — the default container.
+- `std::span<T>` (C++20) — the parameter type for "a buffer and its length."
+- `std::string_view` — replaces `const std::string&` parameters (dangling rules as hosted).
+- `std::optional<T>`, `std::variant<...>`, `std::expected<T, E>` (C++23) — in-object storage; `expected` is the embedded error type.
+- `<type_traits>`, `<concepts>`, `<bit>`, `<utility>`, `<limits>` — compile-time only.
+- `std::atomic<T>` — for ISR/`main` sharing (see embedded-systems).
+- Algorithms (`std::sort`, `std::find`, ...) over `array`/`span` — only containers allocate.
 
 ## Library: Unavailable or Costly
 
-| Feature | Cost on a constrained target | Replacement |
-|---------|------------------------------|-------------|
-| `std::string` | Heap allocation, SSO still grows; throws | Fixed-capacity char buffer + `std::string_view`; `std::array<char, N>` |
-| `std::vector`, `std::deque`, `std::list` | Heap allocation, reallocation, non-deterministic timing | `std::array`, ring buffer, fixed-capacity static-storage vector |
-| `std::map`, `std::unordered_map` | Node allocation per element | Sorted `std::array` + binary search; flat fixed-capacity map; perfect-hash table |
-| `std::function` | Heap for large callables; indirect call; throws | Function pointer; template callable; `inplace_function`/non-allocating delegate |
-| `std::shared_ptr` | Atomic refcount + control-block heap allocation | `std::unique_ptr` with non-heap deleter; plain single ownership |
-| `<iostream>` (`std::cout`) | Massive static init, locale, heap, exceptions | `printf`-over-UART; fixed-buffer formatter |
-| `std::stringstream` | Heap + iostream weight | `std::to_chars`/`std::from_chars` (`<charconv>`, allocation-free) |
-| `<regex>` | Very large code, heap | Hand-written parser / table-driven matcher |
-| `<thread>`, `<mutex>`, `<future>` | OS threading the target lacks | RTOS primitives, or ISR + atomics |
-| `<chrono>` clocks | Needs an OS clock source | A hardware-timer tick counter you maintain |
-| Throwing `new` / `vector::at` | Throws → `std::terminate` under `-fno-exceptions` | `new (std::nothrow)` and check; bounds-check before `operator[]` |
+### Allocates or throws
+
+| Feature | Cost | Replacement |
+|---------|------|-------------|
+| `std::string` | Heap beyond SSO; throws | `std::array<char, N>` + `std::string_view` |
+| `std::vector`, `deque`, `list` | Heap, non-deterministic timing | `std::array`, ring buffer, fixed-capacity vector |
+| `std::map`, `unordered_map` | Node allocation per element | Sorted `std::array` + binary search; flat fixed map |
+| `std::function` | Heap for large callables; throws | See The std::function Problem |
+| `std::shared_ptr` | Refcount + heap control block | `std::unique_ptr` with non-heap deleter |
+| `<iostream>`, `stringstream` | Static init, locale, heap, exceptions | `printf`-over-UART; `std::to_chars`/`from_chars` + fixed buffer |
+| `<regex>` | Large code, heap | Table-driven matcher |
+| Throwing `new`, `vector::at` | `std::terminate` under `-fno-exceptions` | `new (std::nothrow)` + null check; bounds-check before `[]` |
+
+### Needs an OS
+
+| Feature | Cost | Replacement |
+|---------|------|-------------|
+| `<thread>`, `<mutex>`, `<future>` | Needs OS threads | RTOS primitives, or ISR + atomics |
+| `<chrono>` clocks | Needs an OS clock | Hardware-timer tick counter |
 
 ## The std::function Problem
 
-`std::function` is the most common accidental allocation in embedded C++. It
-type-erases any callable; if the callable (a lambda with captures, a bound
-member) exceeds the small-object buffer, it **heap-allocates**, and its
-construction can throw. Three escapes, by preference:
+`std::function` is the most common accidental allocation. A callable larger than its small-object buffer (a capturing lambda, a bound member) is heap-allocated, and construction can throw. Escapes, by preference:
 
 ```cpp
-// 1. Template the callable — zero overhead, fully inlined, no type erasure:
+// 1. Template the callable: no type erasure, fully inlined
 template <class Fn>
 void for_each_sample(Fn&& fn) { for (auto s : samples) fn(s); }
 
-// 2. Plain function pointer + context, when a uniform signature is needed:
+// 2. Function pointer + context, when a uniform signature is needed
 using Callback = void (*)(void* ctx, int event);
 
-// 3. A fixed-size, non-allocating delegate (inplace_function-style): stores the
-//    callable inline up to a capacity, static_asserts if it would not fit —
-//    never allocates, never throws.
-etl::delegate<void(int)> cb = [](int x) { handle(x); };
+// 3. Fixed-capacity inline delegate: static_asserts if the callable won't fit,
+//    never allocates (SG14 inplace_function shown; ETL and others have equivalents)
+stdext::inplace_function<void(int), 16> cb = [](int x) { handle(x); };
 ```
 
-Use type erasure only when you genuinely need a heterogeneous, runtime-decided
-callback list, and then a bounded inline delegate, not `std::function`.
+Use type erasure only for a heterogeneous, runtime-decided callback list, and then a bounded inline delegate.
 
 ## Containers Without the Heap
 
-The pattern: a container that owns **inline storage** sized at compile time and
-refuses (or static-asserts) rather than allocating.
+Containers own inline storage sized at compile time and fail (or static-assert) at capacity instead of allocating:
 
 - `std::array<T, N>` for fixed N.
-- A ring buffer (`std::array` + head/tail indices) for queues — also the
-  ISR/`main` hand-off structure.
-- A fixed-capacity vector: contiguous storage for up to N, a runtime size,
-  push/pop that fail at capacity. `std::inplace_vector` (C++26) standardizes
-  this; before it, libraries like ETL (`etl::vector`) or a small hand-rolled
-  type fill the gap.
-- `std::to_chars`/`std::from_chars` (`<charconv>`) for number↔text without
-  `stringstream` or locale, and without allocation.
+- A ring buffer (`std::array` + head/tail) for queues, including ISR/`main` hand-off.
+- A fixed-capacity vector: up to N elements, runtime size, push fails when full. `std::inplace_vector` (C++26) standardizes it; before that, ETL (`etl::vector`) or a small hand-rolled type.
 
-Back these with the arena/pool allocators from
-[allocators-and-arenas](${CLAUDE_SKILL_DIR}/c/c-memory-ownership/references/allocators-and-arenas.md)
-when you need variable-lifetime objects over static storage.
+For variable-lifetime objects over static storage, back these with [allocators-and-arenas](../../../c/c-memory-ownership/references/allocators-and-arenas.md).
 
 ## Polymorphism Without RTTI
 
-With `-fno-rtti`, `dynamic_cast` and `typeid` are gone. Options:
-
-- **`std::variant` + `std::visit`** — a closed, compile-time-known set of types;
-  the standard, allocation-free, RTTI-free sum type.
-- **A tagged union / `enum kind` + virtual `kind()`** — when you control the
-  hierarchy and want a cheap discriminator.
-- **Static polymorphism (CRTP / templates)** — when the concrete type is known
-  at the call site; no vtable, fully inlinable.
-- **Plain virtual functions** remain available for open runtime polymorphism —
-  only `dynamic_cast`/`typeid` are removed, not `virtual`. The vtable lives in
-  FLASH.
-
-## Replacement Quick Table
-
-| Hosted C++ | Embedded replacement |
-|------------|----------------------|
-| `throw` / exceptions | `std::expected` / error codes |
-| `dynamic_cast` / `typeid` | `std::variant` / tagged union / virtual `kind()` |
-| `std::string` | `std::string_view` + fixed char buffer |
-| `std::vector` | `std::array` / ring buffer / fixed-capacity vector |
-| `std::map` | sorted `std::array` + binary search / flat map |
-| `std::function` | function pointer / template / inline delegate |
-| `std::shared_ptr` | `std::unique_ptr` (non-heap deleter) / single ownership |
-| `std::cout` / iostream | `printf`-over-UART / `to_chars` + fixed buffer |
-| `stringstream` | `std::to_chars` / `std::from_chars` |
-| `new T` (throwing) | `new (std::nothrow) T` + null check, or placement new |
-| `std::thread` / `std::mutex` | RTOS primitives / ISR + atomics |
+- `std::variant` + `std::visit` — closed, compile-time-known set of types.
+- Tagged union or `enum kind` + virtual `kind()` — a cheap discriminator when you own the hierarchy.
+- CRTP / templates — concrete type known at the call site; no vtable, inlinable.
+- Plain virtual functions — still available for open runtime polymorphism; only `dynamic_cast`/`typeid` are gone.
 
 ## Pitfalls
 
@@ -178,17 +105,5 @@ With `-fno-rtti`, `dynamic_cast` and `typeid` are gone. Options:
 |---------|-------------|-----|
 | Including `<vector>`/`<string>` "just for one" | Links heap + exception machinery | Fixed-capacity container; `string_view` |
 | `std::function` member for a callback | Hidden heap allocation, can throw | Function pointer / template / inline delegate |
-| Calling `vector::at` or throwing `new` | `std::terminate` under `-fno-exceptions` | Bounds-check; `new (std::nothrow)` + check |
-| `dynamic_cast` in a `-fno-rtti` build | Does not compile | `variant` / tagged union / virtual `kind()` |
-| Large `const` table not `constexpr`/`const` | Runs a ctor into RAM at startup | `constexpr`/`const` → stays in FLASH |
-| Assuming a C++23 freestanding header is present | Build break on an older stdlib | Verify the freestanding subset of *your* library version |
-| `std::cout` for debug output | Pulls in iostream weight | `printf`-over-UART or fixed-buffer formatter |
-
-Cross-references: the flag set, RAII-without-exceptions, placement new, and
-ROM-able-data rules in [../SKILL.md](../SKILL.md); the no-heap allocation
-strategies and their static-storage backing in
-[../../embedded-systems/SKILL.md](../../embedded-systems/SKILL.md); the
-exceptions-vs-`expected` decision in
-[error-handling](${CLAUDE_SKILL_DIR}/cpp/modern-cpp/references/error-handling.md);
-standard minimums in
-[version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md).
+| Assuming a C++23/26 freestanding header exists | Build break on an older stdlib | Check your library version's freestanding subset |
+| `std::cout` for debug output | iostream weight | `printf`-over-UART or fixed-buffer formatter |
