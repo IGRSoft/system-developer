@@ -2,8 +2,8 @@
 
 Deep-dive references for the Python Concurrency skill. Start at
 [../SKILL.md](../SKILL.md) for the model-selection decision table, then come here
-for implementation detail. Baseline: **CPython 3.14** (free-threading via the
-separate **`python3.14t`** build).
+for implementation detail. Baseline: CPython 3.14 (free-threading via the
+separate `python3.14t` build).
 
 ## Files
 

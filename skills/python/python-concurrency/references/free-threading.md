@@ -1,51 +1,13 @@
 # Free-Threaded Python (3.14t)
 
-Use this when:
-
-- You have **CPU-bound** Python and want real multi-core parallelism with threads.
-- You are evaluating whether to adopt the free-threaded build (`python3.14t`).
-- You need to verify that your dependencies and C extensions work without the GIL.
-- You are debugging crashes or corruption that appear only on the free-threaded build.
-
-Skip if:
-
-- Your bottleneck is I/O → use asyncio or threads on the normal build (`asyncio-patterns.md`).
-- You need strong isolation between components → see `subinterpreters.md`.
-- You only need to know *which* model to pick → start at [../SKILL.md](../SKILL.md).
-
-Jump to:
-
-- What "Free-Threaded" Means
-- The Build Is Separate
-- Installing 3.14t (uv and others)
-- Verifying You Are Free-Threaded
-- Performance Characteristics (hedged)
-- Thread-Safety Without the GIL
-- Patterns: Parallel CPU Work
-- Ecosystem and Extension Compatibility
-- When to Stay on the GIL Build
-- Diagnostics
-
-> Baseline: **CPython 3.14**, free-threaded build (`python3.14t`). PEP 779 made the
-> free-threaded build **officially supported** in 3.14 (it was experimental in 3.13).
-> Performance and ecosystem support are still evolving — treat specific numbers as
-> "verify against your toolchain," not guarantees.
-
----
+PEP 779 made the free-threaded build officially supported in 3.14 (experimental in
+3.13). Choosing a model: [../SKILL.md](../SKILL.md).
 
 ## What "Free-Threaded" Means
 
-The free-threaded build removes the **Global Interpreter Lock (GIL)**, the mutex that
-normally lets only one thread execute Python bytecode at a time. Without it,
-`threading.Thread`s running pure-Python CPU work can run truly in parallel across
-cores — the thing the GIL has prevented for the entire history of CPython.
-
-What it does **not** change:
-
-- The `threading` API is identical. You write the same `Thread`/`Lock`/`Queue` code.
-- **Thread safety is now your job.** The GIL incidentally serialized many operations;
-  removing it exposes races that were always latent. See "Thread-Safety Without the GIL."
-- Pure single-threaded code runs slightly slower (overhead of fine-grained locking).
+The free-threaded build removes the GIL, so threads running pure-Python CPU work run
+in parallel across cores. The `threading` API is unchanged. The GIL incidentally
+serialized many operations, so removing it exposes races that were always latent.
 
 | | Default build (GIL) | Free-threaded build (`python3.14t`) |
 |---|---|---|
@@ -53,83 +15,39 @@ What it does **not** change:
 | I/O-bound threads | Overlap (GIL releases on I/O) | Overlap |
 | `sys._is_gil_enabled()` | `True` | `False` |
 | Data-race risk | Low (GIL hides many) | Higher — locks required |
-| Single-thread speed | Baseline | ~5–10% slower in 3.14 (down from ~40% in 3.13; verify) |
-
----
+| Single-thread speed | Baseline | ~5–10% slower in 3.14 (~40% in 3.13) |
 
 ## The Build Is Separate
 
-Free-threading is **not** a flag you flip on a normal interpreter. It is a distinct
-build of CPython, conventionally suffixed `t`:
-
-- Interpreter binary: `python3.14t`
-- It can coexist with the normal `python3.14` on the same machine.
-- Wheels for it carry the `cp314t` ABI tag; ordinary `cp314` wheels do not apply.
-
-You select it by installing and invoking that specific interpreter, then building
-your virtual environment against it.
-
----
+Free-threading is a distinct CPython build, not a flag on a normal interpreter. The
+binary is `python3.14t`; it coexists with `python3.14`. Its wheels carry the
+`cp314t` ABI tag; ordinary `cp314` wheels do not apply. Create the virtual
+environment against that interpreter.
 
 ## Installing 3.14t (uv and others)
 
-### With uv (recommended)
-
-`uv` can fetch and pin the free-threaded build directly. The free-threaded
-interpreter is requested with the `+freethreaded` variant suffix:
+### With uv
 
 ```bash
-# Install the free-threaded interpreter
-uv python install 3.14t
-
-# Or, equivalently, the explicit variant form
-uv python install cpython-3.14+freethreaded
-
-# Create a project venv on it
-uv venv --python 3.14t
-uv sync
-
-# One-off run on the free-threaded interpreter
+uv python install 3.14t        # or: cpython-3.14+freethreaded
+uv python pin 3.14t            # writes .python-version for collaborators
+uv sync                        # project venv on the pinned interpreter
 uv run --python 3.14t python -c "import sys; print(sys._is_gil_enabled())"
 ```
 
-Pin it for the project so collaborators get the same interpreter:
-
-```toml
-# pyproject.toml
-[project]
-requires-python = ">=3.14"
-
-# .python-version (uv reads this)
-# 3.14t
-```
-
-> The exact spelling of uv's variant flag has shifted across uv releases
-> (`3.14t` vs `cpython-3.14+freethreaded`). Run `uv python list` to see what your
-> uv accepts, and verify against your toolchain.
-
 ### With pyenv / python.org
 
-- The official python.org macOS and Windows installers offer a "free-threaded"
-  option as a separate install.
-- `pyenv install 3.14t` installs the free-threaded build where the plugin's
-  definitions support it (verify your pyenv version).
+- The python.org macOS and Windows installers offer free-threaded binaries as an option.
+- `pyenv install 3.14t`.
 
 ### Building from source
 
 ```bash
-./configure --disable-gil --enable-optimizations
+./configure --disable-gil --enable-optimizations   # produces python3.14t
 make -j
-# Produces a python3.14t binary
 ```
 
-`--disable-gil` is the configure switch that produces the free-threaded build.
-
----
-
 ## Verifying You Are Free-Threaded
-
-Three independent checks — use more than one when in doubt:
 
 ```python
 import sys
@@ -153,15 +71,14 @@ python3.14t -VV
 python3.14t -c "import sys; print(sys._is_gil_enabled())"
 ```
 
-**Why two questions?** `Py_GIL_DISABLED` tells you the build *supports* running
-without the GIL. `sys._is_gil_enabled()` tells you whether the GIL is *actually off
-right now* — because importing a C extension that has not declared free-threading
-support can **re-enable** the GIL at runtime (see compatibility below). A program can
-be on the free-threaded build (`Py_GIL_DISABLED == 1`) yet have the GIL switched back
-on (`sys._is_gil_enabled() == True`). Always check the runtime function before
-assuming parallelism.
+### Build vs runtime
 
-You can force the GIL on/off for testing on a free-threaded build:
+`Py_GIL_DISABLED` says the build can run without the GIL; `sys._is_gil_enabled()`
+says whether it is off right now. Importing an extension that hasn't declared
+free-threading support re-enables the GIL at runtime, so check the runtime function
+before assuming parallelism.
+
+Force the GIL on/off for testing on a free-threaded build:
 
 ```bash
 PYTHON_GIL=0 python3.14t script.py    # keep GIL off even if an extension asks for it
@@ -169,54 +86,30 @@ PYTHON_GIL=1 python3.14t script.py    # force GIL on
 python3.14t -X gil=0 script.py        # equivalent CLI flag
 ```
 
----
+## Performance Characteristics
 
-## Performance Characteristics (hedged)
+Orientation only; measure your workload.
 
-Treat these as orientation, not promises — measure your own workload.
+- Single-threaded: about 5–10% slower than the GIL build in 3.14 (the specializing
+  interpreter is now enabled in free-threaded mode; it was ~40% in 3.13).
+- Multi-threaded CPU: near-linear for partitioned, lock-light work; sub-linear once
+  threads contend on shared locks or data.
+- Memory: somewhat higher than the GIL build.
+- I/O-bound: little change; those threads already overlapped under the GIL.
 
-- **Single-threaded overhead:** roughly **5–10%** slower than the GIL build in 3.14
-  — down from **~40%** in 3.13, because the specializing adaptive interpreter is now
-  enabled in free-threaded mode. Platform- and compiler-dependent — verify.
-- **Multi-threaded CPU scaling:** near-linear for cleanly partitioned, lock-light
-  workloads; sub-linear once threads contend on shared locks or shared data.
-- **Memory:** comparable to the GIL build for typical workloads.
-- **I/O-bound:** little change — those threads already overlapped under the GIL.
-
-The break-even decision: free-threading wins when your CPU-bound work parallelizes
-across cores enough to beat the ~5–10% single-thread tax *and* you can keep lock
-contention low. If your hot path is mostly serialized behind one big lock, you gain
-little.
-
-```python
-# Speedup only materializes if the work is genuinely parallel AND low-contention.
-from concurrent.futures import ThreadPoolExecutor
-
-def cpu_task(chunk: list[int]) -> int:
-    return sum(x * x for x in chunk)   # pure-Python CPU work
-
-def run(chunks: list[list[int]]) -> int:
-    with ThreadPoolExecutor() as pool:        # parallel on python3.14t
-        return sum(pool.map(cpu_task, chunks))
-```
-
-On the **default** build the same code is serialized by the GIL and shows no speedup —
-that is exactly the difference free-threading makes.
-
----
+Free-threading wins when CPU work parallelizes enough to beat the single-thread tax
+and lock contention stays low; a hot path behind one big lock gains little.
 
 ## Thread-Safety Without the GIL
 
-**"GIL removal does not remove races."** The GIL made many coarse operations appear
-atomic by accident. Without it, you must add the synchronization that was always
-formally required.
+The GIL made many coarse operations look atomic by accident. Without it, add the
+synchronization that was always formally required.
 
 ### What is (and isn't) safe
 
-- Individual operations on built-in `dict`/`list`/`set` are made internally
-  thread-safe by the free-threaded build (no interpreter crash), but
-  **compound** operations are still not atomic. `d[k] += 1` is read-modify-write —
-  two threads can interleave and lose an update.
+- Individual operations on built-in `dict`/`list`/`set` are internally thread-safe
+  (no interpreter crash), but compound operations are not atomic: two threads
+  running `d[k] += 1` can lose an update.
 - Your own multi-step invariants (check-then-act, read-modify-write across several
   objects) need explicit locking on *any* build; the bug just shows up far more
   reliably without the GIL.
@@ -241,8 +134,8 @@ class Counter:
 
 ### Prefer message passing to shared state
 
-The most robust pattern is to not share mutable state at all. Use `queue.Queue`
-(thread-safe) to hand work and results between threads:
+The most robust pattern shares no mutable state; `queue.Queue` hands work and results
+between threads:
 
 ```python
 import queue
@@ -266,11 +159,7 @@ for t in threads:
 - `threading.local()` for per-thread state (no sharing, no locking).
 - Immutable data: share freely; never needs a lock.
 - `concurrent.futures.ThreadPoolExecutor` to avoid manual thread lifecycle.
-
-Do **not** reach for asyncio's `Lock`/`Queue` here — those coordinate coroutines on
-one loop and are not thread-safe.
-
----
+- Not asyncio's `Lock`/`Queue`: they coordinate coroutines on one loop and aren't thread-safe.
 
 ## Patterns: Parallel CPU Work
 
@@ -287,21 +176,14 @@ def parallel_sum_of_squares(data: list[int], workers: int = 8) -> int:
     return sum(partials)
 ```
 
-This scales on `python3.14t` and is GIL-bound (no speedup) on the default build —
-the same source, different interpreter.
-
-### Releasing the GIL is no longer the trick
-
-On the GIL build, NumPy-style speedups came from C code releasing the GIL. On the
-free-threaded build, *pure-Python* threads also parallelize, so you do not need a C
-extension to benefit. (You still benefit from vectorized C libraries on either build.)
-
----
+This scales on `python3.14t` and shows no speedup on the default build: same source,
+different interpreter. Pure-Python threads parallelize without a C extension
+releasing the GIL.
 
 ## Ecosystem and Extension Compatibility
 
-This is the highest-risk part of adopting free-threading. A single non-compatible C
-extension can switch the GIL back on for the whole process.
+The highest-risk part of adoption: one incompatible C extension switches the GIL
+back on for the whole process.
 
 ### How an extension declares support
 
@@ -315,13 +197,10 @@ static PyModuleDef_Slot module_slots[] = {
 };
 ```
 
-If a module does **not** include `Py_mod_gil = Py_MOD_GIL_NOT_USED`, importing it on a
-free-threaded interpreter re-enables the GIL (and, by default, emits a warning). The
-opposite value, `Py_MOD_GIL_USED`, explicitly requests the GIL.
-
-> On Windows in 3.14, the build backend must define the `Py_GIL_DISABLED`
-> preprocessor variable when compiling extensions for the free-threaded build — it is
-> no longer inferred by the compiler. Verify with your build backend.
+Without `Py_MOD_GIL_NOT_USED`, importing the module re-enables the GIL and emits a
+warning; `Py_MOD_GIL_USED` requests the GIL explicitly. On Windows in 3.14 the build
+backend must define `Py_GIL_DISABLED` for free-threaded extension builds; the
+compiler no longer infers it.
 
 ### Checking your dependencies
 
@@ -337,35 +216,23 @@ PYTHONWARNINGS=always python3.14t -c "import some_extension"
 ```
 
 If `sys._is_gil_enabled()` becomes `True` after an import, that module forced the GIL
-on. Strategies:
-
-- Upgrade the dependency to a `cp314t` wheel that declares support.
-- Replace it with a pure-Python or already-compatible alternative.
-- Keep the GIL on deliberately (`PYTHON_GIL=1`) if you cannot avoid the extension —
-  you then lose free-threading's benefit but keep correctness.
+on. Upgrade to a release with a `cp314t` wheel that declares support, replace it, or
+keep the GIL on deliberately (`PYTHON_GIL=1`), which keeps correctness but loses the
+parallelism.
 
 ### Pure-Python packages
 
-Pure-Python packages generally "just work" — but their *thread-safety assumptions*
-may not hold once threads run in parallel. Audit any global mutable state in
-libraries you call concurrently.
+Pure-Python packages import fine, but their thread-safety assumptions may not hold
+once threads run in parallel. Audit global mutable state in libraries called
+concurrently.
 
-### Adoption status (2026)
+### Ecosystem coverage
 
-Free-threaded wheels are no longer niche: roughly **~51% of the top native-wheel
-packages ship `cp314t` wheels** (about 183 of the ~360 most-downloaded native
-packages), and **NumPy 2.3.4 ships `cp314t` wheels**. That makes a free-threaded
-production build realistic for many stacks — but coverage is uneven, so **verify
-your dependency tree before pinning `3.14t` for production** (one missing `cp314t`
-wheel either builds from sdist or re-enables the GIL for the whole process).
-
-### Tooling status
-
-Major binding tools (Cython, pybind11, nanobind, PyO3) have free-threading support in
-progress or shipped; check each project's current release notes rather than assuming.
-Standard-library C extensions are all compatible.
-
----
+Standard-library C extensions are all compatible. Third-party `cp314t` wheel coverage
+is uneven (tracker: https://py-free-threading.github.io/tracking/), so check the whole
+dependency tree before pinning `3.14t` for production; one missing wheel builds from
+sdist or re-enables the GIL. Cython, pybind11, nanobind, and PyO3 support it; check
+the release that added support.
 
 ## When to Stay on the GIL Build
 
@@ -377,24 +244,20 @@ Choose the **default** build when:
 | A required C extension lacks `cp314t` support | It would re-enable the GIL anyway |
 | Single-threaded latency is critical | Avoid the ~5–10% per-op overhead |
 | Code relies on GIL-induced atomicity and has not been audited | Races would surface; audit first |
-| Production stability matters more than the parallelism win | Ecosystem support is still maturing — verify before committing |
+| Production stability matters more than the parallelism win | Ecosystem support is still maturing |
 
-A pragmatic rollout: develop and test on **both** builds in CI (`python3.14` and
-`python3.14t`), keep all shared-state access locked, and switch the production
-interpreter only once your dependency tree and tests are green on `3.14t`.
-
----
+Rollout: test on both `python3.14` and `python3.14t` in CI, keep shared-state access
+locked, and switch production only once dependencies and tests are green on `3.14t`.
 
 ## Diagnostics
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `sys._is_gil_enabled()` is `True` on `python3.14t` | An imported extension re-enabled the GIL | Find it (import-and-check loop); upgrade/replace, or accept `PYTHON_GIL=1` |
-| Crash/segfault only on the free-threaded build | C extension not actually free-thread-safe despite declaring support, or your own unsafe C | Report upstream; isolate the module; run with GIL forced on to confirm |
-| Wrong results / lost updates under threads | Unsynchronized read-modify-write (race) | Add `threading.Lock`; prefer `queue.Queue` message passing |
-| Deadlock | Lock-ordering inversion or non-reentrant re-acquire | Establish a global lock order; use `RLock` if re-entry is intended; never hold a lock across a blocking call you also need elsewhere |
-| Slower than the GIL build | Workload is I/O-bound, single-threaded, or lock-contended | Re-check the decision table — free-threading may be the wrong tool here |
-| `pip install` picks the wrong wheel | Building against `cp314` instead of `cp314t` | Run under `python3.14t`; ensure the package ships `cp314t` wheels or builds from source |
+| `sys._is_gil_enabled()` is `True` on `python3.14t` | An imported extension re-enabled the GIL | Find it (import-and-check); upgrade/replace, or accept `PYTHON_GIL=1` |
+| Segfault only on the free-threaded build | C extension unsafe despite declaring support, or your own unsafe C | Rerun with `PYTHON_GIL=1` to confirm; isolate the module; report upstream |
+| Deadlock | Lock-ordering inversion or non-reentrant re-acquire | Global lock order; `RLock` if re-entry is intended |
+| Slower than the GIL build | Workload is I/O-bound, single-threaded, or lock-contended | Re-check the decision table |
+| Install builds from sdist or fails | No `cp314t` wheel for that release | Upgrade to a release with `cp314t` wheels, or provide a build toolchain |
 
 ## Related References
 
