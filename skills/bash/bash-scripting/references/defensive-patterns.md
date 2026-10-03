@@ -34,10 +34,13 @@ trap 'exit 143' TERM                    # SIGTERM → 128+15=143
 - EXIT runs once, last, on every exit path. Keep cleanup there only; INT/TERM
   handlers just `exit`, which fires EXIT.
 - Capture `$?` on the handler's first line (any command overwrites it) and
-  return it so the script's exit status survives cleanup.
+  return it so the exit status survives cleanup.
 - ERR needs `set -E` to fire inside functions/subshells; it runs before EXIT.
 - `trap - EXIT` clears a trap; `trap '' INT` ignores a signal.
-- Reap children on signal so background jobs are not orphaned:
+
+### Reaping background children
+
+Reap children on signal so background jobs are not orphaned:
 
 ```bash
 pids=()

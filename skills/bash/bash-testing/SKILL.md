@@ -178,16 +178,28 @@ binary_next_line = true
 
 ## Diagnostic Table
 
+### Script structure and `run`
+
 | Symptom | Cause | Fix | Reference |
 |---------|-------|-----|-----------|
 | `command not found` for your function in a test | script re-exec'd, not sourced; or no main-guard | `source` in `setup`; add the guard | Designing Testable Scripts |
 | Sourcing a script runs the whole program | missing main-guard | wrap the entry in the `BASH_SOURCE` check | Designing Testable Scripts |
 | `$output` empty though the command printed | called without `run` | prefix with `run` | bats-core Essentials |
+
+### Libraries, mocks, and hangs
+
+| Symptom | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
 | `bats_load_library: command not found` | bats older than 1.6 | upgrade, or `load .../bats-support/load` | bats-patterns.md |
 | `bats_load_library` can't find a library | not on `$BATS_LIB_PATH` | set `BATS_LIB_PATH`, or `load` by path | bats-assert / bats-support |
 | Mock never used; real command runs | stub dir not first on `PATH`, or not executable | prepend it; `chmod +x` | Mocking |
 | Bats hangs | background child holds FD 3 | `long_cmd 3>&- &` | bats-patterns.md |
 | `assert_output` undefined | bats-assert not loaded | load bats-support, then bats-assert | bats-assert / bats-support |
+
+### Lint and format
+
+| Symptom | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
 | SC2086 on `$var` | unquoted expansion | `"$var"`, or a justified one-line disable | shellcheck-shfmt.md |
 | `shfmt -d` non-empty in CI | local formatting drifted | `shfmt -w -i 2 -ci -bn .` | shellcheck-shfmt.md |
 | SC2148 (no shebang) | `.bats`/sourced file lacks a dialect | `#!/usr/bin/env bats` or `# shellcheck shell=bash` | shellcheck-shfmt.md |

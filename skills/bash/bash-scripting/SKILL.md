@@ -125,6 +125,8 @@ stdout, return status, and globals read or modified.
 
 ## Diagnostic Table
 
+### Quoting and error handling
+
 | shellcheck / symptom | Fix | Reference |
 |----------------------|-----|-----------|
 | SC2086 unquoted `$var` | `"$var"` | Quoting Rules |
@@ -132,6 +134,11 @@ stdout, return status, and globals read or modified.
 | SC2155 `local v=$(cmd)` hides the exit code | `local v; v=$(cmd)` | set -e Caveat Matrix |
 | Script continues after a failed command | check the exit code explicitly | set -e Caveat Matrix |
 | Paths with spaces break | quote expansions; `IFS=$'\n\t'` | Quoting Rules |
+
+### Resources and portability
+
+| shellcheck / symptom | Fix | Reference |
+|----------------------|-----|-----------|
 | Temp files left after a crash | `mktemp -d` + EXIT trap | [defensive-patterns.md](references/defensive-patterns.md) |
 | Two runs corrupt shared state | `flock` advisory lock | [defensive-patterns.md](references/defensive-patterns.md) |
 | Linux-only flags (`sed -i`, `readlink -f`) fail on macOS | portable form or platform wrapper | [bash-versions-and-portability.md](references/bash-versions-and-portability.md) |

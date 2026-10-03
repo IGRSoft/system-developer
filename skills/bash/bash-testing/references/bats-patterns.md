@@ -17,6 +17,8 @@ git submodule add https://github.com/bats-core/bats-assert  test/test_helper/bat
 git submodule add https://github.com/bats-core/bats-file    test/test_helper/bats-file
 ```
 
+### Feature availability by version
+
 | Feature | Since | Fallback if older |
 |---------|-------|-------------------|
 | `$BATS_TEST_TMPDIR` family | 1.4.0 | `mktemp -d` in setup, `rm -rf` in teardown |

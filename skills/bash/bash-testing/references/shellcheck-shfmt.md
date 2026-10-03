@@ -49,28 +49,40 @@ shellcheck --enable=quote-safe-variables,require-variable-braces,check-unassigne
 
 Gate = caught by `--severity=info`.
 
+### Quoting and word splitting
+
 | Code | Gate | Problem | Fix |
 |------|------|---------|-----|
-| SC2148 | yes | no shebang, dialect unknown | `#!/usr/bin/env bash` or `# shellcheck shell=bash` |
 | SC2068 | yes | unquoted `$@`/`$*` | `"$@"` |
 | SC2145 | yes | string and array mixed in one argument | separate them, or `"${arr[*]}"` deliberately |
 | SC2046 | yes | unquoted `$(...)` splits on whitespace | quote it, or `read -ra` / `mapfile` into an array |
+| SC2086 | yes | unquoted `$var`: splitting and globbing | `"$var"`; arrays `"${arr[@]}"` |
+| SC2128 | yes | array expanded without index gives element 0 | `"${arr[@]}"` or `"${arr[0]}"` |
+| SC2207 | yes | `arr=( $(cmd) )` splits unsafely | `mapfile -t arr < <(cmd)` |
+| SC2059 | yes | variable in `printf` format string | `printf '%s' "$var"` |
+| SC2162 | yes | `read` without `-r` mangles backslashes | `read -r line` |
+
+### Error handling and control flow
+
+| Code | Gate | Problem | Fix |
+|------|------|---------|-----|
 | SC2164 | yes | `cd` may fail, script continues in the wrong dir | `cd dir \|\| exit 1` (or `\|\| return`) |
 | SC2155 | yes | `local x=$(cmd)` masks the exit code | `local x; x=$(cmd)` |
-| SC2034 | yes | variable assigned but never used | remove, `export`, or reference it |
-| SC2128 | yes | array expanded without index gives element 0 | `"${arr[@]}"` or `"${arr[0]}"` |
+| SC2181 | no | `if [ $? -eq 0 ]` after a command | `if cmd; then` |
+| SC2015 | yes | `A && B \|\| C` is not if/then/else | explicit `if A; then B; else C; fi` |
 | SC2115 | yes | `rm -rf "$dir/"` becomes `rm -rf /` if empty | `rm -rf "${dir:?}/"` |
-| SC2207 | yes | `arr=( $(cmd) )` splits unsafely | `mapfile -t arr < <(cmd)` |
+
+### Variables, sourcing, and style
+
+| Code | Gate | Problem | Fix |
+|------|------|---------|-----|
+| SC2148 | yes | no shebang, dialect unknown | `#!/usr/bin/env bash` or `# shellcheck shell=bash` |
+| SC2034 | yes | variable assigned but never used | remove, `export`, or reference it |
 | SC2154 | yes | variable referenced but never assigned | define it, or follow the sourced file (`-x`) |
 | SC1090 | yes | can't follow non-constant `source "$x"` | `# shellcheck source=path`, or a justified disable |
-| SC2086 | yes | unquoted `$var`: splitting and globbing | `"$var"`; arrays `"${arr[@]}"` |
-| SC2059 | yes | variable in `printf` format string | `printf '%s' "$var"` |
-| SC2181 | no | `if [ $? -eq 0 ]` after a command | `if cmd; then` |
-| SC2162 | yes | `read` without `-r` mangles backslashes | `read -r line` |
-| SC2015 | yes | `A && B \|\| C` is not if/then/else | explicit `if A; then B; else C; fi` |
+| SC1091 | yes | sourced file not found in this sandbox | `--external-sources`, a `source=` directive, or a justified disable |
 | SC2129 | no | many `echo >>file` in a row | `{ echo a; echo b; } >>file` |
 | SC2006 | no | legacy backticks | `$(cmd)` |
-| SC1091 | yes | sourced file not found in this sandbox | `--external-sources`, a `source=` directive, or a justified disable |
 
 ## Inline Directives
 

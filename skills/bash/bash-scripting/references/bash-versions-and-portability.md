@@ -59,6 +59,8 @@ shells, so use `${BASH_VERSINFO[0]:-0}` if `sh` might source the script.
 5.2 is a safe Linux CI baseline; 5.3 is current stable. Neither exists in macOS
 `/bin/bash`.
 
+### 5.0-5.2
+
 | Feature | What it does | Fallback |
 |---------|--------------|----------|
 | `EPOCHSECONDS` / `EPOCHREALTIME` (5.0) | timestamps without forking `date` | `date +%s` |
@@ -67,9 +69,16 @@ shells, so use `${BASH_VERSINFO[0]:-0}` if `sh` might source the script.
 | `patsub_replacement` (5.2, on by default) | `&` in `${var/pat/rep}` reuses the match: `${v/foo/[&]}` → `[foo]` | spell it out; or `sed 's/foo/[&]/'` |
 | `varredir_close` (5.2) | auto-close a `{var}<file` FD when the command ends | `exec {fd}<&-` |
 | `globskipdots` (5.2, on by default) | `*` never matches `.` and `..` | filter them out |
+
+### 5.3
+
+| Feature | What it does | Fallback |
+|---------|--------------|----------|
 | `${ cmd; }` (5.3) | capture stdout in the current shell: no fork, variable changes persist | `$(cmd)` (subshell; changes lost) |
 | `${\| cmd; }` (5.3) | run in the current shell; result is `REPLY` | function that sets a global |
 | `GLOBSORT` (5.3) | glob order: `name`, `size`, `blocks`, `mtime`, `atime`, `ctime`, `numeric`, `none`; `-` prefix reverses | pipe through `sort` / `ls -t` |
+
+### 5.3 examples
 
 `${ cmd; }` is a syntax error on Bash < 5.3 and POSIX shells, so guard it (see
 above). It fixes the "variable set in `$(...)` is lost" bug:
@@ -92,25 +101,37 @@ unset GLOBSORT            # back to name, ascending
 
 For `#!/bin/sh` targets (dash, BusyBox ash, `configure` scripts):
 
+### Syntax, tests, and arithmetic
+
 | Bashism | POSIX sh replacement |
 |---------|----------------------|
 | `[[ ... ]]` | `[ ... ]` with quoting, `&&`/`||` between tests |
 | `[[ $s =~ re ]]` | `case "$s" in pattern) ... esac`, or `expr` / `grep` |
 | `local var` | unique names, or a subshell function |
+| `source file` / `function name {` | `. file` / `name() {` |
+| `((expr))` command | `[ "$((expr))" -ne 0 ]` (`$((...))` is POSIX) |
+| `{1..10}` | counter loop (`seq` isn't POSIX) |
+| `+=` | `var="$var$more"`; `set -- "$@" x` for lists |
+
+### Arrays and string operations
+
+| Bashism | POSIX sh replacement |
+|---------|----------------------|
 | arrays / `"${arr[@]}"` / `${arr[0]}` | positional params (`set -- a b; for x; do ...; done`) or delimited strings |
 | `declare -A map` | `case`, files, or a `key=val` string |
 | `${var,,}` / `${var^^}` | `printf '%s' "$var" \| tr '[:upper:]' '[:lower:]'` |
 | `${var//old/new}` | `printf '%s' "$var" \| sed 's/old/new/g'` |
 | `mapfile` / `readarray` / `read -a` | `while IFS= read -r line; do set -- "$@" "$line"; done < f`; `IFS=... read -r a b c` |
+
+### I/O, output, and pipelines
+
+| Bashism | POSIX sh replacement |
+|---------|----------------------|
 | `<(cmd)` | temp file: `tmp=$(mktemp); cmd > "$tmp"; ... < "$tmp"` |
 | `&>file`, `&>>file`, `\|&` | `>file 2>&1`, `>>file 2>&1`, `2>&1 \|` |
-| `source file` / `function name {` | `. file` / `name() {` |
 | `echo -e` / `echo -n` | `printf` |
 | `$RANDOM` | `awk 'BEGIN{srand();print int(rand()*32768)}'` or `/dev/urandom` |
 | `set -o pipefail` | none; check each stage (below) |
-| `+=` | `var="$var$more"`; `set -- "$@" x` for lists |
-| `((expr))` command | `[ "$((expr))" -ne 0 ]` (`$((...))` is POSIX) |
-| `{1..10}` | counter loop (`seq` isn't POSIX) |
 
 ## POSIX sh Patterns
 
@@ -148,20 +169,29 @@ consumer < "$tmp"
 `sed_i` / `canonical` / epoch shims to source
 (`eval "$(probe_toolchain.sh --wrappers)"`).
 
+### Text and paths
+
 | Task | GNU (Linux) | BSD (macOS) | Portable approach |
 |------|-------------|-------------|-------------------|
 | in-place edit | `sed -i 's/a/b/' f` | `sed -i '' 's/a/b/' f` | temp file + `mv` (below), or `perl -i -pe` |
 | canonical path | `readlink -f` | no `-f` | `realpath` if present, else `cd && pwd -P` |
 | regex grep | `grep -E` / `-P` | `grep -E` only | `-E`, never `-P` |
-| date math | `date -d '+1 day'` | `date -v+1d` | `$(( ))` on epoch seconds, or require `gdate` |
-| base64 no-wrap | `base64 -w0` | no `-w` | `\| tr -d '\n'` |
-| file size | `stat -c '%s' f` | `stat -f '%z' f` | `wc -c < f` |
 | `find` regex | `-regextype ...` | other dialect | `-name`/`-path` globs |
+| base64 no-wrap | `base64 -w0` | no `-w` | `\| tr -d '\n'` |
+
+### Dates, sizes, and flags
+
+| Task | GNU (Linux) | BSD (macOS) | Portable approach |
+|------|-------------|-------------|-------------------|
+| date math | `date -d '+1 day'` | `date -v+1d` | `$(( ))` on epoch seconds, or require `gdate` |
+| file size | `stat -c '%s' f` | `stat -f '%z' f` | `wc -c < f` |
 | skip empty input | `xargs -r` | no `-r` (skips by default) | guard with a count, or `find -print0 \| xargs -0` |
 | other flags (`cp` reflink, `mktemp`) | GNU extensions | absent | POSIX-specified flags only |
 
 Homebrew exposes GNU tools as `gsed`, `gdate`, `grealpath`, but a portable
 script can't assume them.
+
+### Portable `sed -i`
 
 `sed -i` is the most common break, and no single form works on both: GNU takes
 an optional attached suffix, BSD requires one (`''` = no backup), so GNU treats
@@ -189,6 +219,8 @@ entrypoints `#!/bin/sh` and POSIX-clean.
   is writable.
 - Test on the target image (`docker run --rm -v "$PWD":/w -w /w alpine sh
   ./script.sh`) and lint with `shellcheck -s sh` plus `checkbashisms`.
+
+### Substitutes for missing utilities
 
 | Missing | Portable substitute |
 |---------|---------------------|
