@@ -6,16 +6,23 @@ The C++17 baseline: each facility with worked patterns and its traps, plus migra
 
 Any maintained toolchain supports the C++17 core language; the surprises are in filesystem linking and parallel algorithms.
 
+### Language features
+
 | Feature | Standard | GCC | Clang | MSVC | Fallback if unavailable |
 |---|---|---|---|---|---|
 | Structured bindings | C++17 | 7+ | 4+ | 19.11+ | `std::tie`, `.first`/`.second` |
 | `if constexpr` | C++17 | 7+ | 3.9+ | 19.11+ | Tag dispatch, SFINAE |
+| CTAD | C++17 | 7+ | 5+ | 19.14+ | `std::make_pair`-style factories |
+| Fold expressions | C++17 | 6+ | 3.9+ | 19.12+ | Recursive variadic templates |
+
+### Library features
+
+| Feature | Standard | GCC | Clang | MSVC | Fallback if unavailable |
+|---|---|---|---|---|---|
 | `optional`/`variant`/`any` | C++17 | 7+ | 4+ (libc++ 4+) | 19.10+ | Boost.Optional/Variant |
 | `string_view` | C++17 | 7+ | 4+ | 19.10+ | `const std::string&` + pointer/length pairs |
 | `filesystem` | C++17 | 8+ (see linking note) | 7+ (libc++) | 19.14+ | Boost.Filesystem |
 | Parallel algorithms | C++17 | 9+ with TBB | partial in libc++ | 19.14+ | Serial algorithms, OpenMP, manual threading |
-| CTAD | C++17 | 7+ | 5+ | 19.14+ | `std::make_pair`-style factories |
-| Fold expressions | C++17 | 6+ | 3.9+ | 19.12+ | Recursive variadic templates |
 
 Versions are first-usable releases. Canonical minimums: [version-feature-matrix.md](../../../_shared/version-feature-matrix.md).
 
@@ -99,7 +106,9 @@ std::string stringify(const T& value) {
 
 This replaces tag dispatch and most simple `enable_if` SFINAE. On C++20, prefer concepts plus overloads for public APIs and keep `if constexpr` for internal branching.
 
-It also ends the base-case-overload dance for variadic recursion:
+### Variadic recursion without a base case
+
+`if constexpr` ends the base-case-overload dance:
 
 ```cpp
 template <typename T, typename... Rest>
@@ -326,7 +335,9 @@ for (const auto& entry : fs::recursive_directory_iterator(root)) {
 }
 ```
 
-Atomic replace, so no half-written config is left behind:
+### Atomic replace
+
+No half-written config is left behind:
 
 ```cpp
 bool save_atomically(const fs::path& target, std::string_view contents) {
@@ -468,6 +479,8 @@ constexpr bool is_any_of_v = (std::is_same_v<T, Ts> || ...);
 
 ## Smaller Features Worth Using
 
+### Language
+
 | Feature | One-liner | Watch out for |
 |---|---|---|
 | `inline` variables | Header-defined globals/statics without ODR violations: `inline constexpr int max_retries = 3;` | Replaces the `extern` + one-TU dance |
@@ -475,11 +488,16 @@ constexpr bool is_any_of_v = (std::is_same_v<T, Ts> || ...);
 | `[[maybe_unused]]`, `[[fallthrough]]` | Silence warnings honestly | `[[fallthrough]];` needs the semicolon |
 | Nested namespaces | `namespace a::b::c { ... }` | Pure syntax sugar |
 | Guaranteed copy elision | `T obj = make_T();` materializes in place; factory functions for immovable types work | Only for prvalues; NRVO is still optional |
-| `std::byte` | Raw-memory type that refuses arithmetic | Requires explicit `to_integer`/casts; clearer than `unsigned char` for buffers |
 | `__has_include` | Conditional includes for optional deps | Presence of a header ≠ usability of the library |
+| Mandatory `auto` deduction fixes | `auto x{1};` is now `int`, not `initializer_list` | Pre-17 code that relied on the old meaning |
+
+### Library
+
+| Feature | One-liner | Watch out for |
+|---|---|---|
+| `std::byte` | Raw-memory type that refuses arithmetic | Requires explicit `to_integer`/casts; clearer than `unsigned char` for buffers |
 | `std::clamp` | `std::clamp(x, lo, hi)` | UB if `lo > hi`; returns a reference — beware dangling with temporaries |
 | `std::size`/`std::data`/`std::empty` | Uniform free functions for containers and C arrays | Prefer over `sizeof(a)/sizeof(a[0])` |
-| Mandatory `auto` deduction fixes | `auto x{1};` is now `int`, not `initializer_list` | Pre-17 code that relied on the old meaning |
 
 ## Migration Notes: C++11/14 to C++17
 
@@ -498,7 +516,9 @@ Upgrades worth doing in bulk; clang-tidy automates some, and `/system-developer:
 | Header-global `static`/`extern` constants | `inline constexpr` | — (manual) |
 | `typedef` | `using` | `modernize-use-using` |
 
-Behavioral changes to be aware of when flipping `-std=c++17` on old code:
+### Behavioral changes
+
+Watch for these when flipping `-std=c++17` on old code:
 
 - `noexcept` joined the function type: a potentially-throwing function no longer converts to a `noexcept` function pointer, and template deduction and mangling now see the difference.
 - `auto x{1}` deduces `int` (was `initializer_list<int>`).
