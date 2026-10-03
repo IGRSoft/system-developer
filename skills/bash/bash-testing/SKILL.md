@@ -5,34 +5,22 @@ description: Test Bash scripts with bats-core and keep them lint-clean with Shel
 
 # Bash Testing, Linting, and Formatting
 
-**Make shell scripts testable, prove behavior with bats-core, and gate quality with ShellCheck + shfmt.**
-
-## When to Use
-
-Use this skill when:
-
-- Writing or reviewing `*.bats` tests for shell scripts or CLI tools.
-- Refactoring a script so it can be sourced and unit-tested (function-per-behavior).
-- Mocking external commands without touching production code (PATH stub dirs).
-- Configuring `.shellcheckrc`, ShellCheck directives, or `shfmt` flags.
-- Wiring `bats`, `shellcheck`, and `shfmt` into pre-commit hooks and CI.
-
-> Version note: examples target **bats-core 1.13**, **ShellCheck 0.11**, and
-> **shfmt 3.13** (current stable). Older bats (< 1.5 / < 1.10) lacks
-> `bats_load_library`, `run -N`/`run !`, and tags; fall back to plain `load` and
-> manual `$status` checks (see the fallback rows below).
+Make scripts sourceable, prove behavior with bats-core, and gate merges on
+ShellCheck + shfmt. Version minimums for newer bats features are in
+[bats-patterns.md](references/bats-patterns.md#installation-and-versions);
+check with `bats --version`.
 
 ## Core Rules
 
 | Rule | Why |
 |------|-----|
-| One behavior per `@test`; descriptive title | Failures point at the exact contract broken. |
-| Source the script under test, don't re-exec it per assertion | Lets you call functions directly and inspect state. |
-| Guard execution with the `BASH_SOURCE` main-guard | File runs as a program *and* sources cleanly under test. |
-| `run` puts results in `$status`, `$output`, `${lines[@]}` | `run` always returns 0, so assert *after* it. |
-| Mock via a PATH-prepended stub dir, never edit the script | Keeps the unit isolated and production code untouched. |
-| ShellCheck clean + `shfmt -d` clean is the merge gate | No new warnings; formatting is mechanical, not reviewed. |
-| Inline `# shellcheck disable=` needs a one-line justification | Silencing without a reason hides real bugs. |
+| One behavior per `@test`, with a descriptive title | a failure names the broken contract |
+| Source the script under test; call its functions | direct calls, inspectable state |
+| Guard the entry point with the `BASH_SOURCE` main-guard | the file runs as a program and sources cleanly |
+| Assert after `run`; it always returns 0 | results land in `$status`, `$output`, `${lines[@]}` |
+| Mock via a PATH-prepended stub dir, never by editing the script | production code stays untouched |
+| ShellCheck clean + `shfmt -d` clean is the merge gate | formatting is mechanical, not reviewed |
+| Every inline `# shellcheck disable=` carries a one-line reason | silent disables hide real bugs |
 
 ## bats-core Essentials
 
@@ -40,9 +28,7 @@ Use this skill when:
 #!/usr/bin/env bats
 
 setup() {
-    # BATS_TEST_DIRNAME = dir of this .bats file. Source the script under test.
-    source "${BATS_TEST_DIRNAME}/../bin/greet.sh"
-    TMP="$BATS_TEST_TMPDIR"   # unique per-test temp dir, auto-cleaned by bats
+    source "${BATS_TEST_DIRNAME}/../bin/greet.sh"   # dir of this .bats file
 }
 
 @test "greet prints a greeting for a name" {
@@ -52,35 +38,24 @@ setup() {
 }
 
 @test "greet rejects an empty name" {
-    run greet ""
-    [ "$status" -ne 0 ]
+    run ! greet ""                 # asserts nonzero exit; use this, not bare `! cmd`
     [[ "$output" == *"name required"* ]]
 }
 ```
 
-- `$status` — exit code of the run command.
-- `$output` — combined stdout+stderr (use `run --separate-stderr` to split into `$stderr`).
-- `${lines[@]}` — output split by line; empty lines dropped unless `run --keep-empty-lines`.
-- `setup`/`teardown` run per test; `setup_file`/`teardown_file` run once per file.
-- `$BATS_TEST_TMPDIR` (per test), `$BATS_FILE_TMPDIR` (per file), `$BATS_SUITE_TMPDIR` (per suite) are auto-created and auto-removed — prefer them over hand-rolled `mktemp -d` + manual cleanup.
-
-**Modern status assertions (bats-core 1.5+):**
-
-```bash
-run -0 deploy --dry-run      # asserts exit 0 inline
-run -2 validate bad-input    # asserts exit 2 inline
-run ! parse malformed        # asserts nonzero exit (use this, not bare `! parse`)
-```
-
-> Fallback (bats < 1.5): drop the `-N`/`!` forms and assert `[ "$status" -eq N ]`.
+- `$output` is stdout+stderr combined; `run --separate-stderr` splits it into `$stderr`.
+- `${lines[@]}` drops empty lines unless `run --keep-empty-lines`.
+- `run -N cmd` asserts exit code N inline (bats 1.5+; older: `[ "$status" -eq N ]`).
+- `setup`/`teardown` run per test; `setup_file`/`teardown_file` once per file.
+- Use `$BATS_TEST_TMPDIR` / `$BATS_FILE_TMPDIR` / `$BATS_SUITE_TMPDIR` instead of `mktemp -d`: bats creates and removes them.
 
 ## bats-assert / bats-support
 
-These add readable failure diffs. Install once (git submodule, system package, or `npm i -g`), then load per file:
+For readable failure diffs, load the helpers per file (bats-support first):
 
 ```bash
 setup() {
-    bats_load_library bats-support   # required by bats-assert
+    bats_load_library bats-support
     bats_load_library bats-assert
 }
 
@@ -92,39 +67,35 @@ setup() {
 }
 ```
 
-Common assertions: `assert_success` / `assert_failure [N]`, `assert_output [--partial|--regexp]`, `refute_output`, `assert_line --index N`, `assert_equal "$a" "$b"`. See [references/bats-patterns.md](references/bats-patterns.md).
-
-> Fallback (no `bats_load_library`): `load "${BATS_TEST_DIRNAME}/test_helper/bats-support/load"`.
+`bats_load_library` searches `$BATS_LIB_PATH`; for vendored submodules use
+`load "${BATS_TEST_DIRNAME}/test_helper/bats-support/load"` or point
+`BATS_LIB_PATH` at `test/test_helper`. Assertion list:
+[bats-patterns.md](references/bats-patterns.md#helper-libraries).
 
 ## Designing Testable Scripts
 
-A script is testable when each behavior is a function and the entry point is guarded so `source` does not execute the program.
+Put each behavior in a function and guard the entry point so `source` doesn't run the program:
 
 ```bash
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Behavior lives in functions — directly callable from bats.
 greet() {
     local name="${1:?name required}"
     printf 'Hello, %s\n' "$name"
 }
 
-main() {
-    greet "$@"
-}
+main() { greet "$@"; }
 
-# Main-guard: runs only when executed directly, NOT when sourced under test.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then   # false when sourced
     main "$@"
 fi
 ```
 
-Under test you `source` the file (the guard is false, so `main` never fires) and call `greet` in isolation. Rules: keep functions small and single-purpose, take inputs as arguments (not globals), write results to stdout, and send diagnostics to stderr so `run --separate-stderr` can assert each stream.
+Take inputs as arguments rather than globals, write results to stdout and
+diagnostics to stderr so each stream can be asserted.
 
 ## Mocking with PATH Stub Dirs
-
-Override an external command by placing a fake earlier on `PATH` — no edits to the script.
 
 ```bash
 setup() {
@@ -145,50 +116,57 @@ EOF
 
 @test "deploy fails when curl returns non-2xx" {
     make_stub curl "503 Service Unavailable" 1
-    run deploy --remote
-    [ "$status" -ne 0 ]
+    run ! deploy --remote
 }
 ```
 
-Reset `PATH` per test (`setup` re-prepends from the real `PATH`, and `$BATS_TEST_TMPDIR` is fresh each test, so stubs don't leak). For builtins you can't shadow on PATH, define a shell function and `export -f` it instead.
+Each test gets a fresh `$BATS_TEST_TMPDIR` and its own subshell, so stubs
+don't leak. For builtins or functions PATH can't shadow, define a function and
+`export -f` it.
 
 ## ShellCheck Workflow
 
 ```bash
-shellcheck bin/*.sh                 # all warnings
-shellcheck --severity=warning *.sh  # gate: error+warning only
-shellcheck -f gcc *.sh              # CI-parseable file:line:col output
+shellcheck bin/*.sh                 # all findings
+shellcheck --severity=warning *.sh  # gate: error + warning only
+shellcheck -f gcc *.sh              # file:line:col for CI
 ```
 
-Pin project settings in `.shellcheckrc` at the repo root:
+SC2086 (unquoted `$var`) is `info` level, so a warning gate does not report
+it; fix it anyway. Project settings go in `.shellcheckrc` at the
+repo root. It takes `shell`, `enable`, `disable`, `external-sources`, and
+`source-path`, but not `severity`: set that with `--severity` or
+`SHELLCHECK_OPTS`.
 
 ```ini
 shell=bash
-severity=warning
 enable=quote-safe-variables,require-variable-braces
-# SC1091: sourced files not followed in CI sandbox (justified)
+# SC1091: sourced files not followed in CI sandbox
 disable=SC1091
 ```
 
-Inline directives apply to the **next line**; always justify a disable:
+An inline directive applies to the next command; justify it, and scope it to
+that line rather than the whole file:
 
 ```bash
-# shellcheck disable=SC2086  # word-splitting is intentional: $flags is a flag list
+# shellcheck disable=SC2086  # $flags is an intentional flag list
 run_tool $flags "$input"
 ```
 
-Never blanket-disable at file top to dodge work — fix the finding or scope the disable to one line. See [references/shellcheck-shfmt.md](references/shellcheck-shfmt.md) for the top-20 codes and fixes.
+Common codes and fixes: [shellcheck-shfmt.md](references/shellcheck-shfmt.md).
 
 ## shfmt Formatting
 
-The enforced flag set is **`shfmt -i 2 -ci -bn`** (2-space indent, switch-case indent, binary ops at line start):
+The enforced flag set is `shfmt -i 2 -ci -bn` (2-space indent, indented `case`
+arms, binary operators at line start):
 
 ```bash
-shfmt -d -i 2 -ci -bn .            # diff mode — CI fails if non-empty
-shfmt -w -i 2 -ci -bn .            # write — apply formatting locally
+shfmt -d -i 2 -ci -bn .            # diff; CI fails if non-empty
+shfmt -w -i 2 -ci -bn .            # apply locally
 ```
 
-Put the flags in `.editorconfig` so editors and CI agree:
+Mirror the flags in `.editorconfig` so editors agree (shfmt reads it only when
+no formatting flags are passed):
 
 ```ini
 [*.{sh,bash,bats}]
@@ -202,25 +180,25 @@ binary_next_line = true
 
 | Symptom | Cause | Fix | Reference |
 |---------|-------|-----|-----------|
-| `command not found` for your function in a test | Script was re-exec'd, not sourced; or no main-guard | `source` the script in `setup`; add the `BASH_SOURCE` guard | This file — Designing Testable Scripts |
-| Sourcing a script runs the whole program | Missing main-guard | Wrap entry in `if [[ "${BASH_SOURCE[0]}" == "${0}" ]]` | This file |
-| `$output` empty though command printed | You called the command without `run` | Prefix with `run`; assert after it | This file — bats Essentials |
-| `bats_load_library: command not found` | Old bats-core | Upgrade, or `load .../bats-support/load` | references/bats-patterns.md |
-| Mock never used; real command runs | Stub dir not on `PATH` first, or not executable | Prepend stub dir; `chmod +x` the stub | This file — Mocking |
-| Bats hangs forever | Background child inherited FD 3 | Close it: `long_cmd 3>&-` | references/bats-patterns.md |
-| `assert_output` undefined | bats-assert not loaded (needs bats-support) | `bats_load_library bats-support` then `bats-assert` | This file — bats-assert |
-| ShellCheck flags `$var` (SC2086) | Unquoted expansion → splitting/globbing | Quote it: `"$var"`; or scope a justified disable | references/shellcheck-shfmt.md |
-| `shfmt -d` non-empty in CI | Local format drifted from flag set | Run `shfmt -w -i 2 -ci -bn .` | references/shellcheck-shfmt.md |
-| ShellCheck warns SC2148 (no shebang) | `.bats`/sourced file lacks dialect hint | Add `#!/usr/bin/env bats` or `# shellcheck shell=bash` | references/shellcheck-shfmt.md |
+| `command not found` for your function in a test | script re-exec'd, not sourced; or no main-guard | `source` in `setup`; add the guard | Designing Testable Scripts |
+| Sourcing a script runs the whole program | missing main-guard | wrap the entry in the `BASH_SOURCE` check | Designing Testable Scripts |
+| `$output` empty though the command printed | called without `run` | prefix with `run` | bats-core Essentials |
+| `bats_load_library: command not found` | bats older than 1.6 | upgrade, or `load .../bats-support/load` | bats-patterns.md |
+| `bats_load_library` can't find a library | not on `$BATS_LIB_PATH` | set `BATS_LIB_PATH`, or `load` by path | bats-assert / bats-support |
+| Mock never used; real command runs | stub dir not first on `PATH`, or not executable | prepend it; `chmod +x` | Mocking |
+| Bats hangs | background child holds FD 3 | `long_cmd 3>&- &` | bats-patterns.md |
+| `assert_output` undefined | bats-assert not loaded | load bats-support, then bats-assert | bats-assert / bats-support |
+| SC2086 on `$var` | unquoted expansion | `"$var"`, or a justified one-line disable | shellcheck-shfmt.md |
+| `shfmt -d` non-empty in CI | local formatting drifted | `shfmt -w -i 2 -ci -bn .` | shellcheck-shfmt.md |
+| SC2148 (no shebang) | `.bats`/sourced file lacks a dialect | `#!/usr/bin/env bats` or `# shellcheck shell=bash` | shellcheck-shfmt.md |
 
-## Deep-Dive References
+## References
 
-- [references/bats-patterns.md](references/bats-patterns.md) — helper libraries, fixtures, advanced mocking, parallel runs, TAP output, CI integration.
-- [references/shellcheck-shfmt.md](references/shellcheck-shfmt.md) — severity tuning, top-20 SC codes with fixes, directives, `.shellcheckrc`, shfmt flags, pre-commit + CI wiring.
+- [bats-patterns.md](references/bats-patterns.md): versions, layout, helper libraries, fixtures, argument-recording stubs, tags, parallel runs, reports, pitfalls, CI.
+- [shellcheck-shfmt.md](references/shellcheck-shfmt.md): severity tuning, common SC codes, directives, `.shellcheckrc`, shfmt flags, pre-commit and CI.
 
 ## Related Skills
 
-- [bash-scripting](../bash-scripting/SKILL.md) — strict-mode prologue, defensive patterns, and portability the tests exercise.
-- [testing-principles](../../_shared/testing-principles.md) — language-agnostic test design (AAA, isolation, naming).
-- [diagnostics](../../tooling/diagnostics/SKILL.md) — running tests and linters under the broader toolchain.
-- [CORPFLOW.md](../../../CORPFLOW.md) — QA-gate expectation that bats + ShellCheck pass before handoff.
+- [bash-scripting](../bash-scripting/SKILL.md): strict-mode prologue and defensive patterns the tests exercise
+- [testing-principles](../../_shared/testing-principles.md): language-agnostic test design (AAA, isolation, naming)
+- [diagnostics](../../tooling/diagnostics/SKILL.md): running tests and linters in the broader toolchain
