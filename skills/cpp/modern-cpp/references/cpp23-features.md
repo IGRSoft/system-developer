@@ -6,27 +6,46 @@ C++23 language and library features with their rules and pre-23 fallbacks. The n
 
 Gate every C++23 feature on its feature-test macro, not a compiler version: library support lags the core language, and the three standard libraries adopted these pieces at different times.
 
+The slowest adopters were `flat_map`/`flat_set`, `std::generator` on libc++, and `import std` tooling; keep the fallback wired in for any target you can't pin. C++26 fills some gaps below (e.g. `submdspan`); see the C++26 section of [../../SKILL.md](../../SKILL.md).
+
+### Language and tooling features
+
 | Feature | Kind | Feature-test macro | Pre-23 fallback |
 |---------|------|--------------------|-----------------|
 | Deducing this | language | `__cpp_explicit_this_parameter >= 202110L` | CRTP; hand-written const/ref overload sets |
+| `if consteval` | language | `__cpp_if_consteval >= 202106L` | `std::is_constant_evaluated()` (C++20) — see trap below |
+| `import std;` | language + tooling | `__cpp_lib_modules >= 202207L` (presence ≠ build support) | `#include` headers, optionally PCH |
+
+### Vocabulary and callable types
+
+| Feature | Kind | Feature-test macro | Pre-23 fallback |
+|---------|------|--------------------|-----------------|
 | `std::expected` | library | `__cpp_lib_expected >= 202202L` | `tl::expected` (API-compatible) |
 | `expected` monadic ops | library | `__cpp_lib_expected >= 202211L` | `tl::expected` (ships monadic ops) |
 | Monadic `std::optional` | library | `__cpp_lib_optional >= 202110L` | explicit `if (opt)` chains |
+| `std::move_only_function` | library | `__cpp_lib_move_only_function >= 202110L` | `std::function` + `shared_ptr` capture; `fu2::unique_function`; `absl::AnyInvocable` |
+
+### Output, views, containers, and diagnostics
+
+| Feature | Kind | Feature-test macro | Pre-23 fallback |
+|---------|------|--------------------|-----------------|
 | `std::print` / `println` | library | `__cpp_lib_print >= 202207L` | fmtlib `fmt::print`; C++20 `std::format` + `std::cout` |
 | `std::generator` | library | `__cpp_lib_generator >= 202207L` | range-v3 generators; handwritten iterators |
 | `std::mdspan` | library | `__cpp_lib_mdspan >= 202207L` | Kokkos `mdspan` reference implementation (works on C++17) |
 | `std::flat_map` / `flat_set` | library | `__cpp_lib_flat_map` / `__cpp_lib_flat_set >= 202207L` | `boost::container::flat_map`; sorted `vector` + `lower_bound` |
-| `std::move_only_function` | library | `__cpp_lib_move_only_function >= 202110L` | `std::function` + `shared_ptr` capture; `fu2::unique_function`; `absl::AnyInvocable` |
-| `if consteval` | language | `__cpp_if_consteval >= 202106L` | `std::is_constant_evaluated()` (C++20) — see trap below |
 | `std::stacktrace` | library | `__cpp_lib_stacktrace >= 202011L` | `boost::stacktrace` |
+
+### Small utilities
+
+| Feature | Kind | Feature-test macro | Pre-23 fallback |
+|---------|------|--------------------|-----------------|
 | `string::contains` | library | `__cpp_lib_string_contains >= 202011L` | `s.find(x) != std::string::npos` |
-| `import std;` | language + tooling | `__cpp_lib_modules >= 202207L` (presence ≠ build support) | `#include` headers, optionally PCH |
 | `std::to_underlying` | library | `__cpp_lib_to_underlying >= 202102L` | `static_cast<std::underlying_type_t<E>>(e)` |
 | `std::unreachable` | library | `__cpp_lib_unreachable >= 202202L` | `__builtin_unreachable()` / `__assume(false)` |
 | `std::byteswap` | library | `__cpp_lib_byteswap >= 202110L` | `__builtin_bswap32` and friends |
 | `std::out_ptr` / `inout_ptr` | library | `__cpp_lib_out_ptr >= 202106L` | temporary raw pointer + manual `reset` |
 
-The slowest adopters were `flat_map`/`flat_set`, `std::generator` on libc++, and `import std` tooling; keep the fallback wired in for any target you can't pin. C++26 fills some gaps below (e.g. `submdspan`); see the C++26 section of [../../SKILL.md](../../SKILL.md).
+### Gating on the macro
 
 ```cpp
 #include <version>   // pulls in all feature-test macros without other headers
@@ -153,6 +172,8 @@ if (r) {
 int port = r.value_or(8080); // checked, with default
 ```
 
+### Checked access, void results, and error size
+
 - `r.value()` is the checked accessor: it throws `std::bad_expected_access<E>` when `r` holds an error.
 - `std::expected<void, E>` models "action that can fail with no result"; `has_value()` and the monadic ops still work.
 - Keep `E` small (an enum, or a small struct with an enum + context). `expected` stores `T` and `E` in a union, so a fat `E` taxes every return.
@@ -166,6 +187,8 @@ int port = r.value_or(8080); // checked, with default
 | `or_else(f)` | `E` | `std::expected<T, F>` | error present |
 | `transform_error(f)` | `E` | plain `F` (wrapped for you) | error present |
 | `error_or(e)` | — | `E` | either (default on success) |
+
+### Chaining example
 
 ```cpp
 std::expected<Config, ParseError> load(std::string_view path);
@@ -221,6 +244,8 @@ std::println(stderr, "warning: {} retries", retries);   // FILE* overload
 std::println(log_stream, "to any ostream");             // <ostream> overload
 ```
 
+### Advantages over `operator<<`
+
 Over `operator<<` chains it gives:
 
 - Compile-time checked format strings: a `{}`/argument mismatch is a compile error.
@@ -234,7 +259,7 @@ Behavior notes:
 - One `std::formatter<T>` specialization serves both `std::format` and `std::print`.
 - Printing a range (`std::println("{}", vec)`) is a separate feature (`__cpp_lib_format_ranges`); check it independently.
 
-Fallbacks:
+### Fallbacks
 
 ```cpp
 // C++20: same format machinery, manual stream write
@@ -307,6 +332,8 @@ for (std::size_t i = 0; i < m.extent(0); ++i)
         m[i, j] = compute(i, j);             // C++23 multidimensional operator[]
 ```
 
+### Extents, layouts, and accessors
+
 The pieces, each independently customizable:
 
 | Component | Default | Alternatives |
@@ -324,7 +351,7 @@ std::mdspan<float, std::extents<std::size_t, 4, 4>> mat{buf.data()};
 std::mdspan<double, std::dextents<std::size_t, 2>, std::layout_left> fortran{p, n, m};
 ```
 
-Notes and limits:
+### Limits and fallback
 
 - Non-owning, with the same lifetime discipline as `span`/`string_view` ([../SKILL.md](../SKILL.md)): fine as a parameter, not as a member or return value referencing locals.
 - Slicing (`submdspan`) is C++26. Until then, build strided sub-views with `layout_stride`, or use the Kokkos implementation, which ships `submdspan`.
@@ -344,6 +371,8 @@ C++23 library feature (P0429, P1222), headers `<flat_map>`, `<flat_set>`. Contai
 | Iterator/reference stability | stable across inserts | invalidated by insert/erase |
 | Memory | high per-node overhead | minimal; bulk-load friendly |
 
+### When to use and bulk loading
+
 Use them for build-once-query-many data: configuration tables, symbol tables, lookup maps populated at startup. Avoid them when the workload interleaves many single-element inserts with lookups.
 
 ```cpp
@@ -358,7 +387,7 @@ std::flat_map<std::string, int> m{std::sorted_unique, rows.begin(), rows.end()};
 // or adopt separate sorted containers: m{std::sorted_unique, std::move(keys), std::move(values)}
 ```
 
-Sharp edges:
+### Sharp edges
 
 - Every insert/erase invalidates iterators. Code migrated from `std::map` that holds iterators across mutation breaks silently; this is the top migration bug.
 - `flat_map`'s `reference` is the proxy `std::pair<const Key&, T&>`, so generic code expecting a real `pair<const K, T>&` may need adjustment.
@@ -381,7 +410,9 @@ std::move_only_function<void()> task =
 queue.push(std::move(task));
 ```
 
-Differences from `std::function` that matter:
+### Differences from std::function
+
+The ones that matter:
 
 | Aspect | `std::function` | `std::move_only_function` |
 |--------|-----------------|---------------------------|
@@ -397,7 +428,9 @@ Signature qualifiers are enforced: `move_only_function<void() const>` accepts on
 if (callback) callback();          // guard, or design so empties can't exist
 ```
 
-Pre-23 fallbacks, in order of preference:
+### Pre-23 fallbacks
+
+In order of preference:
 
 1. `fu2::unique_function` or `absl::AnyInvocable` — purpose-built equivalents.
 2. Wrap move-only state in `std::shared_ptr` so the lambda is copyable and fits `std::function`. Works, but misstates ownership and adds an allocation.
@@ -456,13 +489,13 @@ for (const auto& entry : std::stacktrace::current()) {
 }
 ```
 
-Practical patterns:
+### Practical patterns
 
 - Capture when the error is constructed, not at the catch/log site, where the interesting frames are gone. A member default-initializer does this: `struct Error { Code code; std::stacktrace where = std::stacktrace::current(); };`.
 - `std::stacktrace::current(skip, max_depth)` trims wrapper frames and bounds the cost.
 - Hashing and comparison are supported, so traces can deduplicate repeated error reports.
 
-Caveats:
+### Caveats and fallback
 
 - Link requirements vary: libstdc++ needs `-lstdc++exp` (GCC 14+; `-lstdc++_libbacktrace` on 12-13), MSVC works out of the box, libc++ lags. Check `__cpp_lib_stacktrace` and link-test in CI.
 - Without debug info (`-g`, not fully stripped), `description()` degrades to addresses.
@@ -501,17 +534,23 @@ int main() {
 
 Much faster compiles than headers (parsed once per build, not per TU), no macro leakage, no include-order sensitivity.
 
+### Toolchain requirements
+
 Availability is a tooling question; treat it as opt-in experimental. Three things must align:
 
 1. Compiler and standard library ship the `std` module sources.
 2. The build system scans module dependencies. CMake gates `import std` behind an experimental flag (`CMAKE_EXPERIMENTAL_CXX_IMPORT_STD` plus `CXX_MODULE_STD`; the knob's value changes between releases), with Ninja 1.11+ or MSBuild.
 3. `import std;` and standard `#include`s aren't mixed in one TU on toolchains that can't interleave them (some diagnose, some miscompile). Pick one style per TU.
 
+### Adoption
+
 Use named modules for your own code where the team controls the toolchain end to end (`FILE_SET CXX_MODULES` in [build-systems](../../../tooling/build-systems/SKILL.md)); keep `import std` behind a build option with `#include` as the default. Fallback: plain headers, optionally precompiled.
 
 ## Smaller Quality-of-Life Features
 
 All C++23 unless noted; macros in the availability table above.
+
+### Enums, unreachable paths, and size literals
 
 ```cpp
 // std::to_underlying: no verbose static_cast for enum classes
@@ -528,7 +567,11 @@ std::unreachable();   // Pre-23: __builtin_unreachable() / __assume(false)
 
 // size_t literal suffix: no signed/unsigned loop mismatch
 for (auto i = 0uz; i < vec.size(); ++i) { /* i is std::size_t */ }
+```
 
+### Byte order, C out-parameters, and string buffers
+
+```cpp
 // std::byteswap: endianness conversion without intrinsics
 std::uint32_t be = std::byteswap(le_value);
 // Combine with C++20 std::endian for conditional swapping.
@@ -546,7 +589,9 @@ buf.resize_and_overwrite(256, [&](char* p, std::size_t n) {
 });
 ```
 
-Also in C++23 but covered elsewhere:
+### Covered elsewhere
+
+Also in C++23:
 
 - The full set of new view adaptors (`zip`, `enumerate`, `chunk`, `slide`, `stride`, `cartesian_product`, `join_with`), the `fold_left` family, and `ranges::to` → `ranges.md`.
 - `std::expected` policy (vs exceptions vs error codes), `noexcept` rules → `error-handling.md`.
