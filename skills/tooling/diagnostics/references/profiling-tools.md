@@ -1,196 +1,90 @@
 # Profiling Tools Reference
 
-Use this when:
-
-- A program is too slow or uses too much memory and you need to find *where*.
-- You want a reproducible before/after measurement of an optimization.
-- You are choosing between perf, py-spy, cProfile, a heap profiler, or hyperfine.
-
-Skip if:
-
-- The program is *wrong*, not slow — that is [sanitizers.md](sanitizers.md) /
-  [gdb-lldb.md](gdb-lldb.md).
-- You only need the tool-from-symptom decision. See [diagnostics SKILL.md](../SKILL.md).
-
-Jump to:
-
-- The Measure -> Fix -> Re-measure Loop
-- Tool Selection
-- perf (Linux CPU)
-- Flamegraphs
-- macOS CPU Profiling (sample)
-- py-spy (Python, sampling)
-- cProfile (Python, deterministic)
-- py-spy vs cProfile Decision
-- Python Optimization Patterns
-- Heap Profiling (massif, heaptrack, tracemalloc)
-- hyperfine (wall-clock benchmarking)
-- Google Benchmark / pytest-benchmark (microbenchmarks)
-- Diagnostic Table
-
----
+Finding where time and memory go, and proving a change helped: perf, sample, py-spy, cProfile, heap profilers, hyperfine, and microbenchmarks. If the program is wrong rather than slow, see [sanitizers.md](sanitizers.md) or [gdb-lldb.md](gdb-lldb.md).
 
 ## The Measure -> Fix -> Re-measure Loop
 
-Optimization without measurement is guessing. The loop, every time:
+1. Reproduce a representative, repeatable workload (benchmark or fixed input).
+2. Measure to find the hot path; don't optimize a function you only suspect.
+3. Record a baseline (commit the hyperfine/benchmark JSON).
+4. Change one thing.
+5. Re-measure against the baseline; keep the win or revert.
+6. Stop at the target, or when the next hot path is in someone else's code.
 
-1. **Reproduce** a representative, repeatable workload (a benchmark or fixed input).
-2. **Measure** to find the hot path — never optimize a function you only *suspect*.
-3. **Record a baseline** number (commit the hyperfine/benchmark JSON).
-4. **Change one thing.**
-5. **Re-measure** against the baseline. Keep the win or revert.
-6. **Stop** when you hit the target or the next hot path is in someone else's code.
-
-Rules that save hours:
-
-- Profile a **RelWithDebInfo** build (`-O2 -g`), never `-O0` (wrong hot paths)
-  and never a stripped `Release` (no symbols).
-- Most time hides in a few percent of code — fix the top frame, then re-profile;
-  the profile changes shape after each fix.
-- Algorithmic complexity beats micro-optimization. An O(n²) -> O(n log n) change
-  outweighs any constant-factor tweak.
-
----
+Profile a `RelWithDebInfo` build (`-O2 -g`): `-O0` shows the wrong hot paths and a stripped `Release` has no symbols. The profile changes shape after each fix, so re-profile before the next one. Algorithmic wins (O(n²) -> O(n log n)) beat constant-factor tweaks.
 
 ## Tool Selection
 
 | Goal | Tool | Platform |
 |------|------|----------|
-| Find CPU hot path in C/C++ | **perf** (`record`/`report`) | Linux |
-| Same on macOS | **`sample`** / `xctrace` | macOS |
-| Find CPU hot path in Python (low overhead, no edits) | **py-spy** | Linux/macOS (native frames Linux) |
-| Deterministic per-call counts in Python | **cProfile** | all |
-| Where memory is allocated (C/C++) | **massif** / **heaptrack** | Linux |
-| Where memory is allocated (Python) | **tracemalloc** | all |
-| Compare whole-command runtime A vs B | **hyperfine** | all |
-| Microbenchmark a single C++ function | **Google Benchmark** | all |
-| Microbenchmark Python code | **pytest-benchmark** / `timeit` | all |
-
----
+| CPU hot path, C/C++ | perf | Linux |
+| CPU hot path, C/C++ | `sample` / `xctrace` | macOS |
+| CPU hot path, Python, no code change | py-spy | Linux/macOS (native frames: Linux) |
+| Exact per-call counts, Python | cProfile | all |
+| Allocation sites, C/C++ | massif / heaptrack | Linux |
+| Allocation sites, Python | tracemalloc | all |
+| Whole-command A vs B | hyperfine | all |
+| Microbenchmark | Google Benchmark (C++), pytest-benchmark / `timeit` (Python) | all |
 
 ## perf (Linux CPU)
 
-The default CPU profiler on Linux: low-overhead sampling, hardware counters.
-
 ```bash
-# Record a profile with call graphs (frame pointers must be present)
-perf record -g -- ./prog --workload big
-# or sample a running process for 10s:
-perf record -g -p <pid> -- sleep 10
-
-# Read it: an interactive, sorted-by-time tree
-perf report
-perf report --stdio                 # non-interactive dump
-
-# Annotate the hottest function down to instructions/source lines
-perf annotate process_node
-
-# A live top-style view
-perf top
+perf record -g -- ./prog --workload big   # profile with call graphs
+perf record -g -p <pid> -- sleep 10       # sample a running process for 10s
+perf report                               # interactive tree; --stdio for a dump
+perf annotate process_node                # hottest function down to source/instructions
+perf top                                  # live view
+perf stat -- ./prog                       # counters: cycles, cache misses, branch misses
 ```
 
-Build with `-O2 -g -fno-omit-frame-pointer` so call graphs are accurate. If
-frame pointers are unavailable, use DWARF unwinding (heavier):
+Build with `-O2 -g -fno-omit-frame-pointer` for accurate call graphs; without frame pointers use `perf record --call-graph dwarf` (heavier). `perf stat` helps tell cache-bound from CPU-bound before digging in.
 
-```bash
-perf record -g --call-graph dwarf -- ./prog
-```
-
-perf needs permission to read CPU counters:
-
-```bash
-sysctl kernel.perf_event_paranoid     # lower (privileged) if "Permission denied"
-```
-
-`perf stat -- ./prog` gives a quick counter summary (cycles, instructions,
-cache misses, branch mispredicts) — good for spotting cache-bound vs CPU-bound
-before you dig in.
-
----
+If perf reports "Permission denied", check `sysctl kernel.perf_event_paranoid` and lower it with privilege.
 
 ## Flamegraphs
 
-A flamegraph turns a profile into one picture: width = time, stacks read bottom
-(entry) to top (leaf). The widest top-of-stack box is your hot path.
+Width is time; stacks read from entry (bottom) to leaf (top). The widest top-of-stack box is the hot path.
 
 ```bash
-# From perf (Brendan Gregg's FlameGraph scripts)
-perf record -g -- ./prog
-perf script | stackcollapse-perf.pl | flamegraph.pl > flame.svg
-
-# perf can also emit a flamegraph directly on recent versions:
-perf script report flamegraph        # -> flamegraph.html  (verify against your perf)
+perf script | stackcollapse-perf.pl | flamegraph.pl > flame.svg   # Brendan Gregg's scripts
+perf script report flamegraph                                     # newer perf -> flamegraph.html
 ```
 
-py-spy produces SVG flamegraphs natively — see below.
-
----
+py-spy writes SVG flamegraphs directly.
 
 ## macOS CPU Profiling (sample)
 
-perf is Linux-only. On macOS use the bundled `sample`, or Instruments via
-`xctrace` for a GUI timeline.
-
 ```bash
-# Sample a running process for 5 seconds at 1ms intervals -> text call tree
-sample <pid> 5 1 -file sample.txt
-
-# Sample by name
-sample prog 5
-
-# Record a Time Profiler trace for Instruments (deeper, GUI)
-xctrace record --template 'Time Profiler' --launch -- ./prog
+sample <pid> 5 1 -file sample.txt    # 5 s at 1 ms intervals -> text call tree
+sample prog 5                        # by process name
+xctrace record --template 'Time Profiler' --launch -- ./prog   # Instruments trace
 ```
 
-`sample` is zero-setup and good for "which function is eating CPU right now". For
-allocation/leak timelines on macOS, `leaks <pid>` and `xctrace` templates apply.
-
----
+`sample` needs no setup and answers "which function is eating CPU right now". For allocation and leak timelines, use `leaks <pid>` or the `xctrace` templates.
 
 ## py-spy (Python, sampling)
 
-py-spy samples a Python process from *outside* — no code changes, no imports,
-trivial overhead, and it works on an already-running process (including
-production). It reads frames via the process memory, so it cannot crash the
-target.
+py-spy samples a Python process from outside: no code changes, low overhead, and it attaches to an already-running process, production included.
 
 ```bash
-# Live top-style view of the busiest Python functions
-py-spy top --pid 12345
-
-# Record a flamegraph for a fixed run
-py-spy record -o profile.svg -- python script.py
-
-# Include native (C/C++/Cython) frames alongside Python
-# Native support: Linux (and Windows); not on macOS — verify against your build.
-py-spy record --native -o profile.svg -- python script.py
-
-# One-shot stack dump of a hung process (great for "why is it stuck?")
-py-spy dump --pid 12345
+py-spy top --pid 12345                                # live view
+py-spy record -o profile.svg -- python script.py      # flamegraph for a run
+py-spy record --native -o profile.svg -- python script.py   # + C/C++/Cython frames (Linux, Windows)
+py-spy dump --pid 12345                               # stack of a hung process
 ```
 
-For `--native` to resolve C/Cython frames, compile the extension with symbols
-(`-g`); for Cython, keep the generated `.c`/`.cpp` so line numbers map back to
-`.pyx`. py-spy is the right default for **production**, **long-running**, and
-**"don't touch the code"** Python profiling.
-
----
+`--native` needs the extension built with `-g`; for Cython, keep the generated `.c`/`.cpp` so lines map back to `.pyx`. Attaching may need the process owner or privilege.
 
 ## cProfile (Python, deterministic)
 
-cProfile counts *every* call deterministically — exact call counts and
-cumulative/total time per function. Higher overhead than py-spy, but precise.
+cProfile records every call: exact counts and cumulative/total time, at higher overhead than py-spy.
 
 ```bash
-# Profile a whole script, save the stats
 python -m cProfile -o output.prof script.py
-
-# Inspect interactively
-python -m pstats output.prof
-# in pstats:  sort cumtime   then   stats 10
+python -m pstats output.prof          # then: sort cumtime, stats 10
 ```
 
-In code, around a hot region:
+Around a hot region in code:
 
 ```python
 import cProfile, pstats
@@ -200,93 +94,53 @@ profiler = cProfile.Profile()
 profiler.enable()
 main()
 profiler.disable()
-
-stats = pstats.Stats(profiler)
-stats.sort_stats(SortKey.CUMULATIVE)
-stats.print_stats(10)        # top 10 by cumulative time
-stats.dump_stats("main.prof")
+pstats.Stats(profiler).sort_stats(SortKey.CUMULATIVE).print_stats(10)
 ```
 
-For line-by-line granularity inside one function, `line_profiler`
-(`kernprof -l -v script.py` with `@profile`) attributes time to source lines.
-
-Visualize a `.prof` with `snakeviz output.prof` (icicle graph in the browser).
-
----
+`line_profiler` (`kernprof -l -v script.py` with `@profile`) attributes time to lines; `snakeviz output.prof` draws an icicle graph.
 
 ## py-spy vs cProfile Decision
 
 | Use | Reach for |
 |-----|-----------|
-| A running / production process | **py-spy** (`top` / `dump` / `record`) |
-| Long job where overhead matters | **py-spy** (sampling, ~negligible) |
-| You cannot edit or restart the code | **py-spy** |
-| Need C/Cython frames too | **py-spy --native** (Linux) |
-| Exact per-function call counts | **cProfile** |
-| Deterministic, reproducible numbers in a test | **cProfile** |
-| Line-by-line time in one function | **line_profiler** |
+| Running / production process, long job, or code you can't edit | py-spy |
+| C/Cython frames too | `py-spy --native` (Linux) |
+| Exact per-function call counts, reproducible numbers in a test | cProfile |
+| Line-by-line time in one function | line_profiler |
 
-Rule of thumb: **py-spy to find *which* function**, then **cProfile/line_profiler
-to understand *why* that function is slow** if sampling isn't precise enough.
-
----
+py-spy finds which function; cProfile or line_profiler explain why, when sampling isn't precise enough.
 
 ## Python Optimization Patterns
 
-Once profiling names the hot function, these are the highest-yield fixes (each
-verified with `timeit`/`pytest-benchmark` before keeping):
+Highest-yield fixes once profiling names the hot function; confirm each with `timeit`.
 
 ```python
-# Comprehension over append loop (and map for pure transforms)
-squares = [i * i for i in range(n)]          # not: append in a for-loop
+squares = [i * i for i in range(n)]       # comprehension over an append loop
+total = sum(i * i for i in range(n))      # generator for a single pass
+text = "".join(str(x) for x in parts)     # join, not += (quadratic rebuilds)
+seen = set(ids); hit = target in seen     # O(1) membership, not a list scan
+local_fn = obj.method                     # hoist lookups out of hot loops
+for x in data: local_fn(x)
 
-# Generator over list when you only iterate once (constant memory)
-total = sum(i * i for i in range(n))         # not: sum([... ]) for a one-pass
-
-# "".join over += concatenation (avoids O(n^2) string rebuilds)
-text = "".join(str(x) for x in parts)        # not: result += str(x)
-
-# Dict/set membership is O(1); list membership is O(n)
-seen = set(ids); hit = target in seen        # not: target in id_list
-
-# Hoist attribute/global lookups out of hot loops into locals
-local_fn = obj.method
-for x in data: local_fn(x)                    # avoids repeated attribute lookup
-
-# functools.lru_cache for pure, repeatedly-called functions
 from functools import lru_cache
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=None)                  # pure, repeatedly called functions
 def fib(n): return n if n < 2 else fib(n-1) + fib(n-2)
 ```
 
-Bigger levers when these aren't enough: vectorize numeric work with NumPy; move
-the inner loop into a C/C++ extension ([ffi-interop](../../ffi-interop/SKILL.md));
-for CPU-bound parallelism on Python 3.14, free-threading or subinterpreters
-([python-concurrency](../../../python/python-concurrency/SKILL.md)). Always
-re-measure — a "faster" idiom that doesn't move the profile is wasted churn.
-
----
+Bigger levers: vectorize numeric work with NumPy, move the inner loop into a C/C++ extension ([ffi-interop](../../ffi-interop/SKILL.md)), or use free-threading or subinterpreters on 3.14 for CPU-bound parallelism ([python-concurrency](../../../python/python-concurrency/SKILL.md)).
 
 ## Heap Profiling (massif, heaptrack, tracemalloc)
 
-When the problem is memory growth, not CPU.
-
-### C/C++
+For memory growth rather than CPU. All need `-g` for readable backtraces.
 
 ```bash
-# valgrind massif: heap usage over time, with allocation backtraces
 valgrind --tool=massif ./prog
-ms_print massif.out.<pid>        # text report: peak, snapshots, top allocators
-
-# heaptrack: lower overhead, richer GUI/flamegraph; Linux
-heaptrack ./prog
-heaptrack_print heaptrack.prog.<pid>.gz     # or open in heaptrack_gui
+ms_print massif.out.<pid>                    # peak, snapshots, top allocators
+heaptrack ./prog                             # Linux, lower overhead
+heaptrack_print heaptrack.prog.<pid>.gz      # or heaptrack_gui
 ```
 
-massif answers "what was allocated at peak and who allocated it"; heaptrack adds
-allocation *counts*, leaks, and temporary-allocation churn with flamegraphs.
-Both need `-g` for readable backtraces. (massif is Linux-first; *verify
-valgrind availability on your macOS toolchain*.)
+massif shows what was allocated at peak and by whom; heaptrack adds allocation counts, leaks, and temporary-allocation churn. valgrind is Linux-first and limited on recent macOS.
 
 ### Python
 
@@ -299,43 +153,22 @@ for stat in snapshot.statistics("lineno")[:10]:
     print(stat)                  # top 10 allocation sites by size
 ```
 
-`tracemalloc` attributes live memory to the source line that allocated it — the
-go-to for "what is growing?" in a Python service. Take two snapshots and
-`compare_to` to find growth between phases.
-
----
+Take two snapshots and `compare_to` to find growth between phases.
 
 ## hyperfine (wall-clock benchmarking)
 
-For "did my change actually make the *whole command* faster?" hyperfine runs each
-command many times, warms caches, and reports mean ± σ with outlier detection.
+hyperfine runs each command many times and reports mean ± σ with outlier detection — the baseline tool for whole-command before/after evidence.
 
 ```bash
-# A vs B, with warmup runs excluded
 hyperfine --warmup 3 './prog --old' './prog --new'
-
-# Save a machine-readable baseline to commit / diff later
-hyperfine --warmup 3 --export-json bench.json './prog --new'
-
-# Parameter sweep
-hyperfine -P threads 1 8 './prog --threads {threads}'
-
-# Reset state between runs (e.g. drop a cache file)
-hyperfine --prepare 'rm -f cache.bin' './prog'
+hyperfine --warmup 3 --export-json bench.json './prog --new'   # baseline to commit
+hyperfine -P threads 1 8 './prog --threads {threads}'          # parameter sweep
+hyperfine --prepare 'rm -f cache.bin' './prog'                 # reset state per run
 ```
 
-hyperfine is the canonical baseline tool for `--bench`-style workflows: record
-JSON before a change, record after, and the delta is your evidence. It measures
-*end to end* (process startup included) — for in-process function timing use a
-microbenchmark library instead.
-
----
+It measures end to end, process startup included; time a single function with a microbenchmark instead.
 
 ## Google Benchmark / pytest-benchmark (microbenchmarks)
-
-For timing a single function in isolation, with statistical rigor.
-
-### C++ — Google Benchmark
 
 ```cpp
 #include <benchmark/benchmark.h>
@@ -343,18 +176,14 @@ For timing a single function in isolation, with statistical rigor.
 static void BM_Parse(benchmark::State& state) {
     for (auto _ : state) {
         auto r = parse(kInput);
-        benchmark::DoNotOptimize(r);   // stop the optimizer deleting the work
+        benchmark::DoNotOptimize(r);   // keep the optimizer from deleting the work
     }
 }
 BENCHMARK(BM_Parse);
 BENCHMARK_MAIN();
 ```
 
-Build at `-O2`; `DoNotOptimize`/`ClobberMemory` prevent the optimizer from
-eliding the code under test. Run with `--benchmark_repetitions=10
---benchmark_report_aggregates_only=true` for mean/median/stddev.
-
-### Python — pytest-benchmark
+Build at `-O2`; run with `--benchmark_repetitions=10 --benchmark_report_aggregates_only=true` for mean/median/stddev.
 
 ```python
 def test_parse_perf(benchmark):
@@ -362,35 +191,24 @@ def test_parse_perf(benchmark):
     assert result.ok
 ```
 
-`pytest-benchmark` reports min/mean/median/stddev and can fail CI on regression
-(`--benchmark-compare` against a saved baseline). For ad-hoc checks, `timeit`:
-
-```bash
-python -m timeit -s 'from mod import f' 'f(data)'
-```
-
----
+pytest-benchmark can fail CI on regression with `--benchmark-compare` against a saved baseline. Ad hoc: `python -m timeit -s 'from mod import f' 'f(data)'`.
 
 ## Diagnostic Table
 
-| Symptom | Cause | Action | Reference |
-|---------|-------|--------|-----------|
-| perf shows mostly `[unknown]` / no call graph | no frame pointers / stripped | `-O2 -g -fno-omit-frame-pointer`, or `--call-graph dwarf` | this file > perf |
-| `perf: Permission denied` | `perf_event_paranoid` too high | lower it (privileged) or run as owner | this file > perf |
-| Profile blames trivial functions | profiled an `-O0` build | profile RelWithDebInfo (`-O2 -g`) | this file > The Loop |
-| py-spy: "permission denied" attaching | OS attach restriction | run as the process owner / with privilege | this file > py-spy |
-| py-spy `--native` shows no C frames | macOS, or extension lacks symbols | use Linux for native; build ext with `-g` | this file > py-spy |
-| cProfile run is far slower than reality | deterministic-profiler overhead | switch to py-spy sampling for realistic timing | this file > py-spy vs cProfile |
-| memory grows but no leak reported | retained references / caches, not a leak | `tracemalloc` (Py) / `massif`/`heaptrack` (C/C++) | this file > Heap Profiling |
-| benchmark numbers jump around | cold caches / no warmup / noisy machine | `hyperfine --warmup`; pin CPU; repetitions | this file > hyperfine |
-| Google Benchmark reports ~0 ns | optimizer deleted the work | `DoNotOptimize` / `ClobberMemory` | this file > microbenchmarks |
-| "optimized" change didn't move the profile | wrong hot path / measurement error | re-profile; revert; trust the measurement | this file > The Loop |
+| Symptom | Cause | Action |
+|---------|-------|--------|
+| perf shows `[unknown]` / no call graph | no frame pointers, or stripped | `-O2 -g -fno-omit-frame-pointer`, or `--call-graph dwarf` |
+| `perf: Permission denied` | `perf_event_paranoid` too high | lower it (privileged) |
+| profile blames trivial functions | profiled `-O0` | profile `RelWithDebInfo` |
+| py-spy can't attach | OS attach restriction | run as owner / with privilege |
+| `--native` shows no C frames | macOS, or no `-g` | Linux; rebuild with `-g` |
+| cProfile far slower than reality | deterministic overhead | py-spy |
+| memory grows, no leak reported | retained references / caches | tracemalloc, massif, heaptrack |
+| benchmark numbers jump around | cold caches, noisy machine | `--warmup`, pin CPU, repeat |
+| Google Benchmark reports ~0 ns | optimizer deleted the work | `DoNotOptimize` / `ClobberMemory` |
+| change didn't move the profile | wrong hot path | re-profile; revert |
 
 ## Related References
 
-- [sanitizers.md](sanitizers.md) — when the issue is correctness, not speed
-- [gdb-lldb.md](gdb-lldb.md) — `py-spy dump` / native debugging for a hung process
-- [diagnostics SKILL.md](../SKILL.md) — symptom -> tool router and profiling quickstart
-- [ffi-interop](../../ffi-interop/SKILL.md) — moving a Python hot path into C/C++
-- [python-concurrency](../../../python/python-concurrency/SKILL.md) — parallelism for CPU-bound Python (3.14 free-threading, subinterpreters)
-- [build-systems references](../../build-systems/references/_index.md) — RelWithDebInfo presets for profilable builds
+- [gdb-lldb.md](gdb-lldb.md) — native debugging of a hung process
+- [cmake-modern.md](../../build-systems/references/cmake-modern.md) > CMakePresets Schema — a `RelWithDebInfo` preset for profilable builds
