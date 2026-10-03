@@ -109,6 +109,7 @@ Resolve the OS once with `uname -s`, then run the row for `--mode` + language, s
 import os, runpy, sys, tracemalloc
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tracemalloc.txt")
 entry, sys.argv = sys.argv[1], sys.argv[1:]
+sys.path[0] = os.path.dirname(os.path.abspath(entry))
 kept = None  # holds the script's globals so what it retained is still live at snapshot time
 try:
     kept = runpy.run_path(entry, run_name="__main__")

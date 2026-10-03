@@ -17,7 +17,8 @@ For each finding (`file:line`, description, P0-P3 severity, suggested fix):
 
 1. Confirm the issue still exists at the cited location, and check for conflicts with other queued fixes in the same file.
 2. Make the smallest change that fixes it, preserving existing formatting. Touch callers, headers, or tests only when the fix requires it. Comment only a non-obvious why (workaround, hidden invariant), never what the code does.
-3. Verify: lint the file (`ruff check <file>` and `mypy <file>` for Python, `shellcheck <file>` for Bash), then build and test through the `Skill` tool with `/system-developer:build-test <path>`, never by calling the compiler, build tool, or test runner yourself. Pass the narrowest path that has its own build or test manifest; `--no-test` gives a compile-only check. No new warnings, lint findings, or sanitizer reports.
+3. Verify: lint the file (`ruff check <file>` and `mypy <file>` for Python, `shellcheck <file>` for Bash), then build and test through the `Skill` tool with `/system-developer:build-test <path> --no-fix`, never by calling the compiler, build tool, or test runner yourself. Pass the narrowest path that has its own build or test manifest; `--no-test` gives a compile-only check. No new warnings, lint findings, or sanitizer reports.
+4. On failure, use the returned diagnostics to correct your change and verify again with `--no-fix`. Return failures outside the finding's scope to the caller with the failed stage, error excerpt, and log path.
 
 ### Batching and escalation
 

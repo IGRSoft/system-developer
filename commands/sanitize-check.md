@@ -20,7 +20,7 @@ Rebuild a project with the requested runtime sanitizers, run its tests under the
 - A sanitizer instruments the whole binary, so pick a compatible set per build (Compatibility Matrix). TSan never shares a binary with ASan or LSan; `all` is two sequential builds.
 - Each kind builds into its own `build-<kind>/` (`build-asan/`, `build-tsan/`, `build-msan/`), never the project's normal `build/`, so instrumented and clean artifacts don't mix.
 - Export the kind's `*_OPTIONS` for that run only, so one kind's options don't leak into the next.
-- Tee every build and run to `.context/logs/sanitize-<kind>.log`; triage reads the log, not scrollback. Take the command's own exit status, not `tee`'s (`set -o pipefail` works in bash and zsh).
+- Tee stdout and stderr (`2>&1`) from every build and run to `.context/logs/sanitize-<kind>.log`; triage reads the log, not scrollback. Take the command's own exit status, not `tee`'s (`set -o pipefail` works in bash and zsh).
 - A missing compiler or runtime for a kind never hard-fails: print the install hint, skip that kind, continue, and report the skip.
 - Suppressions only for a confirmed third-party false positive, each entry with a one-line justification. Real bugs get fixed.
 
@@ -109,11 +109,18 @@ Configure and build into `build-<kind>/` per Build Flags, teeing to the kind's l
 
 ### Phase 3: Run under sanitizers
 
-For each built kind, export its `*_OPTIONS` and run the build system's test command from `/system-developer:build-test`'s table against `build-<kind>/` (e.g. `ctest --test-dir build-<kind> --output-on-failure`), or the Python native-extension invocations, teeing to the log. Findings make the run exit non-zero; that is expected, so collect and continue.
+For each built kind, export its `*_OPTIONS` and run the build system's test command from `/system-developer:build-test`'s table against `build-<kind>/`, or the Python native-extension invocations. Capture output from successful tests too: recovering ASan and UBSan reports can leave the exit status at zero.
+
+- CMake: `ctest --test-dir build-<kind> --verbose` (also with a preset); `--output-on-failure` alone hides reports from passing tests.
+- Meson: `meson test -C build-<kind> --verbose`.
+- Python native extensions: add `-s` to each pytest invocation to disable output capture.
+- Make / autotools: include the test harness's per-test logs if it captures output from passing tests.
+
+Append stdout and stderr to the kind's log with `2>&1 | tee -a`. Record non-zero exits and continue to triage; a zero exit status does not establish CLEAN.
 
 ### Phase 4: Dedupe and triage
 
-1. Extract each report block from the logs: `ERROR: AddressSanitizer`, `runtime error:` (UBSan), `WARNING: ThreadSanitizer`, `ERROR: LeakSanitizer`, `use-of-uninitialized-value` (MSan).
+1. Regardless of each run's exit status, extract each report block from the logs: `ERROR: AddressSanitizer`, `runtime error:` (UBSan), `WARNING: ThreadSanitizer`, `ERROR: LeakSanitizer`, `use-of-uninitialized-value` (MSan).
 2. Find each report's top user-code frame: the first frame inside the project, skipping the sanitizer runtime, libc, libstdc++/libc++, and system headers.
 3. Collapse reports with the same top frame into one row with a hit count, keeping one full stack per row for the agent.
 4. Give each row a type, location, allocation/origin summary (ASan allocation site, leak allocation site, TSan other stack), and a fix class from Fix classes.

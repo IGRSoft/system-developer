@@ -34,7 +34,7 @@ Assertion syntax differs across major versions (Catch2 v2 single header vs v3 `<
 
 ## Coverage
 
-Build and run instrumented tests through `/system-developer:build-test`, using a coverage preset (`--preset`) or the project's pytest-cov configuration when one exists; then report with the tools below.
+Build and run instrumented tests through `/system-developer:build-test <path> --no-fix`, using a coverage preset (`--preset`) or the project's pytest-cov configuration when one exists; then report with the tools below.
 
 | Language | Instrument | Report |
 |---|---|---|
@@ -58,10 +58,10 @@ A test the runner doesn't discover isn't done. Wire it in: `add_test`/`gtest_dis
 
 ## Run and Fix Loop
 
-Build and run tests only through the `Skill` tool with `/system-developer:build-test <path>`, never by calling cmake, ctest, pytest, or bats yourself. Pass the narrowest path that has its own build or test manifest; use `--no-test` for a compile-only check. A compile error in a generated test is yours to fix.
+Build and run tests only through the `Skill` tool with `/system-developer:build-test <path> --no-fix`, never by calling cmake, ctest, pytest, or bats yourself. Pass the narrowest path that has its own build or test manifest; use `--no-test` for a compile-only check. `--no-fix` returns failure diagnostics for your fix loop without delegating. A compile error in a generated test is yours to fix.
 
-1. Run build-test on the target.
-2. Fix failures in the tests you wrote, then re-run.
+1. Run build-test on the target with `--no-fix`.
+2. Fix failures in the tests you wrote, then re-run with `--no-fix`. Return failures outside that scope to the caller with diagnostics.
 3. Repeat until they pass, at most 3 fix-retest rounds, then escalate to the caller.
 
 ## Return

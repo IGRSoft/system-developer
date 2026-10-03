@@ -1,6 +1,6 @@
 ---
 description: Detect the build system, configure, build, and run the test suite for C, C++, Python, or Bash projects
-argument-hint: [path (default .)] [--preset NAME] [--type Debug|Release] [--clean] [--no-test]
+argument-hint: [path (default .)] [--preset NAME] [--type Debug|Release] [--clean] [--no-test] [--no-fix]
 allowed-tools: Read, Glob, Grep, Bash, Edit, Agent
 estimated-cost:
   min-tokens: 1500
@@ -13,7 +13,7 @@ estimated-cost:
 
 # Build & Test
 
-Detect a project's build system, configure it, build it, and run its tests. Other system-developer commands use this as their build/test gate, so the green path stays deterministic, shell-only, and cheap: no agent is involved unless a phase fails, and then only the language agent that owns the failing layer, with a log excerpt.
+Detect a project's build system, configure it, build it, and run its tests. Other system-developer commands use this as their build/test gate, so the green path stays deterministic, shell-only, and cheap. By default, a failure delegates to the language agent that owns the failing layer, with a log excerpt. Use `--no-fix` when the caller owns recovery.
 
 ## Rules
 
@@ -30,6 +30,7 @@ Detect a project's build system, configure it, build it, and run its tests. Othe
 /system-developer:build-test services/parser                     # a subproject
 /system-developer:build-test . --preset ci-release               # named CMake preset
 /system-developer:build-test . --type Release --clean --no-test  # fresh Release build, no tests
+/system-developer:build-test . --no-fix                         # report failures to the caller
 ```
 
 ## Options
@@ -41,6 +42,7 @@ Detect a project's build system, configure it, build it, and run its tests. Othe
 | `--type Debug\|Release` | `Debug` | CMake single-config: `-DCMAKE_BUILD_TYPE=`; Meson: `--buildtype debug\|release`. A preset that pins its own config wins. |
 | `--clean` | off | Remove `build/` or `builddir/` before configuring; Make runs `make clean` first. No-op for Python/Bats. |
 | `--no-test` | off | Configure and build only. |
+| `--no-fix` | off | On the first failed phase, report FAIL and return diagnostics to the caller without delegation, repair edits, or automatic retries. |
 
 ## Detection: Build-System Priority
 
@@ -110,10 +112,11 @@ Substitute `path`, build dir, preset, and type.
    | `undefined reference to`, `Undefined symbols for architecture`, `ld:`/`lld:` errors, duplicate symbol, missing `-l<lib>` | `link` |
    | `ctest` failures, pytest `FAILED`/`ERROR`, bats `not ok`, assertion failures, nonzero test exit | `test` |
 
-### Delegate the fix
+### Return diagnostics or delegate the fix
 
 2. Extract the first error with about 10 lines of context (the diagnostic and its notes or backtrace), not the whole log.
-3. Delegate with the Agent tool to the owning agent only: `system-developer:c-developer`, `cpp-developer`, `python-developer`, `bash-developer`, or `system-developer` (router, also given the detected markers) when the language is ambiguous. Prompt:
+3. With `--no-fix`, report FAIL with the stage, failed command and exit status, error excerpt, and log path; mark later phases skipped and return to the caller. Do not delegate, apply repairs, or enter Re-run.
+4. Otherwise, delegate with the Agent tool to the owning agent only: `system-developer:c-developer`, `cpp-developer`, `python-developer`, `bash-developer`, or `system-developer` (router, also given the detected markers) when the language is ambiguous. Prompt:
 
    "Build-test failed at the **{stage}** stage for the {language} project at `{path}` (build system: {system}). First error and context from `{LOG}` (read more there if needed):
    ```
@@ -123,7 +126,7 @@ Substitute `path`, build dir, preset, and type.
 
 ### Re-run
 
-4. After a fix, re-run from the failing phase (re-configure if configure inputs changed). Report each cycle rather than iterating silently.
+5. After a fix, re-run from the failing phase (re-configure if configure inputs changed). Report each cycle rather than iterating silently.
 
 ## Tool Availability
 
@@ -156,9 +159,11 @@ Substitute `path`, build dir, preset, and type.
 <!-- On failure only: -->
 ### Failure Triage
 - **Stage:** {configure | compile | link | test}
+- **Failed command / exit status:** {command} / {status}
 - **First error:** {one-line summary}
-- **Delegated to:** system-developer:{agent}
-- **Proposed fix:** {summary from agent, or "see agent output"}
+- **Error context:** {excerpt}
+- **Delegated to:** {system-developer:agent, or "none (--no-fix)"}
+- **Proposed fix:** {summary from agent, or "caller owns recovery (--no-fix)"}
 
 <!-- On skipped systems only: -->
 ### Skipped
