@@ -36,9 +36,9 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 
 - **11 agents** — a `system-developer` router, four language developers (`c-developer`, `cpp-developer`, `python-developer`, `bash-developer`), `system-architector`, and five Tier-2 specialists (`sys-test-generator`, `sys-performance-engineer`, `sys-security-auditor`, `sys-code-fixer`, `sys-dependency-manager`). All inherit `agents/_base/language-agent.md`.
 - **8 commands** — language-aware review, build/test, test generation, sanitizer runs, lint/format, profiling, standard modernization, and dependency auditing, each with restrictive `allowed-tools` and an `estimated-cost` band.
-- **Complete skills tree** — 25 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, `embedded`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
+- **Complete skills tree** — 24 `SKILL.md` skills across `_shared`, `c`, `cpp`, `python`, `bash`, `embedded`, and `tooling`, with deep reference files. Version-specificity is the product: every language feature carries a standard/version marker and a pre-version fallback. The C++ standard-selection table and `skills/_shared/version-feature-matrix.md` are canonical; everything else links to them.
 - **Plugin-scoped advisory hooks** — `audit-tooluse`, `audit-subagent`, `precompact-checkpoint`, wired in `plugin.json` with corpflow-compatible dedupe keys. Advisory only: never merges `state.json` (orchestrator-owned). See [`hooks/README.md`](hooks/README.md).
-- **CC capabilities adopted** — tiered `maxTurns` runaway-loop backstops, `disallowed-tools: Write, Edit` on the two review-only auditors, fully-qualified `Task(system-developer:<agent>)` delegations, and scoped `Bash(cmd:*)` allowlists per toolchain.
+- **CC capabilities adopted** — tiered `maxTurns` runaway-loop backstops, `disallowedTools: Write, Edit` on the two review-only auditors, fully-qualified `Task(system-developer:<agent>)` delegations, and scoped `Bash(cmd:*)` allowlists per toolchain.
 
 ## Agents (11)
 
@@ -51,8 +51,8 @@ Claude Code plugin for systems and scripting development in **C**, **C++ (17/20/
 | `bash-developer` | sonnet / high | Defensive, portable Bash and POSIX shell. Strict mode, GNU/BSD divergence, shellcheck/shfmt/bats gating, injection-safe scripting. |
 | `system-architector` | opus / xhigh | Architecture pattern selection and migration planning — layered libraries, hexagonal, plugin/registry, pipeline, concurrency and ownership models, API/ABI design, semver. |
 | `sys-test-generator` | sonnet / high | Test generation across GoogleTest/Catch2, Unity/CMocka, pytest/Hypothesis, bats-core. Uses the framework the repo already has; never introduces a second one. |
-| `sys-performance-engineer` | sonnet / high (review-only) | Code-first performance review backed by perf, valgrind, py-spy, hyperfine, and native tracers. `disallowed-tools: Write, Edit`; fixes route to `sys-code-fixer`. |
-| `sys-security-auditor` | sonnet / high (review-only) | Security audit — memory safety, injection, unsafe deserialization, secrets, supply-chain CVEs, hardening-flag verification, CWE mapping. `disallowed-tools: Write, Edit`. |
+| `sys-performance-engineer` | sonnet / high (review-only) | Code-first performance review backed by perf, valgrind, py-spy, hyperfine, and native tracers. `disallowedTools: Write, Edit`; fixes route to `sys-code-fixer`. |
+| `sys-security-auditor` | sonnet / high (review-only) | Security audit — memory safety, injection, unsafe deserialization, secrets, supply-chain CVEs, hardening-flag verification, CWE mapping. `disallowedTools: Write, Edit`. |
 | `sys-code-fixer` | haiku / medium | Minimal-diff remediation for findings from review, `sys-security-auditor`, and `sys-performance-engineer`. Per-language quick-fix playbooks. |
 | `sys-dependency-manager` | haiku / low | Manifests and lockfiles across vcpkg, Conan 2, CMake FetchContent, uv, and pip; CVE/license audit; safe one-at-a-time upgrades with a build+test gate. |
 

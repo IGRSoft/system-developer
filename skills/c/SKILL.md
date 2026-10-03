@@ -10,45 +10,30 @@ description: >-
 
 # C Language Skills
 
-Modern C development: C17 baseline, C23 adoption, memory discipline, concurrency.
+Routes C work to the right leaf skill or reference: C17 baseline, C23 adoption, memory discipline, concurrency.
 
-## Skill Selection Guide
+## Skill Selection
 
-| I need to... | Use this skill |
-|--------------|----------------|
+| I need to... | Go to |
+|--------------|-------|
 | Pick C17 vs C23, adopt C23 features | [modern-c](modern-c/SKILL.md) |
-| Full C23 feature catalog with per-feature fallbacks | [modern-c/references/c23-features.md](modern-c/references/c23-features.md) |
-| Threads, `_Atomic`, memory orders, TLS | [modern-c/references/c-concurrency-atomics.md](modern-c/references/c-concurrency-atomics.md) |
+| A specific C23 feature, its compiler minimum, and C17 fallback | [c23-features.md](modern-c/references/c23-features.md) |
+| Threads, `_Atomic`, memory orders, TLS | [c-concurrency-atomics.md](modern-c/references/c-concurrency-atomics.md) |
 | Design ownership/lifetime conventions | [c-memory-ownership](c-memory-ownership/SKILL.md) |
-| Triage a crash or undefined behavior | [c-memory-ownership/references/undefined-behavior-catalog.md](c-memory-ownership/references/undefined-behavior-catalog.md) |
-| Custom allocators, arenas, pools | [c-memory-ownership/references/allocators-and-arenas.md](c-memory-ownership/references/allocators-and-arenas.md) |
-| Sanitizers, gdb/lldb, valgrind workflow | [diagnostics](${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md) |
-| Bare-metal/freestanding: registers, ISRs, no-heap, linker scripts | [embedded-systems](${CLAUDE_SKILL_DIR}/embedded/embedded-systems/SKILL.md) |
-| Input validation, command execution safety | [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md) |
-| Cross-language C/C++ or Python bindings | [ffi-interop](${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md) |
+| Triage a crash, leak, or undefined behavior | [undefined-behavior-catalog.md](c-memory-ownership/references/undefined-behavior-catalog.md) |
+| Custom allocators, arenas, pools | [allocators-and-arenas.md](c-memory-ownership/references/allocators-and-arenas.md) |
 
-## Decision Tree
+## Related Skills
 
-```
-C task?
-├── Language level / new features
-│   ├── Which standard to target → modern-c/SKILL.md (selection table)
-│   ├── Specific C23 feature + C17 fallback → modern-c/references/c23-features.md
-│   └── Shared headers with C++ → ${CLAUDE_SKILL_DIR}/cpp/SKILL.md + ffi-interop
-├── Memory
-│   ├── Ownership/lifetime design → c-memory-ownership/SKILL.md
-│   ├── Custom allocation strategy → c-memory-ownership/references/allocators-and-arenas.md
-│   └── Crash, leak, or UB triage → undefined-behavior-catalog.md + tooling/diagnostics
-├── Concurrency
-│   ├── <threads.h>, _Atomic, memory orders → modern-c/references/c-concurrency-atomics.md
-│   └── Data race triage → TSan via ${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md
-├── Bare-metal / embedded (no OS, freestanding)
-│   ├── Registers/MMIO, volatile, ISRs, no-heap, linkers → ${CLAUDE_SKILL_DIR}/embedded/embedded-systems/SKILL.md
-│   └── volatile vs atomics for ISR/main sharing → ${CLAUDE_SKILL_DIR}/embedded/embedded-systems/SKILL.md > volatile
-└── Build, lint, package → ${CLAUDE_SKILL_DIR}/tooling/build-systems/SKILL.md
-```
+| I need to... | Go to |
+|--------------|-------|
+| Sanitizers (incl. TSan for data races), gdb/lldb, valgrind | [diagnostics](../tooling/diagnostics/SKILL.md) |
+| Build, lint, package | [build-systems](../tooling/build-systems/SKILL.md) |
+| Bare-metal/freestanding: registers, ISRs, `volatile` vs atomics, no-heap, linker scripts | [embedded-skills](../embedded/SKILL.md) |
+| Input validation, command execution safety, hardening flags | [secure-coding](../_shared/secure-coding/SKILL.md) |
+| Headers shared with C++, or Python bindings | [cpp-skills](../cpp/SKILL.md), [ffi-interop](../tooling/ffi-interop/SKILL.md) |
 
-## Standard Flags Quick Reference
+## Standard Flags
 
 ```sh
 -std=c17    # Baseline: GCC 8+, Clang 6+, MSVC /std:c17 (VS 2019 16.8+)
@@ -56,34 +41,8 @@ C task?
 -std=c2x    # Pre-ratification spelling for GCC 9-13, Clang 9-17
 ```
 
-**C23 in one line**: core features (`nullptr`, `constexpr` objects, `typeof`,
-`auto`, `<stdckdint.h>`, `_BitInt`) are usable from **GCC 13+ / Clang 16+** in
-`-std=c2x`/`-std=c23` mode; `#embed` needs **GCC 15+ / Clang 19+**.
-Per-feature minimums: [c23-features.md](modern-c/references/c23-features.md).
+C23 features arrive per compiler release (Clang lags on `constexpr`; `#embed` needs GCC 15+ / Clang 19+); check [c23-features.md](modern-c/references/c23-features.md) or the [version-feature-matrix](../_shared/version-feature-matrix.md) before adopting one.
 
-GCC 15 defaults to `-std=gnu23` when no flag is given — always pin `-std`
-explicitly in the build system.
+GCC 15 defaults to `-std=gnu23` when no flag is given, so pin `-std` in the build system.
 
-**Hardening shortcut**: GCC 14+ bundles the recommended hardening set behind
-the `-fhardened` umbrella flag (`-D_FORTIFY_SOURCE=3`, `-fstack-protector-strong`,
-PIE/RELRO, and more); add `-ftrivial-auto-var-init=zero` to zero-initialize
-locals. Full flag doctrine and per-flag rationale:
-[secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md).
-
-## File Overview
-
-| Path | Purpose |
-|------|---------|
-| [_index.md](_index.md) | Full subtree navigation |
-| [modern-c/SKILL.md](modern-c/SKILL.md) | C17 vs C23 selection, C23 quick wins, hygiene flags |
-| [modern-c/references/c23-features.md](modern-c/references/c23-features.md) | Complete C23 catalog, compiler support, C17 fallbacks |
-| [modern-c/references/c-concurrency-atomics.md](modern-c/references/c-concurrency-atomics.md) | `<threads.h>`, `_Atomic`, memory orders, TLS, pthreads boundary |
-| [c-memory-ownership/SKILL.md](c-memory-ownership/SKILL.md) | Ownership conventions, cleanup patterns |
-
-## Related Skills
-
-- [cpp-skills](${CLAUDE_SKILL_DIR}/cpp/SKILL.md) — C++ standard selection and interop with C headers
-- [embedded-skills](${CLAUDE_SKILL_DIR}/embedded/SKILL.md) — bare-metal/freestanding C: MMIO, ISRs, startup, no-heap, fixed-point, linker scripts, cross-compilation
-- [version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md) — canonical standard/toolchain minimums
-- [diagnostics](${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md) — sanitizers, debuggers, profilers
-- [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md) — input validation and injection defense
+For release hardening, GCC 14+ bundles the recommended set (`_FORTIFY_SOURCE=3`, stack protector, PIE/RELRO, `-ftrivial-auto-var-init=zero`, and more) behind `-fhardened`; flag details are in [secure-coding](../_shared/secure-coding/SKILL.md).

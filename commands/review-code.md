@@ -1,7 +1,7 @@
 ---
 description: Review C, C++, Python, and Bash changes with per-language reviewers plus a security pass, ranked P0-P3
 argument-hint: [scope: file/dir/PR#/branch — default: working changes] [--quick] [--fix] [--lang c|cpp|python|bash] [--security-focus]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Edit, Agent
 estimated-cost:
   min-tokens: 4000
   max-tokens: 28000
@@ -12,149 +12,130 @@ estimated-cost:
 ---
 
 # Language-Aware Code Review
-<!-- Updated: June 2026 -->
 
-Review C, C++, Python, and Bash changes with the right specialist per language, plus a dedicated security pass, then synthesize one deduplicated, prioritized P0-P3 report. Scope defaults to your working changes; reviewers run read-only and in parallel; `--fix` hands the blocking findings to the code fixer under a minimal-diff gate.
+Review C, C++, Python, and Bash changes with one specialist per language present plus a cross-cutting security pass, then merge the findings into one deduplicated P0-P3 report. Reviewers run read-only and in parallel; only `--fix` edits, and only for P0/P1.
 
-[Extended thinking: A C heap overflow, a C++ dangling `string_view`, a Python `shell=True`, and an unquoted Bash expansion are four different review skills — one generalist pass misses most of them. This command resolves the scope once, detects which languages are actually present, fans out one read-only reviewer per detected language (each loaded with the right review focus) alongside one cross-cutting security pass, then merges and ranks the findings. The reviewers never edit; only the explicit `--fix` step does, and only for P0/P1. Keep the synthesis honest — if there are no material issues, say so rather than padding the report.]
+## Rules
 
-## CRITICAL BEHAVIORAL RULES
-
-You MUST follow these rules exactly. Violating any of them is a failure.
-
-1. **Resolve the scope before reviewing.** Apply the scope precedence (explicit args > working diff > branch/PR diff) exactly once, list the concrete files under review, and pass that same file list to every reviewer. Do NOT let reviewers re-scope independently.
-2. **Reviewers are read-only.** Phase 1 agents MUST NOT write or edit. They return structured findings only. The single place edits happen is the `--fix` step, after synthesis, and only for P0/P1 findings.
-3. **One reviewer per detected language.** Launch a reviewer only for a language that is actually present in the scope (or forced by `--lang`). Do NOT spawn a Python reviewer for a pure-C change. Run the eligible reviewers in parallel — they have no dependencies on each other.
-4. **Security pass always runs** (unless `--quick`). The `system-developer:sys-security-auditor` pass is cross-cutting and runs alongside the language reviewers, not after them.
-5. **Synthesize, deduplicate, normalize.** In Phase 2 you merge all reviewer outputs, drop duplicates and speculative claims, and normalize every surviving finding to `{file, line, category, severity, why, fix, confidence}` before ranking into P0-P3.
-6. **Tool-missing never hard-fails.** If a reviewer's underlying linter/analyzer is unavailable, print the install hint, note the reduced depth for that language, and continue. Never abort the whole review over one missing tool.
-7. **No manufactured feedback.** If a reviewer or the synthesis finds no material issue, report that plainly. Do NOT invent P2/P3 nits to fill the report.
-8. **Never enter plan mode.** This command IS the procedure — execute it.
+- Resolve the scope once, print the file list, and pass that same list to every reviewer; reviewers don't re-scope.
+- Launch a reviewer only for a language present in scope (or forced by `--lang`).
+- A missing linter or analyzer reduces depth for that language; print the install hint and continue.
+- If nothing material is found, say so. Don't pad the report with P2/P3 nits.
 
 ## Usage
 
 ```bash
-# Review your current working changes (staged + unstaged)
-/system-developer:review-code
-
-# Review a specific directory
-/system-developer:review-code src/
-
-# Review a single file
-/system-developer:review-code src/parser.cpp
-
-# Review a branch or PR against the base
-/system-developer:review-code feature/zstd-stream
-/system-developer:review-code 142            # PR number
-
-# Fast single-agent pass for quick feedback
-/system-developer:review-code src/ --quick
-
-# Review, then auto-fix the P0/P1 findings
-/system-developer:review-code src/ --fix
-
-# Force a language when detection is ambiguous (e.g. extensionless scripts)
-/system-developer:review-code scripts/ --lang bash
+/system-developer:review-code                        # working changes (staged + unstaged)
+/system-developer:review-code src/parser.cpp         # file or directory
+/system-developer:review-code feature/zstd-stream    # branch vs default branch
+/system-developer:review-code 142                    # PR number
+/system-developer:review-code src/ --quick           # single-agent pass
+/system-developer:review-code src/ --fix             # review, then fix P0/P1
+/system-developer:review-code scripts/ --lang bash   # force language (extensionless scripts)
 ```
 
 ## Options
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `scope` | working changes | File, directory, PR number, or branch to review. See Scope Resolution. |
-| `--quick` | off | Single combined reviewer pass for rapid feedback. Skips parallel fan-out and the dedicated security pass; folds a lightweight security check into the one pass. |
-| `--fix` | off | After synthesis, delegate P0/P1 findings to `system-developer:sys-code-fixer` under a minimal-diff gate. P2/P3 are never auto-fixed. |
-| `--lang c\|cpp\|python\|bash` | auto | Force the reviewer set instead of detecting. Repeatable conceptually (`--lang c --lang python`); use for extensionless scripts or to narrow a mixed repo. |
-| `--security-focus` | off | Raise the security pass priority: instruct `sys-security-auditor` to go deeper (sanitizer-class bugs, injection, secrets, supply chain) and rank its findings first in ties. |
+| `scope` | working changes | File, directory, PR number, or branch. See Scope Resolution. |
+| `--quick` | off | One combined reviewer with a light security check; no fan-out, no dedicated security pass. |
+| `--fix` | off | After synthesis, send P0/P1 findings to `system-developer:sys-code-fixer`. P2/P3 are never auto-fixed. |
+| `--lang c\|cpp\|python\|bash` | auto | Force the reviewer set instead of detecting; may be given more than once. |
+| `--security-focus` | off | Deeper security pass (sanitizer-class bugs, hardening flags, injection, secrets, supply chain); security findings win severity ties. |
 
 ## Scope Resolution
 
-Resolve the set of files under review **once**, top-down — the first applicable rule wins:
+First matching rule wins:
 
-1. **Explicit args** — a file, directory, PR number, or branch named on the command line.
-   - File or directory → review those paths directly.
-   - PR number (bare integer) → `gh pr diff <N> --name-only` for the file list (and `gh pr diff <N>` for the patch). If `gh` is unavailable, print the install hint and fall back to rule 3 against the PR's base branch.
-   - Branch name → diff against the merge-base with the default branch: `git diff --name-only $(git merge-base HEAD <branch>)..<branch>`.
-2. **Working changes** (no args) — staged and unstaged tracked changes:
-   `git diff --name-only HEAD` (plus `git diff --cached --name-only`). This is the default.
-3. **Branch/PR diff** (fallback) — when neither explicit paths nor working changes apply, diff the current branch against the default branch's merge-base.
+1. **Explicit arg.**
+   - File or directory: review those paths.
+   - PR number: `gh pr diff <N> --name-only` for files, `gh pr diff <N>` for the patch. Without `gh`, warn and fall back to rule 3 against the PR's base branch.
+   - Branch: `git diff --name-only <default>...<branch>` (merge-base with the default branch).
+2. **Working changes** (no arg): `git diff --name-only HEAD` (staged and unstaged tracked changes).
+3. **Branch diff** (no arg, clean tree): current branch vs the default branch's merge-base.
 
-After resolving, **print the concrete file list** and the line ranges (where a diff is involved) before launching any reviewer. Reviewers receive this exact list — they do not re-derive scope. Exclude vendored/build artifacts (`build/`, `builddir/`, `.venv/`, `node_modules/`, vendored third-party trees) from the list.
+Exclude `build/`, `builddir/`, `.venv/`, `node_modules/`, and vendored third-party trees. Print the file list, with line ranges where a diff is involved, before launching reviewers.
 
 ## Language Detection
 
-Detect which languages appear in the resolved file list using the canonical `skill: language-detection` table — do not fork its routing logic. Summary for this command:
-
-| Files in scope | Reviewer to launch |
-|----------------|--------------------|
-| `.c`, and `.h` in a C-only tree | `system-developer:c-developer` |
-| `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.ixx` (or `.h` alongside C++ sources) | `system-developer:cpp-developer` |
+| Files in scope | Reviewer |
+|----------------|----------|
+| `.c`; `.h` in a tree with no C++ sources | `system-developer:c-developer` |
+| `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.ixx`; `.h` alongside C++ sources | `system-developer:cpp-developer` |
 | `.py`, `.pyi` | `system-developer:python-developer` |
 | `.sh`, `.bash`, `.bats` | `system-developer:bash-developer` |
 
-- A `--lang` flag overrides detection for that language (use it for extensionless scripts identified by shebang, or to scope a mixed repo).
-- A change spanning several languages launches **one reviewer per language present** — they run in parallel.
-- Bare `.h` headers follow `skill: language-detection` tie-break 2 (count as C unless C++ markers exist; cross-boundary API headers go to the router).
-- If nothing recognized is in scope, report "no reviewable C/C++/Python/Bash sources in scope" and stop.
+Classify extensionless files by shebang. A file still unclassified goes to `system-developer:system-developer`; note that routing in the report. If nothing reviewable is in scope, print the error below and stop.
+
+## Review Focus
+
+Every language reviewer also checks source-comment hygiene against `corpflow:code-comment-standard`: flag comments that restate the code, narrate design history or before/after, or enumerate callers (comments carry WHY and contract only).
+
+### C and C++
+
+| Language | Focus |
+|----------|-------|
+| C | buffer bounds and overflow; `malloc`/`free` ownership (double-free, use-after-free, leaks on error paths); unchecked return values and `errno`; integer and signedness overflow; format-string safety; undefined behavior; POSIX portability (GNU vs BSD) |
+| C++ | RAII and ownership (Rule of Zero/Five, naked `new`/`delete`, leaks on exception paths); dangling `string_view`/`span`; exception-safety guarantees; move/copy correctness; const-correctness; iterator and lifetime invalidation; undefined behavior |
+
+### Python and Bash
+
+| Language | Focus |
+|----------|-------|
+| Python | typing correctness and `Any` leaks; async misuse (blocking calls in coroutines, unawaited coroutines, unreferenced `create_task`, `gather` vs `TaskGroup`); unclosed files/sockets and missing context managers; mutable default arguments; broad or swallowed exceptions; error propagation |
+| Bash | quoting and word-splitting (SC2086 and friends); strict mode and its caveats; command injection (`eval`, unsanitized input, missing `--`); unsafe `PATH` and temp-file handling; portability (bashisms, GNU vs BSD); exit-status handling |
+
+## Severity
+
+| Priority | Meaning |
+|----------|---------|
+| P0 | Block merge: correctness or security broken (overflow, UAF, injection, observable UB, failing tests) |
+| P1 | Fix in this change: defect likely to bite (leak on error path, data race, bare `except:`, unquoted expansion of user input) |
+| P2 | Should fix: quality and maintainability |
+| P3 | Nice to have: style and polish |
 
 ## Workflow
 
-### `--quick` path (single pass)
+### `--quick`
 
-When `--quick` is set, skip the fan-out entirely:
+Resolve scope, pick the dominant language, and launch its reviewer alone with the Agent tool using the reviewer prompt below, prefixed with "Quick" and with "Include a light security check." appended. Normalize and print the report. Use the full path for mixed-language changes or pre-merge gates.
 
-1. Resolve scope and detect the dominant language.
-2. **Use Task tool with subagent_type="system-developer:<dominant-language-agent>"** (e.g. `system-developer:cpp-developer`).
-   Prompt: "Quick read-only review of these files: {file_list}. Focus on correctness and security for {language}: {focus_bullets_for_language}. Do NOT edit. Return findings as a list of `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so directly."
-3. Normalize and print the report (Output Format). Skip the dedicated security pass — the single reviewer folds in a lightweight security check.
+### Phase 1: Parallel review
 
-`--quick` is for fast feedback on a single-language change; for mixed repos or pre-merge gates, use the full path.
+In one message, launch with the Agent tool one reviewer per detected language plus the security pass.
 
-### Phase 1: Parallel Read-Only Review
+#### Language reviewer
 
-Launch every eligible reviewer **simultaneously** (one per detected language) plus the security pass. All are read-only and receive the same resolved file list. Each language reviewer gets a language-specific review focus:
+`subagent_type` from Language Detection:
 
-**C — Use Task tool with subagent_type="system-developer:c-developer"**
-- Focus: buffer bounds and overflow, `malloc`/`free` ownership and double-free/use-after-free, unchecked allocation failure, `errno` handling and unchecked return values, integer overflow and signedness, format-string safety, undefined behavior, POSIX portability (GNU vs BSD), source-comment hygiene (comments that restate what the code does, narrate history/before-after context, or enumerate call sites; per `corpflow:code-comment-standard`: WHY/contract only).
-- Prompt: "Read-only review of the C files: {file_list}. Review for: buffer bounds/overflow, malloc/free ownership (double-free, use-after-free, leaks on error paths), unchecked return values and errno, integer/signedness overflow, format-string safety, undefined behavior, and source-comment hygiene (flag comments that restate the code, narrate design history/before-after, or enumerate callers — WHY/contract-only standard). Do NOT edit any file. Return findings as a list of `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so directly."
+"Read-only review of the {language} files: {file_list}. Review for: {focus row}; and source-comment hygiene (flag comments that restate the code, narrate design history or before/after, or enumerate callers; WHY/contract only). Don't edit any file. Return findings as `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so."
 
-**C++ — Use Task tool with subagent_type="system-developer:cpp-developer"**
-- Focus: RAII and ownership (Rule of Zero/Five, naked `new`/`delete`, leaked resources on exception paths), dangling references (`string_view`/`span` outliving its backing store), exception safety (basic/strong/nothrow guarantees), move/copy correctness, const-correctness, lifetime/iterator invalidation, undefined behavior, source-comment hygiene (comments that restate what the code does, narrate history/before-after context, or enumerate call sites; per `corpflow:code-comment-standard`: WHY/contract only).
-- Prompt: "Read-only review of the C++ files: {file_list}. Review for: RAII/ownership (Rule of Zero/Five, naked new/delete, leaks on exception paths), dangling references (string_view/span lifetime traps), exception safety guarantees, move/copy correctness, const-correctness, iterator/lifetime invalidation, undefined behavior, and source-comment hygiene (flag comments that restate the code, narrate design history/before-after, or enumerate callers — WHY/contract-only standard). Do NOT edit any file. Return findings as a list of `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so directly."
+#### Security pass
 
-**Python — Use Task tool with subagent_type="system-developer:python-developer"**
-- Focus: type-annotation correctness and `Any` leaks, async misuse (blocking calls in coroutines, unawaited coroutines, fire-and-forget `create_task` without a reference, `gather` vs `TaskGroup`), resource handling (unclosed files/sockets, missing context managers), mutable default arguments, broad `except:`/swallowed exceptions, error propagation, source-comment hygiene (comments that restate what the code does, narrate history/before-after context, or enumerate call sites; per `corpflow:code-comment-standard`: WHY/contract only).
-- Prompt: "Read-only review of the Python files: {file_list}. Review for: typing correctness and Any leaks, async misuse (blocking calls in async code, unawaited coroutines, unreferenced create_task, gather-vs-TaskGroup), resource handling (unclosed files/sockets, missing context managers), mutable default arguments, broad/swallowed exceptions, error propagation, and source-comment hygiene (flag comments that restate the code, narrate design history/before-after, or enumerate callers — WHY/contract-only standard). Do NOT edit any file. Return findings as a list of `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so directly."
+Skipped with `--quick`; `subagent_type="system-developer:sys-security-auditor"`:
 
-**Bash — Use Task tool with subagent_type="system-developer:bash-developer"**
-- Focus: quoting (unquoted expansions, word-splitting/glob, SC2086), strict mode (`set -euo pipefail` and its honest caveats), command injection (`eval`, unsanitized input in commands, missing `--` separators), unsafe `PATH`/temp-file handling, portability (bashism vs POSIX, GNU vs BSD), exit-status handling, source-comment hygiene (comments that restate what the code does, narrate history/before-after context, or enumerate call sites; per `corpflow:code-comment-standard`: WHY/contract only).
-- Prompt: "Read-only review of the shell scripts: {file_list}. Review for: quoting/word-splitting (SC2086 and friends), strict mode and its caveats, command injection (eval, unsanitized input, missing `--` separators), unsafe PATH/temp-file handling, portability (bashisms, GNU vs BSD), exit-status handling, and source-comment hygiene (flag comments that restate the code, narrate design history/before-after, or enumerate callers — WHY/contract-only standard). Do NOT edit any file. Return findings as a list of `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so directly."
-
-**Security pass (always, unless `--quick`) — Use Task tool with subagent_type="system-developer:sys-security-auditor"**
-- Prompt: "Read-only cross-cutting security review of: {file_list} (languages present: {languages}). Cover memory-safety classes (overflow, UAF, double-free), injection (command, SQL, path, format string), unsafe deserialization (pickle, `yaml.load`, `shell=True`), secrets in code/history, input validation at trust boundaries, and supply-chain risk in changed dependencies. Map each finding to a CWE where applicable. Do NOT edit any file. Return findings as a list of `{file, line, category (CWE), severity (P0-P3), why, fix, confidence}`. {If --security-focus: 'Go deep — include sanitizer-class and hardening-flag observations.'} If there are no material issues, say so directly."
-
-[SYNC POINT: Wait for all Phase 1 reviewers before synthesis.]
+"Read-only cross-cutting security review of: {file_list} (languages: {languages}). Cover memory-safety classes (overflow, UAF, double-free), injection (command, SQL, path, format string), unsafe deserialization (pickle, `yaml.load`, `shell=True`), secrets in code or history, input validation at trust boundaries, and supply-chain risk in changed dependencies. Map findings to CWE where applicable. {If --security-focus: 'Go deep: include sanitizer-class and hardening-flag observations.'} Don't edit any file. Return findings as `{file, line, category (CWE), severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so."
 
 ### Phase 2: Synthesis
 
-1. **Collect** every reviewer's findings (language reviewers + security pass).
-2. **Deduplicate** — the security pass and a language reviewer will overlap (e.g. both flag a buffer overflow). Merge duplicates at the same `{file, line}`, keeping the higher severity and the clearer fix; credit both lenses in `why`.
-3. **Filter** — drop speculative claims with no concrete evidence and drop pure style nits unless they hide a real defect. Per Rule 7, do not backfill. Source-comment hygiene findings from the language reviewers are not pure style nits — preserve them: they flag comments violating `corpflow:code-comment-standard` (WHY/contract-only; no restated code, design history/before-after, or call-site enumeration).
-4. **Normalize** every survivor to `{file, line, category, severity, why, fix, confidence}` (severity from `skill: severity-matrix` P0-P3; confidence = high/medium/low).
-5. **Rank** into P0-P3. With `--security-focus`, security findings win severity ties.
-6. **Emit** the Output Format report.
+After all reviewers return:
 
-### Optional: `--fix` (P0/P1 only)
+1. Merge duplicates at the same `{file, line}` (the security pass and a language reviewer often overlap), keeping the higher severity and clearer fix and crediting both lenses in `why`.
+2. Drop speculative claims without concrete evidence and pure style nits that hide no defect. Comment-hygiene findings are not style nits; keep them.
+3. Normalize survivors to `{file, line, category, severity, why, fix, confidence}` (confidence high/medium/low), rank by the Severity table, and print the Output Format.
 
-If `--fix` is set, after synthesis:
+### `--fix` (P0/P1 only)
 
-**Use Task tool with subagent_type="system-developer:sys-code-fixer"**
-Prompt: "Apply minimal, targeted fixes for these P0/P1 findings from code review: {p0_p1_findings as `{file, line, category, fix}`}. Minimal-diff gate: change only what each finding requires; do not refactor, reformat untouched code, or fix P2/P3 items. Preserve behavior outside the stated defect. After fixing, report each change as `{file, line, finding, change}` and list any finding you could NOT safely auto-fix (needs human judgment, API redesign, or broader change)."
+`subagent_type="system-developer:sys-code-fixer"`:
 
-- Only P0/P1 with a concrete, localized fix are eligible. Anything needing design judgment is returned for manual handling.
-- Re-run a focused review on the touched files to confirm the fix introduced no regression (a single `--quick` pass over the changed files is sufficient).
+"Apply minimal, targeted fixes for these P0/P1 code-review findings: {findings as `{file, line, category, fix}`}. Change only what each finding requires; don't refactor, reformat untouched code, or fix P2/P3 items. Preserve behavior outside the stated defect. Report each change as `{file, line, finding, change}` and list findings you could not safely auto-fix (needs human judgment, API redesign, or broader change)."
+
+Send only findings with a concrete, localized fix; return the rest for manual handling. Then run a `--quick` pass over the touched files to confirm no regression.
 
 ## Output Format
+
+One report, shown in two parts.
 
 ```markdown
 ## Code Review Report
@@ -173,7 +154,11 @@ Prompt: "Apply minimal, targeted fixes for these P0/P1 findings from code review
 | P1 (fix in this change) | {n} |
 | P2 (should fix) | {n} |
 | P3 (nice to have) | {n} |
+```
 
+### Report: findings, fixes, and notes
+
+```markdown
 ### P0 — Must Fix Before Merge
 | File:Line | Category | Why | Fix | Confidence |
 |-----------|----------|-----|-----|------------|
@@ -223,27 +208,17 @@ Install: brew install gh   (then `gh auth login`)
 Falling back to a branch diff against the default branch.
 ```
 
-### Reviewer tool missing (reduced depth)
-Print the relevant install hint, note reduced depth for that language in the report, and continue — never hard-fail:
+### Reviewer tool missing
 
 | Missing tool | Install hint |
 |--------------|--------------|
-| `clang-tidy` / `clang-format` / `llvm` analyzers (C/C++) | `brew install llvm` |
+| `clang-tidy` / `clang-format` (C/C++) | `brew install llvm` |
 | `ruff` (Python) | `uv tool install ruff` |
-| `mypy` / `pyright` (Python typing) | `uv tool install mypy` (or `pyright`) |
+| `mypy` / `pyright` (Python) | `uv tool install mypy` (or `pyright`) |
 | `shellcheck` / `shfmt` (Bash) | `brew install shellcheck shfmt` |
-
-### Ambiguous language
-If detection cannot classify a file (e.g. extensionless), apply `skill: language-detection` shebang/tie-break rules; if still ambiguous, route it to `system-developer:system-developer` and note the routing in the report.
 
 ## See Also
 
-- `skill: language-detection` — canonical marker → language → agent routing (keep this command's detection in sync).
-- `skill: severity-matrix` — P0-P3 definitions used by the synthesis ranking.
-- `skill: secure-coding` — input-validation and injection patterns the security pass draws on.
-- `corpflow:code-comment-standard` — the compact code-documentation standard the language reviewers check source comments against (WHY/contract-only; no design provenance/history/call-site enumeration).
-- `/system-developer:fix-quick` — run formatters/linters first to clear P3 noise before review.
-- `/system-developer:build-test` — confirm the change builds and tests green before or after review.
-- `/system-developer:sanitize-check` — escalate a memory/UB finding to ASan/UBSan/TSan confirmation.
-
-If there are no material issues, say that directly instead of manufacturing feedback.
+- `/system-developer:fix-quick` — clear formatter/linter noise before review.
+- `/system-developer:build-test` — confirm the change builds and tests green.
+- `/system-developer:sanitize-check` — confirm a memory/UB finding under ASan/UBSan/TSan.

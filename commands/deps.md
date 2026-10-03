@@ -1,7 +1,7 @@
 ---
 description: Audit, upgrade, or add C, C++, and Python dependencies — CVE and license report, then gated one-at-a-time upgrades
 argument-hint: audit|upgrade|add [package] [--manager vcpkg|conan|fetchcontent|uv]
-allowed-tools: Read, Edit, Glob, Grep, Bash, WebSearch, WebFetch
+allowed-tools: Read, Edit, Glob, Grep, Bash, WebSearch, WebFetch, Agent, Skill
 estimated-cost:
   min-tokens: 3000
   max-tokens: 18000
@@ -12,211 +12,148 @@ estimated-cost:
 ---
 
 # Dependency Lifecycle (audit / upgrade / add)
-<!-- Updated: July 2026 -->
 
-Three subcommands select the operation from the first argument, across the four package managers this plugin supports — vcpkg, Conan 2, CMake `FetchContent`, and uv:
+Assess or change dependencies across the four managers this plugin supports: vcpkg, Conan 2, CMake `FetchContent`, and uv. Dependency changes carry the widest blast radius in a systems project (one bump can change ABI, drop a symbol, or pull in a CVE), so read-only assessment is kept separate from mutation, and every mutation is one exact-pinned dependency behind a build+test gate. This command owns discovery, the gate, and the report; version-jump risk, breaking-change analysis, and manifest edits go to `system-developer:sys-dependency-manager`.
 
-- **`deps audit [--manager M]`** — outdated-versions report, CVE lookup, and license inventory. Read-only; changes nothing. See **Subcommand: `audit`** below.
-- **`deps upgrade <package> [--manager M]`** — advance exactly one dependency, pin an exact version, and re-run the build and tests before the next. See **Subcommand: `upgrade`** below.
-- **`deps add <package> [--manager M]`** — introduce a new pinned dependency to the right manifest. See **Subcommand: `add`** below.
+## Dispatch
 
-**Dispatch**: parse the first token of `$ARGUMENTS`. `audit` → the `audit` subcommand with the remaining args as scope; `upgrade` → the `upgrade` subcommand with the next token as the package; `add` → the `add` subcommand with the next token as the package. **If the first token is absent or is not one of the three, default to `audit`** — the read-only path is always the safe fallback. `upgrade` and `add` without a package name are an error (see Error Handling); never guess which dependency the user meant.
+Parse the first token of `$ARGUMENTS`:
 
-**Exception — a flag that names a mutating mode is an error, not a fallback.** The `audit` default is safe for an empty token, a bare path, or an unrecognized-but-harmless word. It is *not* safe for `--upgrade` or `--add`: those fall through to "not one of the three", silently run a read-only audit, and hand the caller an audit result for a mutation they asked for — "no action taken" reads as "nothing to do". If `--upgrade` or `--add` appears anywhere in `$ARGUMENTS`, stop and emit the Error Handling message; do not fall back to `audit`.
+- `audit [--manager M]`: outdated report, CVE lookup, license inventory. Read-only.
+- `upgrade <package> [--manager M]`: advance one dependency one step, pin exact, run the gate.
+- `add <package> [--manager M]`: add a new exact-pinned dependency.
 
-[Extended thinking: Dependency changes are the highest-blast-radius edits in a systems project — one transitive bump can silently change ABI, drop a symbol, or pull in a CVE. This command separates read-only assessment (audit) from mutation (upgrade/add) and forces upgrades through a one-dependency, pin-exact, build-and-test-gated loop. Manifest discovery is shared with `skill: language-detection`; CVE lookup prefers a local `osv-scanner` and falls back to the osv.dev API; license inventory is best-effort and never blocks. Security findings are phrased in `corpflow:security-review-process` vocabulary so they flow cleanly into an SR stage. The heavy reasoning — version-jump risk, breaking-change analysis, manifest edits — is delegated to `system-developer:sys-dependency-manager`; this command owns discovery, the gate loop, and reporting.]
+An absent or unrecognized first token (empty, a bare path, a harmless word) defaults to `audit`, the safe path. Two exceptions stop with an error instead of falling back, because an audit result would read as "nothing to do" for work never attempted:
 
-## CRITICAL BEHAVIORAL RULES
+- `--upgrade` or `--add` anywhere in the arguments.
+- `upgrade` or `add` without a package name. Don't guess which dependency the user meant.
 
-You MUST follow these rules exactly. Violating any of them is a failure.
+## Rules
 
-1. **Audit is strictly read-only.** In `audit` mode, do NOT edit any manifest, lockfile, or source. Discovery, queries, and reporting only. If the user wants changes, they re-run with `upgrade` or `add`.
-2. **Upgrade ONE dependency at a time.** Never batch upgrades. Pin the new version to an *exact* version (not a range), then run the build+test gate (`/system-developer:build-test`) before proposing the next dependency. A failed gate stops the loop — report and wait.
-3. **Pin exact, never float.** Every version this command writes is exact: a concrete vcpkg version + updated baseline, a Conan `pkg/x.y.z`, a `FetchContent` `GIT_TAG` pinned to a release tag (plus `GIT_SHALLOW TRUE`), or a uv lockfile-resolved pin. Never introduce `*`, `^`, `~`, `latest`, `main`, or an unpinned `GIT_TAG`.
-4. **Single-command Bash invocations.** Use each tool's own directory flags (`vcpkg --x-manifest-root=DIR`, `conan` from the project via `--`-scoped args, `uv --project DIR`). Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
-5. **Tool-missing never hard-fails.** If a package manager or scanner binary is absent, print the install hint, skip that manager's pass, and continue with the others. Report what was skipped. A missing `osv-scanner` falls back to the osv.dev API via WebFetch — never skip the CVE pass silently.
-6. **Delegate the reasoning, own the loop.** Hand version-jump risk, breaking-change analysis, and manifest edits to `system-developer:sys-dependency-manager`. This command performs discovery, runs the build+test gate, and synthesizes the report.
-7. **Security findings use SR vocabulary.** Phrase every CVE/advisory finding in `corpflow:security-review-process` terms (severity, CVE/advisory id, affected version range, fixed-in version, remediation) so the output is consumable by an SR stage.
-8. **Never enter plan mode.** This command IS the procedure — execute it.
+### Editing and pinning
+
+- `audit` edits nothing: no manifest, lockfile, or source.
+- One dependency per `upgrade` run. After the gate, report and stop; the user re-runs for the next. A failed gate stops the run.
+- Every version written is exact: a vcpkg `overrides[]` version, Conan `pkg/x.y.z`, a FetchContent `GIT_TAG` release tag or full SHA, or a uv lockfile pin. Never `*`, `^`, `~`, `latest`, a branch, or an unpinned `GIT_TAG`.
+- Use each tool's directory flag (`vcpkg --x-manifest-root=DIR`, `uv --project DIR`, a path argument for `conan`) instead of `cd` or `&&` chains; scoped Bash permissions don't match compound commands.
+
+### Missing tools and reporting
+
+- A missing manager or scanner never hard-fails: print its install hint, skip that pass, continue, and list it under Skipped. A missing `osv-scanner` means the osv.dev API fallback, not a skipped CVE pass. Report a hard FAIL only when every eligible pass was skipped.
+- Phrase every vulnerability in SR terms: severity (Critical/High/Medium/Low from CVSS), advisory id (CVE-/GHSA-/OSV-), affected range, fixed-in version, remediation. Critical/High first.
+- CLI flags and osv.dev coverage change between versions; where a command below is uncertain for the installed toolchain, check `--help` before relying on it.
 
 ## Usage
 
 ```bash
-# Read-only audit of the current project (auto-detect all managers)
-/system-developer:deps audit
-
-# Audit only the uv-managed Python dependencies
-/system-developer:deps audit --manager uv
-
-# Upgrade a single dependency one step, with a build+test gate
-/system-developer:deps upgrade fmt --manager vcpkg
-
-# Add a new pinned dependency to the detected manifest
+/system-developer:deps audit                          # all detected managers
+/system-developer:deps audit --manager uv             # uv only
+/system-developer:deps upgrade fmt --manager vcpkg    # one step, gated
 /system-developer:deps add nlohmann-json --manager vcpkg
 ```
 
-If no subcommand is given, default to `audit`.
-
-## Options
-
-| Option | Default | Effect |
-|--------|---------|--------|
-| `audit` | (default) | Read-only: outdated report + CVE lookup + license inventory. No edits. |
-| `upgrade <package>` | — | Advance one dependency one step; pin exact; run the build+test gate. `<package>` is required. |
-| `add <package>` | — | Add a new pinned dependency to the detected (or `--manager`-selected) manifest. |
-| `--manager vcpkg\|conan\|fetchcontent\|uv` | auto | Restrict to one package manager. Without it, every discovered manager is processed. |
+`--manager vcpkg|conan|fetchcontent|uv` restricts the run to one manager; without it, `audit` processes every discovered manager.
 
 ## Manifest Discovery
 
-Scan the project root (and one level of obvious subdirs: `cmake/`, `deps/`, `external/`) and record every manifest found. A repo may carry more than one — process each in `audit`; require `--manager` to disambiguate `upgrade`/`add` when several are present. The marker → language → owning-agent mapping is canonical in `skill: language-detection`; keep this discovery list in sync with it.
+Scan the project root plus `cmake/`, `deps/`, `external/`. `audit` processes every manifest found; `upgrade`/`add` require `--manager` when more than one manager is present.
 
-| Manager | Manifest(s) | Lock/pin artifact | Owning language |
-|---------|-------------|-------------------|-----------------|
-| vcpkg | `vcpkg.json` | `builtin-baseline` field + `overrides[]` (and `vcpkg-configuration.json`) | C / C++ |
-| Conan 2 | `conanfile.txt` / `conanfile.py` | `conan.lock` | C / C++ |
-| FetchContent | `FetchContent_Declare(...)` blocks in `CMakeLists.txt` / `*.cmake` | the pinned `GIT_TAG` itself | C / C++ |
-| uv | `pyproject.toml` | `uv.lock` | Python |
+| Manager | Manifest(s) | Pin of record | Language |
+|---------|-------------|---------------|----------|
+| vcpkg | `vcpkg.json` (read `dependencies[]`, `builtin-baseline`, `overrides[]`) | baseline commit + `overrides[]` (and `vcpkg-configuration.json`) | C / C++ |
+| Conan 2 | `conanfile.py` (`requires`/`requirements()`) or `conanfile.txt` (`[requires]`) | `conan.lock` | C / C++ |
+| FetchContent | `FetchContent_Declare(...)` in `CMakeLists.txt` / `*.cmake` (parse `GIT_REPOSITORY` + `GIT_TAG`) | the `GIT_TAG` itself | C / C++ |
+| uv | `pyproject.toml` (`[project].dependencies`, `[dependency-groups]`) | `uv.lock` | Python |
 
-Discovery details:
+### Unpinned and non-uv projects
 
-- **vcpkg:** the presence of `vcpkg.json` is authoritative. Read `dependencies[]`, `builtin-baseline`, and any `overrides[]`. The baseline commit fixes the version set; pinning happens via `overrides[]` + baseline, not loose version strings.
-- **Conan 2:** `conanfile.py` (with a `requires`/`requirements()` block) or `conanfile.txt` (`[requires]` section). A committed `conan.lock` is the pin of record.
-- **FetchContent:** grep for `FetchContent_Declare(` and parse each block's `GIT_REPOSITORY` + `GIT_TAG`. A `GIT_TAG` that is a branch name (`main`, `master`) or a moving ref is an unpinned dependency — flag it in audit as a supply-chain finding and offer to pin it to a release tag with `GIT_SHALLOW TRUE`.
-- **uv:** `pyproject.toml` `[project].dependencies` / `[dependency-groups]`; `uv.lock` is the resolved pin set.
+- A FetchContent `GIT_TAG` naming a branch (`main`, `master`) or other moving ref is unpinned: report it as a supply-chain finding and offer to pin it in `upgrade` mode.
+- `requirements*.txt` or `setup.py` without `uv.lock` is a non-uv Python project: note it, recommend migrating to uv, and operate on it only under `--manager uv` after `uv lock` creates a lockfile.
 
-Auxiliary `requirements*.txt` or `setup.py` without a `uv.lock` is a non-uv Python project — note it and recommend `uv` migration, but only operate on it under `--manager uv` after `uv lock` materializes a lockfile.
+## Subcommand: `audit`
 
-## Subcommand: `audit` (read-only)
+Run discovery (filtered by `--manager`); if nothing is found, emit the "no manifests" error. Then, per manager:
 
-Produces three sections per discovered manager: **Outdated**, **Vulnerabilities (CVE)**, **Licenses**. No edits.
+### Outdated
 
-### Phase 1: Discover
+| Manager | Query |
+|---------|-------|
+| uv | `uv pip list --outdated --project <path>` |
+| vcpkg | `vcpkg x-update-baseline --dry-run --x-manifest-root=<path>` (what a baseline bump would move) |
+| Conan 2 | `conan graph info <path> --format=json`, then `conan search "<pkg>/*" -r=conancenter` for newer releases |
+| FetchContent | No tool: compare each `GIT_TAG` to the upstream's latest release via WebSearch/WebFetch (`<repo>/releases`) |
 
-Run Manifest Discovery. If `--manager` is set, keep only that manager. If nothing is found, emit the "no manifests" error and stop.
+### CVEs: scanners
 
-### Phase 2: Outdated Report (Bash, per manager)
+1. With `osv-scanner` installed, scan the lockfile: `osv-scanner --lockfile=<path>/uv.lock` or `conan.lock`. osv-scanner doesn't read `vcpkg.json`, and FetchContent has no lockfile; use the API path for their `(name, version)` pairs.
+2. For uv, also run `uv audit --project <path>` (fallback `uvx pip-audit`) and report the union, de-duplicated by advisory id. For a scanner that doesn't read `uv.lock`, export the PEP 751 lockfile with `uv export --format pylock.toml --project <path> -o pylock.toml` and scan that.
+### CVEs: osv.dev API fallback
 
-Run the manager's outdated query, teeing nothing (read-only). Capture each tool's exit status, not a pipe's.
+3. Without a scanner, POST each `(ecosystem, name, version)` to `https://api.osv.dev/v1/query` via WebFetch with body `{"package": {"ecosystem": "PyPI", "name": "<name>"}, "version": "<version>"}`. Native C/C++ deps: query by upstream project; osv.dev coverage is partial, so cross-check the NVD via WebSearch when it returns nothing for a well-known library.
 
-| Manager | Outdated query | Notes |
-|---------|----------------|-------|
-| uv | `uv pip list --outdated --project <path>` | Lists only outdated packages with current → latest. (`uv pip list --outdated` is the reliable outdated filter; `uv tree` shows the graph, not an outdated diff — verify against your toolchain.) |
-| vcpkg | `vcpkg update --x-manifest-root=<path>` | Lists ports upgradeable relative to the current baseline. `vcpkg x-update-baseline --dry-run` previews what a baseline bump would move. |
-| Conan 2 | `conan graph info <path> --format=json` | Dump the dependency graph (names + versions); compare against `conan search "<pkg>/*" -r=conancenter` for newer releases. |
-| FetchContent | (no tool) | For each `GIT_TAG`, query the upstream for newer release tags via WebSearch/WebFetch (`<repo>/releases`). Compare the pinned tag to the latest release. |
+### Licenses
 
-If a manager's binary is missing, print its install hint (see Tool Availability), skip its outdated pass, and continue.
+Best-effort; never blocks.
 
-### Phase 3: CVE Lookup
+- uv: `uv pip show <pkg>` or `License`/classifier metadata; `uvx pip-licenses` for a full pass.
+- vcpkg / Conan: the port manifest `license` field or recipe `license` attribute.
+- FetchContent: "license not declared in manifest; verify upstream `LICENSE`."
 
-Prefer a locally installed scanner; fall back to the osv.dev API. **Never skip this pass silently** — a missing scanner means fall back, not omit.
+GPL/AGPL/SSPL or other copyleft against a permissive project is a license-compatibility review item, not a failure.
 
-1. **If `osv-scanner` is installed**, run it against the lockfile/manifest:
-   - uv: `osv-scanner --lockfile=uv.lock` (point at `<path>/uv.lock`).
-   - vcpkg: `osv-scanner --lockfile=vcpkg.json` (osv-scanner understands the vcpkg manifest format; verify against your toolchain).
-   - Conan: `osv-scanner --lockfile=conan.lock` where present.
-   - FetchContent: no lockfile — fall back to the API path for each `(name, version)` pair.
-2. **Python extra check:** if uv is present, also run `uv audit --project <path>` (uv 0.10.12+ reads the lockfile and queries OSV — verify the version against your toolchain) or `uvx pip-audit` as a fallback. Reconcile its findings with osv-scanner's; report the union, de-duplicated by advisory id.
-   - **Standardized lockfile for scanners (PEP 751):** to feed a scanner that does not understand `uv.lock` natively, export the resolved set to the interoperable `pylock.toml` with `uv export --format pylock.toml --project <path> -o pylock.toml`, then point the scanner at it (e.g. `osv-scanner --lockfile=pylock.toml`). `pylock.toml` is the standardized, tool-agnostic lockfile (PEP 751, final) — prefer it when bridging to scanners or CI systems outside the uv ecosystem.
-3. **Fallback when no scanner is installed:** for each discovered `(ecosystem, name, version)`, POST to the osv.dev API via WebFetch:
-   - URL: `https://api.osv.dev/v1/query`
-   - Body shape: `{"package": {"ecosystem": "<PyPI|...>", "name": "<name>"}, "version": "<version>"}`
-   - Map ecosystems: Python → `PyPI`; native C/C++ deps from vcpkg/Conan/FetchContent → query by upstream project (osv.dev coverage for native libs is partial; cross-check the NVD via WebSearch when osv.dev returns nothing for a well-known native CVE). Verify coverage against your toolchain.
-4. **Normalize every finding into SR vocabulary** (per `corpflow:security-review-process`): `severity` (Critical/High/Medium/Low from CVSS), `advisory id` (CVE-/GHSA-/OSV-), `affected range`, `fixed-in version`, `remediation` (upgrade target). Group Critical/High at the top.
+### Analysis
 
-### Phase 4: License Inventory (best-effort)
+Send the raw results to the dependency manager via the Agent tool:
 
-Best-effort; never blocks the audit.
+- `subagent_type: "system-developer:sys-dependency-manager"`, prompt: "Audit-mode dependency analysis for the project at `{path}`. Managers: {managers}. Outdated:\n```\n{outdated_output}\n```\nCVE findings (raw):\n```\n{cve_output}\n```\nLicenses:\n```\n{license_output}\n```\nClassify each outdated dependency's jump (patch/minor/major), note documented breaking changes, and rate upgrade risk. Normalize each vulnerability to severity, advisory id, affected range, fixed-in, remediation. Return a prioritized upgrade plan: security fixes first, then patch/minor, then each major on its own. Read-only: edit no files."
 
-- uv: `uv pip show <pkg>` per package, or read `License`/`Classifier` metadata; for a full pass, `uvx pip-licenses` if available.
-- vcpkg/Conan: read the `license` field from each port's manifest / recipe where exposed (`vcpkg.json` `license`, Conan `license` attribute).
-- FetchContent: note "license not declared in manifest — verify upstream `LICENSE`."
+Synthesize the result into the Output Format report.
 
-Flag any GPL/AGPL/SSPL or otherwise copyleft-incompatible license against a permissive project as a review item (not a hard failure) — phrase it as a supply-chain / license-compatibility finding for SR.
+## Subcommand: `upgrade`
 
-### Phase 5: Delegate analysis & report
+1. **Resolve.** Require `<package>` and a single manager. Run the audit's outdated and CVE queries scoped to `<package>` to get current version, latest version, and open advisories.
+2. **Plan** via the Agent tool, `subagent_type: "system-developer:sys-dependency-manager"`, prompt: "Plan a single-step upgrade of `{package}` ({manager}) in `{path}` from `{current}` toward `{target}`. Across majors, advance only one major (v1→v2, not v1→v3) and name the exact version to pin. Summarize documented breaking changes between `{current}` and that version, and return the manifest edits as a concrete diff plan with the exact pin. Don't apply it."
+### Apply the pin
 
-Hand the raw discovery + queries to the dependency manager for risk framing:
+3. **Apply** the pin:
 
-- **Use Task tool with subagent_type="system-developer:sys-dependency-manager"**
-  Prompt: "Audit-mode dependency analysis for the project at `{path}`. Discovered managers: {managers}. Outdated report:\n```\n{outdated_output}\n```\nCVE findings (raw):\n```\n{cve_output}\n```\nLicenses:\n```\n{license_output}\n```\nFor each outdated dependency, classify the version jump (patch/minor/major), note documented breaking changes, and assess upgrade risk. Normalize every vulnerability into `corpflow:security-review-process` vocabulary (severity, advisory id, affected range, fixed-in, remediation). Produce a prioritized upgrade plan (security patches first, then patch/minor, then majors individually). Do NOT edit any files — this is read-only audit."
-- Synthesize the agent's analysis into the Output Format report.
+   | Manager | Pin mechanism |
+   |---------|---------------|
+   | vcpkg | Add or update an exact `overrides[]` entry `{"name": "<pkg>", "version": "<x.y.z>"}`. Leave `builtin-baseline` alone: bumping it moves every other port too. |
+   | Conan 2 | Set `requires` to `pkg/x.y.z`, then `conan lock create <path>` to regenerate `conan.lock`. |
+   | FetchContent | Set `GIT_TAG` to a release tag with `GIT_SHALLOW TRUE`, or to a full commit SHA without `GIT_SHALLOW` (shallow clones need a tag or branch). |
+   | uv | `uv lock --upgrade-package <pkg>==<x.y.z> --project <path>` (or pin in `pyproject.toml` and run `uv lock`). |
 
-## Subcommand: `upgrade` (one dependency, gated)
+### Gate and report
 
-Advances exactly one dependency one step. This is the ported incremental-upgrade discipline: prep, pin exact, build+test gate, then stop.
+4. **Gate.** Run `/system-developer:build-test <path>`.
+   - PASS: report the step and stop.
+   - FAIL: report the failing stage and build-test's triage, and offer to revert the manifest/lockfile edit. If the new version broke code, send the excerpt to the owning language agent (`c-developer`, `cpp-developer`, `python-developer`) for a migration patch, then re-run the gate once.
+5. **Report** the Upgrade Step block, naming the next recommended dependency without starting it.
 
-### Phase 1: Resolve target
+## Subcommand: `add`
 
-1. Require `<package>`. Run Manifest Discovery; if multiple managers are present, require `--manager` to disambiguate.
-2. Run the relevant Phase 2/3 audit queries scoped to `<package>` to learn current version, latest version, and any open CVE.
+1. Require `<package>` and a single target manifest (auto-detected or `--manager`). If the manager has no manifest yet, offer to scaffold a minimal one (`vcpkg.json`, `conanfile.txt`, a `FetchContent_Declare` block, or a `[project].dependencies` entry).
+2. Find the latest stable release (registry query or upstream releases via WebSearch/WebFetch) and run the CVE lookup for that version. Flag any unremediated Critical/High advisory before adding.
+### Delegate and gate
 
-### Phase 2: Plan the single step (delegate)
+3. Delegate the edit via the Agent tool, `subagent_type: "system-developer:sys-dependency-manager"`, prompt: "Add `{package}` at exact version `{version}` to the {manager} manifest at `{path}`: vcpkg `dependencies` + exact `overrides` entry, Conan `requires` + regenerated lock, FetchContent `GIT_REPOSITORY` + `GIT_TAG <tag>` + `GIT_SHALLOW TRUE`, or uv `pyproject.toml` + `uv lock`. Write the minimal pinned entry, skip transitive duplicates already present, and return the edit."
+4. Run `/system-developer:build-test <path>`. PASS: report the addition. FAIL: revert the addition and report.
 
-- **Use Task tool with subagent_type="system-developer:sys-dependency-manager"**
-  Prompt: "Plan a single-step upgrade of `{package}` ({manager}) in the project at `{path}` from `{current}` toward `{target}`. If the jump crosses a major version, advance only ONE major (v1→v2, never v1→v3) and identify the exact next version to pin. Summarize documented breaking changes between `{current}` and the chosen target, list the manifest edits required (vcpkg `overrides[]` + baseline, Conan `requires` + `conan.lock`, FetchContent `GIT_TAG` to a release tag with `GIT_SHALLOW TRUE`, or uv pin), and produce the exact-version pin to write. Return the edits as a concrete diff plan; do not apply yet."
+## Install Hints
 
-### Phase 3: Apply the pinned edit
-
-Apply the agent's edit, pinning exactly per manager:
-
-| Manager | Pin mechanism |
-|---------|---------------|
-| vcpkg | Set/refresh `builtin-baseline` and add an exact `overrides[]` entry `{"name": "<pkg>", "version": "<x.y.z>"}`; run `vcpkg x-update-baseline --x-manifest-root=<path>` to reconcile. |
-| Conan 2 | Set `requires` to `pkg/x.y.z` (exact), then `conan lock create <path>` to regenerate `conan.lock`. |
-| FetchContent | Set `GIT_TAG <release-tag-or-sha>` (a tag or full SHA, never a branch) and ensure `GIT_SHALLOW TRUE` in the `FetchContent_Declare` block. |
-| uv | `uv lock --upgrade-package <pkg>==<x.y.z> --project <path>` (or pin in `pyproject.toml` then `uv lock`), producing an updated `uv.lock`. |
-
-### Phase 4: Build + Test Gate (BINDING)
-
-Run the project's full build and test suite via the shared workhorse:
-
-- Invoke `/system-developer:build-test <path>` (single dependency upgraded).
-- **Gate decision:**
-  - **PASS** (configure + build + test all green) → report the successful step. Do NOT auto-continue to another dependency; the user re-runs `upgrade` for the next.
-  - **FAIL** → STOP. Report the failing stage and the build-test triage. Offer to roll back the single edit (revert the manifest/lockfile change) and, if the failure is a code-level break from the new version, hand the excerpt to the owning language agent (`c-developer`/`cpp-developer`/`python-developer`) for a migration patch — then re-run the gate once.
-
-### Phase 5: Report the step
-
-Emit the Output Format "Upgrade Step" block with from→to, the gate result, and the next recommended dependency (but do not start it).
-
-> Lockfile/pin changes (vcpkg baseline + `overrides[]`, `conan.lock`, FetchContent `GIT_TAG`, `uv.lock`) feed the RE stage — leave them gate-ready (exact-pinned, build+test-green) for the FN finalization gate.
-
-## Subcommand: `add` (new pinned dependency)
-
-### Phase 1: Resolve manager & manifest
-
-Require `<package>` and a single target manifest (auto-detect, or `--manager`). If no manifest exists for the chosen manager, offer to scaffold the minimal one (`vcpkg.json`, `conanfile.txt`, a `FetchContent_Declare` block, or a `[project].dependencies` entry).
-
-### Phase 2: Resolve a pinnable version
-
-Look up the latest stable release of `<package>` (manager registry query or upstream releases via WebSearch/WebFetch) and the CVE status of that version (Phase 3 CVE lookup, scoped). Do not add a version with an unremediated Critical/High advisory without flagging it.
-
-### Phase 3: Add, pinned exact (delegate the edit)
-
-- **Use Task tool with subagent_type="system-developer:sys-dependency-manager"**
-  Prompt: "Add `{package}` at exact version `{version}` to the {manager} manifest at `{path}`. Write the minimal pinned entry (vcpkg `dependencies` + `overrides` + baseline, Conan `requires` + lock, FetchContent `GIT_REPOSITORY`/`GIT_TAG <tag>` + `GIT_SHALLOW TRUE`, or uv `pyproject.toml` + `uv lock`). Return the edit; do not add transitive duplicates already present."
-
-### Phase 4: Build + Test Gate
-
-Run `/system-developer:build-test <path>`. PASS → report the addition. FAIL → roll back the addition and report.
-
-## Tool Availability
-
-Confirm each manager/scanner before its pass. Missing → print hint, skip that pass, continue. Never hard-fail.
-
-| Missing tool | Install hint |
-|--------------|--------------|
-| `uv` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` (verify against your toolchain) |
-| `vcpkg` | Clone `https://github.com/microsoft/vcpkg` and bootstrap, or `brew install vcpkg` (verify against your toolchain) |
-| `conan` | `uv tool install conan` (Conan 2) or `pipx install conan` |
-| `osv-scanner` | `brew install osv-scanner` (or `go install github.com/google/osv-scanner/cmd/osv-scanner@latest`) — without it, this command falls back to the osv.dev API |
-| `pip-audit` (uv-audit fallback) | `uv tool install pip-audit` (used when `uv audit` is unavailable) |
-| CMake (for FetchContent build gate) | `brew install cmake ninja` |
-
-A missing `osv-scanner` triggers the osv.dev API fallback (WebFetch), not a skipped CVE pass.
+| Tool | Hint |
+|------|------|
+| `uv` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| `vcpkg` | Clone `https://github.com/microsoft/vcpkg` and bootstrap, or `brew install vcpkg` |
+| `conan` | `uv tool install conan` or `pipx install conan` |
+| `osv-scanner` | `brew install osv-scanner` or `go install github.com/google/osv-scanner/cmd/osv-scanner@latest` (without it: osv.dev API) |
+| `pip-audit` | `uv tool install pip-audit` (when `uv audit` is unavailable) |
+| CMake (FetchContent gate) | `brew install cmake ninja` |
 
 ## Output Format
+
+One report, shown in two parts.
 
 ```markdown
 ## Dependency Audit Report
@@ -229,16 +166,13 @@ A missing `osv-scanner` triggers the osv.dev API fallback (WebFetch), not a skip
 
 | Manager | Package | Current | Latest | Jump | Risk |
 |---------|---------|---------|--------|------|------|
-| uv | requests | 2.31.0 | 2.34.0 | minor | low |
 | vcpkg | fmt | 10.1.1 | 11.0.2 | major | review breaking changes |
-| fetchcontent | googletest | release-1.12.1 | v1.15.2 | major | retag + GIT_SHALLOW |
 
 ### Vulnerabilities (SR vocabulary)
 
 | Severity | Advisory | Package | Affected | Fixed in | Remediation |
 |----------|----------|---------|----------|----------|-------------|
 | High | GHSA-xxxx-xxxx | <pkg> | <range> | <x.y.z> | upgrade to <x.y.z> |
-| Medium | CVE-2026-NNNN | <pkg> | <range> | <x.y.z> | upgrade / mitigate |
 
 (If none: "No known vulnerabilities in the queried versions via {osv-scanner | osv.dev | uv audit}.")
 
@@ -246,9 +180,12 @@ A missing `osv-scanner` triggers the osv.dev API fallback (WebFetch), not a skip
 
 | Package | License | Note |
 |---------|---------|------|
-| <pkg> | MIT | compatible |
 | <pkg> | GPL-3.0 | copyleft — review compatibility (SR item) |
+```
 
+### Report: plan, upgrade step, and skips
+
+```markdown
 ### Prioritized Upgrade Plan
 1. **Security first:** {pkg} {cur}→{fixed} (advisory {id})
 2. {pkg} {cur}→{tgt} (patch/minor)
@@ -280,8 +217,6 @@ Suggestion: Run from the project root, or scaffold a manifest with `add <package
 Error: `--upgrade` / `--add` is not a supported flag. Mutating modes are selected by the
 first token only: `deps upgrade <package>` or `deps add <package>`.
 ```
-Do NOT fall back to `audit` here — the caller asked for a mutation, and returning a read-only
-audit would report "no action taken" for work that was never attempted.
 
 ### Subcommand given without a package
 ```
@@ -305,20 +240,12 @@ Suggestion: Use `add {package}` to introduce it, or check the spelling against t
 ### Unpinned FetchContent tag
 ```
 Warning: FetchContent_Declare({name}) pins GIT_TAG to a branch ({ref}) — not reproducible.
-Suggestion: pin to a release tag or full SHA with GIT_SHALLOW TRUE. Offer to apply in upgrade mode.
+Suggestion: pin to a release tag (with GIT_SHALLOW TRUE) or a full SHA. Offer to apply in upgrade mode.
 ```
-
-### Build+test gate failed after upgrade
-Not silent. Report the failing stage from `/system-developer:build-test`, offer to roll back the single manifest edit, and (for a code-level break) route the excerpt to the owning language agent for a migration patch before re-running the gate once.
-
-### Tool missing
-Print the install hint, skip that manager's pass, continue. A missing `osv-scanner` falls back to the osv.dev API. The command only reports a hard FAIL when *every* eligible pass was skipped.
 
 ## See Also
 
-- `skill: language-detection` — canonical manifest → language → agent routing (keep discovery in sync).
-- `skill: build-systems` — FetchContent vs vcpkg vs Conan 2 trade-offs, CMake preset flow, baseline/lockfile idioms.
-- `skill: secure-coding` — supply-chain and dependency-trust rules that gate a diff.
-- `/system-developer:build-test` — the build+test gate this command invokes after every upgrade/add.
-- `/system-developer:sanitize-check` — run after a dependency upgrade to catch ABI/behavior regressions a new version introduces.
-- `corpflow:security-review-process` — SR-stage vocabulary used for every vulnerability finding here.
+- `skill: build-systems`: FetchContent vs vcpkg vs Conan 2 trade-offs, baseline and lockfile idioms.
+- `skill: secure-coding`: supply-chain and dependency-trust rules.
+- `/system-developer:build-test`: the gate run after every upgrade/add.
+- `/system-developer:sanitize-check`: catches ABI or behavior regressions a new version introduces.

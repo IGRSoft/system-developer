@@ -2,89 +2,44 @@
 name: bash-skills
 description: >-
   Bash and POSIX shell skills navigation. Use when writing or reviewing
-  shell scripts, choosing between Bash and POSIX sh, hardening a script
-  with strict mode and traps, deciding when a task has outgrown shell,
-  looking up a Bash 5.2/5.3 feature, or setting up shellcheck/shfmt/bats.
+  shell scripts, choosing between Bash and POSIX sh, deciding when a task
+  has outgrown shell, looking up a Bash 5.2/5.3 feature, or setting up
+  shellcheck/shfmt/bats.
 ---
 
 # Bash Skills
 
-**Navigation and language-selection for Bash and POSIX shell scripting**
+Routes shell work to the right leaf skill and settles two choices first: whether to use shell at all, and Bash or POSIX sh.
 
-## When to Use Bash At All
+## When to Leave Shell
 
-Shell is glue: launching processes, wiring pipelines, filesystem plumbing, CI
-steps. The moment a script grows past that, reach for a real language.
+Shell is glue: launching processes, pipelines, filesystem plumbing, CI steps. Move to Python (`system-developer:python-developer` agent, [python-tooling](../python/python-tooling/SKILL.md)) when any of these holds:
 
-| Signal | Stay in shell | Leave shell |
-|--------|---------------|-------------|
-| Script length | < ~100 lines | > ~100 lines → consider Python |
-| Data shape | lines, files, exit codes | structured data (JSON/CSV/nested) → Python |
-| Arithmetic / floats | integer counters | floating point, stats → Python |
-| Logic | linear, few branches | nested state, many data structures → Python |
-| Parsing | `case`, `getopts`, field splitting | grammars, JSON, XML → Python (`json`, `argparse`) |
-| Portability target | any Unix box, no runtime | needs a guaranteed interpreter → Python |
-
-Rule of thumb: **a script over ~100 lines, or one that needs to parse or emit
-structured data, should be Python** (`Task(system-developer:python-developer)`),
-not Bash. Shell shines for orchestration; it is a poor data-processing language.
+- the script passes ~100 lines or grows nested state and data structures
+- it parses or emits structured data (JSON, CSV, XML) or needs a grammar beyond `case`/`getopts`
+- it needs floating-point math or statistics
 
 ## Bash vs POSIX sh
 
 | Use | When |
 |-----|------|
-| **Bash** (`#!/usr/bin/env bash`) | Default. You control the interpreter; want arrays, `[[ ]]`, `local`, `mapfile`, process substitution. |
-| **POSIX sh** (`#!/bin/sh`) | Init scripts, container entrypoints (Alpine/BusyBox `ash`, Debian `dash`), `configure`-style portability, no Bash guaranteed. |
+| Bash (`#!/usr/bin/env bash`) | Default when you control the interpreter; gives arrays, `[[ ]]`, `local`, `mapfile`, process substitution |
+| POSIX sh (`#!/bin/sh`) | Init scripts, container entrypoints (BusyBox `ash`, Debian `dash`), `configure`-style portability |
 
-Never write `#!/bin/bash` for portable scripts: on macOS that is **Bash 3.2**
-(frozen at the last GPLv2 release). Use `#!/usr/bin/env bash` plus a version
-guard so the script finds a modern Bash (Homebrew installs 5.x to
-`/opt/homebrew/bin`) and fails loudly on 3.2 instead of misbehaving silently.
+Avoid `#!/bin/bash` in portable scripts: macOS `/bin/bash` is frozen at 3.2. Use `#!/usr/bin/env bash` plus a `BASH_VERSINFO` guard (`prologue_generator.sh --with-version-guard`, see [bash-scripting](bash-scripting/SKILL.md)) so a 3.2 run fails loudly instead of misbehaving.
 
-```bash
-#!/usr/bin/env bash
-if ((BASH_VERSINFO[0] < 5)); then
-  printf 'error: bash >= 5.0 required (found %s)\n' "$BASH_VERSION" >&2
-  exit 1
-fi
-```
+## Skill Selection
 
-## Skill Selection Guide
-
-| I need to... | Use this skill |
-|--------------|----------------|
-| Write or harden a script (strict mode, traps, quoting) | [bash-scripting/SKILL.md](bash-scripting/SKILL.md) |
-| Look up `set -e` caveats, locking, retries, logging | [bash-scripting/references/defensive-patterns.md](bash-scripting/references/defensive-patterns.md) |
-| Check a Bash 5.2/5.3 feature or write a POSIX fallback | [bash-scripting/references/bash-versions-and-portability.md](bash-scripting/references/bash-versions-and-portability.md) |
-| Write or run tests | [bash-testing/SKILL.md](bash-testing/SKILL.md) |
-| Configure shellcheck / shfmt | [bash-testing/references/shellcheck-shfmt.md](bash-testing/references/shellcheck-shfmt.md) |
-
-## Decision Tree
-
-```
-Shell task?
-├── Over ~100 lines or structured data? → STOP, use Python (system-developer:python-developer)
-├── Writing/hardening a script → bash-scripting/SKILL.md
-│   ├── Strict-mode / trap / locking details → references/defensive-patterns.md
-│   └── Version feature or POSIX fallback → references/bash-versions-and-portability.md
-├── Testing a script → bash-testing/SKILL.md
-│   └── bats / shellcheck / shfmt → bash-testing/references/
-└── Migrating / modernizing → /system-developer:fix-modernize
-```
+| I need to... | Go to |
+|--------------|-------|
+| Write or harden a script (strict mode, traps, quoting) | [bash-scripting](bash-scripting/SKILL.md) |
+| `set -e` caveats, locking, retries, logging | [defensive-patterns.md](bash-scripting/references/defensive-patterns.md) |
+| A Bash 5.2/5.3 feature, POSIX fallback, or GNU vs BSD tools | [bash-versions-and-portability.md](bash-scripting/references/bash-versions-and-portability.md) |
+| Write or run tests | [bash-testing](bash-testing/SKILL.md) |
+| Configure shellcheck / shfmt | [shellcheck-shfmt.md](bash-testing/references/shellcheck-shfmt.md) |
+| Block injection (no `eval`, `--` separators, quoting untrusted input) | [secure-coding](../_shared/secure-coding/SKILL.md) |
+| Migrate or modernize an existing script | `/system-developer:fix-modernize` |
 
 ## Version Snapshot
 
-| Version | Where | Headline |
-|---------|-------|----------|
-| 5.2 | most current Linux distros, Homebrew | `patsub_replacement` (`&` reuse in `${var/pat/rep}`), `varredir_close` |
-| 5.3 | current stable — widely shipped in distros and Homebrew | `${ cmd; }` no-fork command substitution, `GLOBSORT` ordering control |
-| 3.2 (fallback) | **macOS `/bin/bash`** (frozen) | none of the above — target POSIX sh or `#!/usr/bin/env bash` + version guard |
-
-Canonical toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).
-
-## Related Skills
-
-- [bash-scripting](bash-scripting/SKILL.md) — strict-mode prologue, quoting, traps, defensive patterns
-- [bash-testing](bash-testing/SKILL.md) — bats-core, shellcheck, shfmt gate
-- [secure-coding](../_shared/secure-coding/SKILL.md) — no-`eval`, `--` separators, command-injection defense
-- [python-tooling](../python/python-tooling/SKILL.md) — when a script has outgrown shell
+Bash 5.2 is on most current distros (`patsub_replacement`, `varredir_close`); 5.3 adds `${ cmd; }` no-fork command substitution and `GLOBSORT`; macOS `/bin/bash` stays at 3.2 with none of these. Minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).

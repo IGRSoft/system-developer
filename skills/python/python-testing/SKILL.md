@@ -2,38 +2,25 @@
 name: python-testing
 description: >-
   Pytest testing for Python 3.12-3.14: plain-assert tests, fixtures and
-  conftest scoping, parametrization, async testing, mocking, coverage, and
-  property-based testing with Hypothesis. Use when writing or structuring
-  pytest tests, designing fixtures, parametrizing cases, testing async or
-  concurrent code, mocking dependencies, measuring branch coverage, or
+  conftest scoping, parametrization, async tests, mocking, branch coverage,
+  and Hypothesis. Use when writing or structuring pytest tests, designing
+  fixtures, testing async code, mocking dependencies, gating coverage, or
   triaging flaky tests.
 ---
 
 # Python Testing (pytest)
 
-**Idiomatic pytest for Python 3.12–3.14 — plain asserts, scoped fixtures, parametrization, async, coverage, and Hypothesis.**
-
-Pin tool versions in your lockfile and run via `uv run pytest`. Plugin behavior (especially async loop scoping) shifts between releases — verify against your toolchain.
-
-## When to Use
-
-- Writing unit, integration, or end-to-end tests with pytest.
-- Designing fixtures and deciding `conftest.py` placement and scope.
-- Parametrizing repetitive cases, including stacked parametrize and custom IDs.
-- Testing async code (`pytest-asyncio` or `anyio`) and concurrent operations.
-- Mocking dependencies and patching at the right import site.
-- Measuring branch coverage and gating CI on it.
-- Triaging a flaky or order-dependent test.
+Run tests via `uv run pytest`, with pytest and its plugins pinned in the lockfile.
 
 ## Core Rules
 
-1. **Plain `assert` — never `unittest` assert methods.** pytest rewrites asserts to show the operands; `assert result == 5` beats `self.assertEqual`.
-2. **One behavior per test.** A focused failure names the broken behavior; a test with five asserts hides four of them.
-3. **Test error paths, not just happy paths.** Use `pytest.raises(Err, match=...)` to pin the exception *and* its message.
-4. **Fixtures over setup/teardown.** Compose state with fixtures; place shared ones in `conftest.py` at the right directory level.
-5. **Patch where the name is used, not where it is defined** (the single biggest mock mistake — see below).
-6. **Branch coverage, not line coverage**, and gate CI on a floor — `--cov-branch --cov-fail-under=N`.
-7. **Deterministic by default.** No real network, clock, or random without control; flakiness is a bug to fix, not retry away.
+1. Plain `assert`, not `unittest` assert methods; pytest rewrites asserts to show the operands.
+2. One behavior per test, so a failure names the broken behavior.
+3. Test error paths: `pytest.raises(Err, match=...)` pins the exception and its message.
+4. Fixtures over setup/teardown; shared ones go in `conftest.py` at the right directory level.
+5. Patch where the name is used, not where it is defined (see Mocking).
+6. Branch coverage with a CI floor: `--cov-branch --cov-fail-under=N`.
+7. Deterministic by default: no real network, clock, or randomness without control. Fix flaky tests; don't retry them away.
 
 ## Plain-Assert Tests
 
@@ -48,38 +35,38 @@ def test_divide_by_zero_raises():
         divide(5, 0)
 ```
 
-`pytest.raises` returns an `ExceptionInfo`; inspect it via `exc_info.value` for typed assertions on the raised object.
+`pytest.raises` returns an `ExceptionInfo`; assert on the raised object via `exc_info.value`.
 
 ## Fixtures and Scopes
 
 ```python
 import pytest
 
-@pytest.fixture                       # default scope="function" — fresh per test
+@pytest.fixture                       # scope="function": fresh per test
 def db():
     conn = Database(":memory:")
     conn.connect()
-    yield conn                        # everything after yield is teardown
+    yield conn                        # code after yield is teardown
     conn.disconnect()
 
-@pytest.fixture(scope="session")      # built once for the whole run
+@pytest.fixture(scope="session")      # built once per run
 def app_config() -> dict[str, str]:
     return {"env": "test"}
 ```
 
 | Scope | Built once per | Use for |
 |-------|----------------|---------|
-| `function` (default) | each test | mutable state, isolation |
+| `function` (default) | test | mutable state, isolation |
 | `class` | test class | shared read-only setup in a class |
 | `module` | test file | a connection reused across a file |
 | `package` | package dir | per-package resources |
-| `session` | whole run | expensive immutable resources |
+| `session` | run | expensive immutable resources |
 
-Wider scope = faster but shared; never let a wider-scoped fixture hold mutable state that tests mutate. Teardown after `yield` runs in reverse order; use `request.addfinalizer` only when you need finalizers registered conditionally.
+Wider scope is faster but shared, so a wide-scoped fixture must not hold state that tests mutate.
 
 ### conftest.py Placement
 
-`conftest.py` makes fixtures available to every test **at or below** its directory — no import needed. Put broad fixtures (`tmp config`, fakes) in the top `tests/conftest.py`; put narrow ones in the subpackage's `conftest.py`. Closer files override farther ones by name. Scaffold a starting `conftest.py` (scoped fixtures; `--with-async` for a pytest-asyncio fixture) with `../scripts/scaffold_conftest.sh`.
+`conftest.py` exposes its fixtures to every test at or below its directory, without imports. Broad fixtures go in `tests/conftest.py`, narrow ones in the subpackage's `conftest.py`; the closer file wins on a name clash. `../scripts/scaffold_conftest.sh` emits a starting `conftest.py` (`--with-async` adds a pytest-asyncio fixture).
 
 ## Parametrization
 
@@ -96,21 +83,14 @@ def test_is_positive(value, expected):
     assert (value > 0) is expected
 ```
 
-- **`ids=`** (or per-case `pytest.param(..., id=...)`) makes `-k` selection and failure output readable. Without IDs, pytest auto-generates noisy ones.
-- **Stacking** two `parametrize` decorators yields the Cartesian product:
-
-```python
-@pytest.mark.parametrize("x", [1, 2])
-@pytest.mark.parametrize("y", [10, 20])
-def test_grid(x, y): ...     # runs 4 combinations
-```
-
-- **`pytest.param(..., marks=pytest.mark.xfail)`** marks a single case as expected-fail without splitting the test.
-- For parametrizing *through a fixture*, use `indirect=True` — see `references/pytest-advanced.md`.
+- IDs (`ids=` or `pytest.param(..., id=...)`) make `-k` selection and failure output readable.
+- Stacked `parametrize` decorators run the Cartesian product.
+- `pytest.param(..., marks=pytest.mark.xfail)` marks one case as expected-fail.
+- To pass a value through a fixture first, use `indirect=True` (see the reference).
 
 ## Async Testing
 
-Pick one runner and configure it once in `pyproject.toml`:
+Configure the runner once in `pyproject.toml`:
 
 ```toml
 [tool.pytest.ini_options]
@@ -118,17 +98,17 @@ asyncio_mode = "auto"              # pytest-asyncio: no @pytest.mark.asyncio nee
 ```
 
 ```python
-async def test_fetch_returns_payload():
-    result = await fetch("https://example.invalid")
+async def test_fetch_returns_payload(fake_transport):
+    result = await fetch("/status", transport=fake_transport)
     assert result["ok"] is True
 ```
 
-- **`pytest-asyncio`** vs **`anyio`** (`@pytest.mark.anyio`): anyio runs each test on both asyncio and trio backends; asyncio-only projects can use either.
-- **Loop-scope caveat:** an async fixture and the test that uses it must share an event loop. With `pytest-asyncio`, a `session`/`module`-scoped async fixture needs a matching `loop_scope` (`@pytest_asyncio.fixture(loop_scope="session")`) or you get "attached to a different loop" / "Event loop is closed". The default function loop scope is safest; widen deliberately. Verify the exact knob against your installed `pytest-asyncio` version.
+- `pytest-asyncio` is asyncio-only. `anyio` (`@pytest.mark.anyio`) runs on asyncio by default and can add trio by parametrizing the `anyio_backend` fixture.
+- An async fixture and its test must share an event loop. A `session`/`module`-scoped `pytest-asyncio` fixture needs a matching `loop_scope` (`@pytest_asyncio.fixture(scope="session", loop_scope="session")`), otherwise you get "attached to a different loop" or "Event loop is closed". Function scope is the safe default.
 
 ## Mocking
 
-Prefer the `pytest-mock` `mocker` fixture — it auto-undoes patches at test end, so no `with` nesting or decorator stacks:
+Prefer the `pytest-mock` `mocker` fixture; it undoes patches at test end.
 
 ```python
 def test_get_user_calls_api(mocker):
@@ -141,14 +121,16 @@ def test_get_user_calls_api(mocker):
     fake_get.assert_called_once_with("https://api/users/1")
 ```
 
-**Patch where used.** If `myapp.service` does `from myapp.client import get_user`, patch `myapp.service.get_user` — the name *bound in the consuming module* — not `myapp.client.get_user`. Patching the definition site leaves the already-imported reference untouched.
+### Patch where used
+
+If `myapp.service` does `from myapp.client import get_user`, patch `myapp.service.get_user`, the name bound in the consuming module. Patching `myapp.client.get_user` leaves the already-imported reference untouched.
 
 ```python
 fake.side_effect = [ConnError(), ConnError(), {"ok": True}]   # fail twice, then succeed
 fake.side_effect = ValueError("boom")                         # raise on call
 ```
 
-For environment, attributes, and `sys.path`, use the builtin `monkeypatch` fixture instead of `mocker` (see `references/pytest-advanced.md` for `monkeypatch` vs `mocker`).
+For environment variables, cwd, and `sys.path`, use the builtin `monkeypatch` fixture.
 
 ## Coverage
 
@@ -156,51 +138,61 @@ For environment, attributes, and `sys.path`, use the builtin `monkeypatch` fixtu
 uv run pytest --cov=myapp --cov-branch --cov-report=term-missing --cov-fail-under=85
 ```
 
-- **`--cov-branch`** catches half-tested conditionals that line coverage reports as 100%.
-- **`--cov-report=term-missing`** prints uncovered line *and branch* numbers.
-- Configure source and exclusions in `[tool.coverage.run]` / `[tool.coverage.report]` (e.g. `exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]`). Full config in `references/pytest-advanced.md`.
-- Chase meaningful coverage of branches and error paths, not a percentage for its own sake.
+- `--cov-branch` catches half-tested conditionals that line coverage reports as 100%.
+- `term-missing` lists uncovered lines and branches.
+- Set source and exclusions in `[tool.coverage.run]` / `[tool.coverage.report]` (see the reference).
+- Aim at branches and error paths, not a percentage for its own sake.
 
 ## Hypothesis (Property-Based)
 
-State an invariant; Hypothesis finds counterexamples and shrinks them to a minimal failing case.
+State an invariant; Hypothesis searches for counterexamples and shrinks them to a minimal one.
 
 ```python
+from collections import Counter
 from hypothesis import given, strategies as st
 
 @given(st.lists(st.integers()))
 def test_sorted_is_ordered_and_preserves_elements(xs):
     out = sorted(xs)
-    assert len(out) == len(xs)              # same elements
-    assert all(a <= b for a, b in zip(out, out[1:]))   # ordered
+    assert Counter(out) == Counter(xs)
+    assert all(a <= b for a, b in zip(out, out[1:]))
 ```
 
-Use for parsers, encoders/decoders (round-trips), and any function with an algebraic property. A failing example is reported as a concrete `@example` you can paste back as a regression test. Strategy composition lives in `references/pytest-advanced.md`.
+Good fits: parsers, encode/decode round-trips, functions with an algebraic property. Add a reported falsifying example as `@example(...)` to keep it as a regression.
 
 ## Flaky-Test Triage
 
-| Symptom | Cause | Fix | Reference |
-|---------|-------|-----|-----------|
-| Passes alone, fails in suite | Shared mutable state across tests | Narrow fixture scope; reset state in teardown | Fixtures and Scopes |
-| Passes/fails by run order | Order dependence (one test relies on another) | Make tests independent; run `-p no:randomly` to confirm | this file |
-| `Event loop is closed` / "different loop" | Async fixture loop scope ≠ test loop scope | Match `loop_scope`; default to function scope | Async Testing |
-| `assert_called_once_with` fails, mock never hit | Patched the definition site, not the use site | Patch the name in the consuming module | Mocking |
-| Time-dependent assertion intermittently off | Real clock used | Freeze time (`freezegun`) or inject a clock | `references/pytest-advanced.md` |
-| Random fixture data triggers rare failure | Uncontrolled randomness | Seed RNG; or treat as a real bug Hypothesis found | Hypothesis |
-| Coverage 100% but bug shipped | Line coverage, untested branches | Add `--cov-branch`; cover both arms | Coverage |
-| `fixture 'x' not found` | `conftest.py` too deep / wrong dir | Move fixture to a `conftest.py` at/above the test | conftest.py Placement |
-| Slow suite, parallel needed | Serial execution | `pytest -n auto` (xdist); ensure tests are isolated | `references/pytest-advanced.md` |
+### Isolation and order
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Passes alone, fails in suite | Shared mutable state | Narrow fixture scope; reset state in teardown |
+| Result depends on run order | One test relies on another | Make tests independent; replay the order with pytest-randomly's `--randomly-seed=N` |
+| `Event loop is closed` / "different loop" | Async fixture loop scope differs from the test's | Match `loop_scope`; default to function scope |
+| `fixture 'x' not found` | Fixture's `conftest.py` is below or beside the test | Move it to a `conftest.py` at or above the test |
+| Fails only under `pytest -n` | Order dependence or a shared resource per worker | See xdist in the reference |
+
+### Mocks, time, coverage
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Mock never hit | Patched the definition site | Patch the name in the consuming module |
+| Time-dependent assertion intermittently off | Real clock | Inject a clock or freeze time (see the reference) |
+| Rare failure from random data | Uncontrolled randomness | Seed the RNG, or treat it as a real bug |
+| 100% coverage but bug shipped | Untested branches | `--cov-branch`; cover both arms |
 
 ## References
 
 | File | Read it for |
 |---|---|
-| [references/pytest-advanced.md](references/pytest-advanced.md) | Fixture factories and finalization, indirect parametrize, async backends, `monkeypatch` vs `mocker`, Hypothesis strategies, coverage config, xdist parallelization |
+| [references/pytest-advanced.md](references/pytest-advanced.md) | Fixture factories and teardown order, indirect parametrize, async runners, `monkeypatch` vs `mocker`, autospec, time, Hypothesis strategies, coverage config, xdist, pyproject config |
 
 ## Related Skills
 
-- [python-typing](../python-typing/SKILL.md) — typing test code, typed fixtures and fakes
-- [python-concurrency](../python-concurrency/SKILL.md) — testing async, free-threaded, and subinterpreter code
-- [python-tooling](../python-tooling/SKILL.md) — wiring pytest into uv projects and CI
-- [modern-python](../modern-python/SKILL.md) — 3.14 language features and anti-patterns
-- [testing-principles](${CLAUDE_SKILL_DIR}/_shared/testing-principles.md) — test pyramid, framework matrix, coverage targets
+| Skill | For |
+|---|---|
+| [python-typing](../python-typing/SKILL.md) | Typing test code, typed fixtures and fakes |
+| [python-concurrency](../python-concurrency/SKILL.md) | Async, free-threaded, and subinterpreter code |
+| [python-tooling](../python-tooling/SKILL.md) | Wiring pytest into uv projects and CI |
+| [modern-python](../modern-python/SKILL.md) | 3.14 language features and anti-patterns |
+| [testing-principles](../../_shared/testing-principles.md) | Test pyramid, framework matrix, coverage targets |

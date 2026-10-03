@@ -1,8 +1,3 @@
----
-name: testing-principles
-description: Test pyramid, per-language framework matrix, coverage thresholds, and testing best practices for C, C++, Python, and Bash
----
-
 # Testing Principles Reference
 
 Shared testing patterns, framework selection, coverage requirements, and quality gates for systems work.
@@ -22,7 +17,7 @@ Shared testing patterns, framework selection, coverage requirements, and quality
 
 ## Framework Matrix
 
-Detect the existing framework first — never introduce a second framework into a project that already has one.
+Detect the existing framework first; don't add a second framework to a project that already has one.
 
 | Language | Unit framework | Property / fuzz | Coverage tool | Focused run |
 |----------|----------------|-----------------|---------------|-------------|
@@ -32,6 +27,8 @@ Detect the existing framework first — never introduce a second framework into 
 | Bash | bats-core 1.13 | — | kcov | `bats -f <regex>` |
 
 Versions are the floors this plugin assumes (mid-2026); confirm against your toolchain. GoogleTest 1.17 follows a "live at head" policy and requires C++17 as its minimum standard.
+
+### Test registration
 
 Registration is part of test generation: `add_test()`/`gtest_discover_tests()`/`catch_discover_tests()` (CMake), `conftest.py` discovery (pytest), `setup()`/`teardown()` files (bats). A test that is not registered does not exist.
 

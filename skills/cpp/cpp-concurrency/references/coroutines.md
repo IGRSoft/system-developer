@@ -1,36 +1,17 @@
 # C++ Coroutines
 
-Use this when:
-
-- You are using `std::generator` (C++23) or another coroutine type and want the rules.
-- You need the `promise_type`/awaiter mental model to read or debug coroutine code.
-- You are writing a basic `task<T>` or custom awaiter and need a correct skeleton.
-- You are chasing a crash or garbage value inside a coroutine (lifetime/capture bugs).
-
-Skip this file if:
-
-- You just need threads, locks, or atomics. Use [../SKILL.md](../SKILL.md) and [atomics-and-memory-model.md](atomics-and-memory-model.md).
-- You want a production async runtime. Pick a maintained coroutine library; this file explains the machinery, it is not a runtime.
-
-Jump to:
-
-- The Mental Model
-- Which Level Are You Working At
-- std::generator (C++23)
-- A C++20 Generator Fallback
-- Writing a Basic task<T>
-- Custom Awaiters
-- Lifetime and Capture Pitfalls
-- Exceptions in Coroutines
-- Pitfall Quick Reference
+The coroutine machinery, `std::generator` rules, a teaching `task<T>`, custom awaiters, and lifetime pitfalls. Not a production runtime; for threads, locks, and atomics see [../SKILL.md](../SKILL.md).
 
 ## The Mental Model
 
 A coroutine is a function that can suspend itself and be resumed later. Any function whose body contains `co_await`, `co_yield`, or `co_return` is compiled as a coroutine. Three consequences follow:
 
-1. **Locals move off the stack.** Parameters and local variables live in a *coroutine frame*, allocated (usually on the heap) when the coroutine is first called, destroyed when it finishes or when someone calls `handle.destroy()`. The compiler may elide the allocation when it can prove the frame's lifetime is enclosed by the caller's (HALO — heap allocation elision optimization). Treat elision as an optimization, never a guarantee.
-2. **Calling a coroutine does not run its body.** The call allocates the frame, constructs the *promise*, obtains the *return object* (your `generator`, `task`, etc.), and then consults `initial_suspend()`. For lazy types (`std::generator`, most `task` designs) the body has not executed a single statement when the call returns.
-3. **The return type is in charge.** Everything about a coroutine's behavior — lazy or eager, what `co_yield` means, where exceptions go — is decided by the `promise_type` nested in (or associated with) its return type. The keywords are fixed syntax; the semantics are supplied by library code.
+1. Locals move off the stack. Parameters and local variables live in a *coroutine frame*, allocated (usually on the heap) when the coroutine is first called, destroyed when it finishes or when someone calls `handle.destroy()`. The compiler may elide the allocation when it can prove the frame's lifetime is enclosed by the caller's (HALO — heap allocation elision optimization). Treat elision as an optimization, never a guarantee.
+2. Calling a coroutine does not run its body. The call allocates the frame, constructs the *promise*, obtains the *return object* (your `generator`, `task`, etc.), and then consults `initial_suspend()`. For lazy types (`std::generator`, most `task` designs) the body has not executed a single statement when the call returns.
+
+### Third consequence: the return type is in charge
+
+Everything about a coroutine's behavior — lazy or eager, what `co_yield` means, where exceptions go — is decided by the `promise_type` nested in (or associated with) its return type. The keywords are fixed syntax; the semantics are supplied by library code.
 
 ### The promise
 
@@ -43,7 +24,9 @@ The compiler finds `ReturnType::promise_type` (or a `std::coroutine_traits` spec
 | `yield_value(v)` | at `co_yield v` | stash a pointer to `v`, return `suspend_always` |
 | `return_value(v)` / `return_void()` | at `co_return` | store the result |
 | `unhandled_exception()` | exception escapes the body | store `std::current_exception()` |
-| `final_suspend()` | after the body finishes | `suspend_always`, or symmetric transfer to a continuation — **must be `noexcept`** |
+| `final_suspend()` | after the body finishes | `suspend_always`, or symmetric transfer to a continuation; must be `noexcept` |
+
+### What the compiler generates
 
 The conceptual rewrite of every coroutine body:
 
@@ -75,7 +58,7 @@ struct awaiter {
 };
 ```
 
-`await_suspend` return types:
+### await_suspend return types
 
 | Returns | Meaning |
 |---------|---------|
@@ -99,7 +82,7 @@ Symmetric transfer matters: a loop of "task A resumes task B resumes task A…" 
 | building a task type to learn the machinery | the `task<T>` walkthrough | Writing a Basic task<T> |
 | building a production async runtime | a maintained library, not this file | — |
 
-Application code should *consume* coroutine types. Hand-rolled task types in application repositories are a recurring source of subtle UB (missed `noexcept` on `final_suspend`, double-destroy, lost exceptions). For production async work, adopt a maintained coroutine library (or your framework's task type) after checking its maintenance status — verify against your toolchain and dependency policy.
+Application code should *consume* coroutine types. Hand-rolled task types are a recurring source of subtle UB (missed `noexcept` on `final_suspend`, double-destroy, lost exceptions); for production async work, adopt a maintained coroutine library or your framework's task type.
 
 ## std::generator (C++23)
 
@@ -108,22 +91,25 @@ Application code should *consume* coroutine types. Hand-rolled task types in app
 ```cpp
 #include <generator>
 
-std::generator<int> fibs() {
-    for (std::int64_t a = 0, b = 1;; std::swap(a, b))
-        co_yield (b += a, a);
+std::generator<std::int64_t> fibs() {
+    std::int64_t a = 0, b = 1;
+    for (;;) {
+        co_yield a;
+        a = std::exchange(b, a + b);
+    }
 }
 
-for (int f : fibs() | std::views::take(10))
+for (auto f : fibs() | std::views::take(10))
     std::println("{}", f);
 ```
 
-Rules of use:
+### Rules of use
 
-- **Lazy.** Calling `fibs()` runs nothing; each `++it` (or loop iteration) resumes the body to the next `co_yield`.
-- **Single-pass and move-only.** It models `input_range`: one consumer, one traversal. Calling `begin()` twice is precondition-violating; restart by calling the coroutine function again.
-- **Yields by reference.** The element you see refers to state inside the frame; copy it if you keep it past the next increment.
-- **Not thread-safe.** One generator, one thread (or external synchronization). For cross-thread streaming use a queue, not a generator.
-- **Infinite is fine** — laziness plus `views::take` is the idiomatic pairing.
+- Lazy. Calling `fibs()` runs nothing; each `++it` (or loop iteration) resumes the body to the next `co_yield`.
+- Single-pass and move-only. It models `input_range`: one consumer, one traversal. Calling `begin()` twice is precondition-violating; restart by calling the coroutine function again.
+- Yields by reference. The element you see refers to state inside the frame; copy it if you keep it past the next increment.
+- Not thread-safe. One generator, one thread (or external synchronization). For cross-thread streaming use a queue, not a generator.
+- Infinite is fine — laziness plus `views::take` is the idiomatic pairing.
 
 ### Yielding nested sequences: std::ranges::elements_of
 
@@ -151,7 +137,7 @@ std::generator<const Node&> walk(const Node& n) {
 
 When yielding `const T&`, the referent must stay alive until the generator is resumed again — yielding a reference to a loop-local that you then mutate is fine (the consumer reads before resuming), yielding a reference to a destroyed temporary is not.
 
-Toolchain note: `std::generator` shipped in GCC 14-era libstdc++; libc++ and MSVC arrived on their own schedules — gate on `__cpp_lib_generator` and verify against your toolchain. Fallbacks: range-v3 generators, or the skeleton below.
+Toolchain note: libstdc++ ships `std::generator` from GCC 14; other standard libraries vary, so gate on `__cpp_lib_generator`. Fallbacks: range-v3 generators, or the skeleton below.
 
 ## A C++20 Generator Fallback
 
@@ -169,7 +155,7 @@ public:
             return generator{handle_t::from_promise(*this)};
         }
         std::suspend_always initial_suspend() noexcept { return {}; }   // lazy
-        std::suspend_always final_suspend() noexcept { return {}; }     // MUST be noexcept
+        std::suspend_always final_suspend() noexcept { return {}; }     // must be noexcept
         std::suspend_always yield_value(const T& v) noexcept {
             current = std::addressof(v);
             return {};
@@ -203,7 +189,9 @@ private:
 };
 ```
 
-The load-bearing details, in order of how often they are botched:
+### Load-bearing details of the fallback
+
+In order of how often they are botched:
 
 1. `final_suspend` is `noexcept` and returns `suspend_always` — the frame must stay alive after completion so the owner can `destroy()` it; if it didn't suspend, the frame would self-destroy and the destructor's `destroy()` would be a double-free.
 2. The destructor calls `h_.destroy()`; move construction nulls the source. One owner, one destroy.
@@ -269,7 +257,7 @@ private:
 };
 ```
 
-How a chain executes:
+### How a task chain executes
 
 ```cpp
 task<int> leaf()   { co_return 42; }
@@ -282,11 +270,13 @@ task<int> middle() { co_return co_await leaf() + 1; }
 //   middle co_returns; its final_awaiter transfers back to the original awaiter
 ```
 
-What this skeleton deliberately lacks — and why you use a library in production:
+### What the task skeleton lacks
 
-- **No `sync_wait`.** Something at the top of the chain must resume the first task from non-coroutine code and block for the result (typically `atomic<bool>` + `wait`). Easy to get subtly wrong.
-- **No scheduler/executor.** Everything resumes inline on the current thread. Real runtimes decide *where* `await_suspend` resumes things.
-- **No cancellation**, no `when_all`, no timeouts, no thread-safe completion race (a task completed on thread B while thread A is mid-`await_suspend` requires an atomic state machine).
+Why production code uses a library:
+
+- No `sync_wait`. Something at the top of the chain must resume the first task from non-coroutine code and block for the result (typically `atomic<bool>` + `wait`). Easy to get subtly wrong.
+- No scheduler/executor. Everything resumes inline on the current thread. Real runtimes decide *where* `await_suspend` resumes things.
+- No cancellation, no `when_all`, no timeouts, no thread-safe completion race (a task completed on thread B while thread A is mid-`await_suspend` requires an atomic state machine).
 
 ## Custom Awaiters
 
@@ -313,9 +303,9 @@ struct read_awaiter {
 };
 ```
 
-Rules:
+### Awaiter rules
 
-- Document **which thread `await_resume` continues on**. After the awaiter above, the coroutine is running on the I/O callback thread — every local it touches migrated threads with it. `co_await` is a potential thread switch; code after it must not assume the thread before it.
+- Document which thread `await_resume` continues on. After the awaiter above, the coroutine is running on the I/O callback thread — every local it touches migrated threads with it. `co_await` is a potential thread switch; code after it must not assume the thread before it.
 - If the operation can complete *before* `await_suspend` finishes registering, return `bool` from `await_suspend` (`false` = "already done, resume now") or use an atomic state to avoid the lost-wakeup race.
 - `promise.await_transform(x)` lets a promise intercept every `co_await x` in its coroutines — how libraries implement `co_await get_stop_token()` style introspection, and how they *ban* awaiting foreign types (declare a deleted `await_transform` catch-all).
 
@@ -325,12 +315,12 @@ Coroutine lifetime bugs dominate real-world coroutine defects. The frame routine
 
 ### Pitfall 1: lambda captures (the big one)
 
-Captures live in the **closure object**. The coroutine frame copies the lambda's *parameters*, not its captures — the frame holds only a reference to the closure. When the closure dies, every capture dangles, **including by-value captures**:
+The coroutine frame copies the lambda's *parameters*, not its captures, which stay in the closure; the frame holds only a reference to it. When the closure dies, every capture dangles, including by-value captures:
 
 ```cpp
 auto make = [](std::vector<int> data) {
-    // BAD: `data` is captured (even by value) — it lives in the closure,
-    // and the closure is a temporary destroyed at the end of this statement.
+    // BAD: the closure holding `data` is a temporary destroyed at the end
+    // of this statement.
     return [data]() -> std::generator<int> {
         for (int x : data) co_yield x;        // UB after first resume
     }();
@@ -343,7 +333,7 @@ auto good = [](std::vector<int> data) -> std::generator<int> {
 auto gen = good(load());
 ```
 
-Rule: a coroutine lambda captures **nothing**. Pass everything as parameters. If a framework forces captures (callback adapters), the closure object must provably outlive the last resumption — which usually means heap-allocating it alongside the work.
+Rule: a coroutine lambda captures nothing. Pass everything as parameters. If a framework forces captures (callback adapters), the closure must provably outlive the last resumption, usually by heap-allocating it with the work.
 
 ### Pitfall 2: reference parameters
 
@@ -361,7 +351,7 @@ for (char c : chars(name + ".txt")) use(c);   // OK: temporary lives for the
                                               // whole range-for full-expression
 ```
 
-Rule for coroutine signatures: **take parameters by value** unless the coroutine is awaited/consumed within the same full-expression and you can prove it stays that way. By-value `std::string`/`std::vector` parameters are cheap insurance; `std::string_view`/`std::span` parameters inherit the same dangling risk as references.
+Rule for coroutine signatures: take parameters by value unless the coroutine is awaited/consumed within the same full-expression and you can prove it stays that way. By-value `std::string`/`std::vector` parameters are cheap insurance; `std::string_view`/`std::span` parameters inherit the same dangling risk as references.
 
 ### Pitfall 3: implicit `this`
 
@@ -374,22 +364,22 @@ task<void> Session::run() {                 // frame holds Session*
 }
 ```
 
-Mitigations, in preference order: have the owner of the `Session` own (and `co_await`/destroy) the task so lifetimes nest; or make `run` a static/free coroutine taking `std::shared_ptr<Session>` **by value**; or keep `shared_from_this()` in a local at the top of the body. "The object usually outlives it" is not a mitigation.
+Mitigations, in preference order: have the owner of the `Session` own (and `co_await`/destroy) the task so lifetimes nest; or make `run` a static/free coroutine taking `std::shared_ptr<Session>` by value; or keep `shared_from_this()` in a local at the top of the body.
 
 ### Pitfall 4: fire-and-forget detachment
 
-A detached coroutine (eager, nobody owns the handle) is the coroutine equivalent of a detached thread: nothing bounds its lifetime against the data it references. If you must have one, it may reference **only** what it owns by value — and you still need a shutdown story (counters/latches) so the process doesn't exit under it.
+A detached coroutine (eager, nobody owns the handle) is the coroutine equivalent of a detached thread: nothing bounds its lifetime against the data it references. If you must have one, it may reference only what it owns by value — and you still need a shutdown story (counters/latches) so the process doesn't exit under it.
 
 ### Pitfall 5: assuming HALO
 
-Whether the frame allocation is elided depends on inlining, on the coroutine type's design, and on optimization level. Never design APIs that are only correct (or only fast enough) when HALO fires; verify allocation behavior against your toolchain with a profiler if it matters.
+Whether the frame allocation is elided depends on inlining, on the coroutine type's design, and on optimization level. Never design APIs that are only correct (or only fast enough) when HALO fires; measure allocations if it matters.
 
 ## Exceptions in Coroutines
 
 Three distinct phases, three different behaviors:
 
-1. **Before the first suspension point is reached** — i.e., thrown during frame allocation, promise construction, or (for eager types) the early body: the exception propagates out of the *call expression* like any normal function call.
-2. **From the body after suspension**: the compiler-generated `try/catch` routes it to `promise.unhandled_exception()`. The standard pattern stores `std::current_exception()` and rethrows it at the consumer's resume point — `await_resume` for tasks, `begin()`/`operator++` for `std::generator`. The consumer therefore sees the exception where they *consume*, not where they created the coroutine:
+1. Before the first suspension point is reached — i.e., thrown during frame allocation, promise construction, or (for eager types) the early body: the exception propagates out of the *call expression* like any normal function call.
+2. From the body after suspension: the compiler-generated `try/catch` routes it to `promise.unhandled_exception()`. The standard pattern stores `std::current_exception()` and rethrows it at the consumer's resume point — `await_resume` for tasks, `begin()`/`operator++` for `std::generator`. The consumer therefore sees the exception where they *consume*, not where they created the coroutine:
 
 ```cpp
 std::generator<int> parse(std::istream& in);   // body may throw
@@ -400,9 +390,11 @@ try {
 } catch (const parse_error& e) { report(e); }
 ```
 
-3. **From `final_suspend` or `unhandled_exception` themselves**: `final_suspend` must be `noexcept` (the program is ill-formed otherwise); if `unhandled_exception` throws or rethrows immediately, the exception escapes into the coroutine teardown path and the practical result is `std::terminate`. Promises that rethrow inside `unhandled_exception()` are valid only for designs where the resumer is prepared for `resume()` to throw — don't combine that with `noexcept` resumption loops.
+### Exceptions from final_suspend and unhandled_exception
 
-Guidelines:
+3. From `final_suspend` or `unhandled_exception` themselves: `final_suspend` must be `noexcept` (the program is ill-formed otherwise); if `unhandled_exception` throws or rethrows immediately, the exception escapes into the coroutine teardown path and the practical result is `std::terminate`. Promises that rethrow inside `unhandled_exception()` are valid only for designs where the resumer is prepared for `resume()` to throw — don't combine that with `noexcept` resumption loops.
+
+### Exception-handling guidelines
 
 - Tasks: store `exception_ptr`, rethrow in `await_resume` (as the `task<T>` skeleton does). This keeps `co_await` transparent: exceptions flow as if the awaited body were a called function.
 - Generators: expect throws from iteration, not construction; wrap the *loop*, not the call.
@@ -415,11 +407,16 @@ Guidelines:
 |---------|--------------|-----|
 | garbage/ASan UAF on first iteration of a generator | dangling reference parameter or lambda capture | by-value parameters; no captures |
 | crash on second `begin()` of a generator | single-pass range iterated twice | call the coroutine function again |
-| stack overflow in deeply chained tasks | `resume()` inside `await_suspend` instead of symmetric transfer | return the handle from `await_suspend` |
-| O(n²) traversal of recursive generator | manual re-yield loop | `std::ranges::elements_of` |
 | double-free in coroutine type destructor | `final_suspend` returned `suspend_never` while destructor calls `destroy()` | `suspend_always` + owner destroys |
 | exception appears at the loop, not the call | normal lazy-coroutine semantics | wrap consumption, not construction |
+
+### Performance, threading, and toolchain symptoms
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| stack overflow in deeply chained tasks | `resume()` inside `await_suspend` instead of symmetric transfer | return the handle from `await_suspend` |
+| O(n²) traversal of recursive generator | manual re-yield loop | `std::ranges::elements_of` |
 | coroutine resumes on unexpected thread | awaiter resumed from a callback thread | document/await a re-scheduling awaiter; never assume thread affinity across `co_await` |
 | `no member named 'generator' in namespace 'std'` | pre-C++23 stdlib or missing `-std=c++23` | gate on `__cpp_lib_generator`; use the C++20 fallback skeleton |
 
-Sanitizer note: ASan and UBSan understand coroutine frames well; run them on all coroutine code (lifetime bugs above are exactly what they catch). TSan support for coroutines that migrate threads has historically had gaps — verify against your toolchain and treat clean TSan runs on thread-hopping coroutine code with mild suspicion.
+Sanitizer note: ASan and UBSan understand coroutine frames well; run them on all coroutine code (lifetime bugs above are exactly what they catch). TSan support for coroutines that migrate threads has gaps, so a clean TSan run on thread-hopping coroutine code is weak evidence.

@@ -22,7 +22,7 @@ current capability set from the start rather than migrating into it:
   (`sys-code-fixer`), sonnet/medium 40 (`system-developer` router), sonnet/high 50
   (the four language developers, `sys-test-generator`, `sys-performance-engineer`,
   `sys-security-auditor`), opus/xhigh 60 (`system-architector`).
-- **`disallowed-tools: Write, Edit`** — declared on the two review-only agents
+- **`disallowedTools: Write, Edit`** — declared on the two review-only agents
   (`sys-performance-engineer`, `sys-security-auditor`) as defense-in-depth on top
   of their already Write/Edit-free `tools:` allow-lists. Fixes route to
   `sys-code-fixer`.
@@ -75,7 +75,7 @@ following stay orchestrator-owned and are deliberately **not** implemented here:
   localization surface, so the apple-developer `localizator` role has no analog
   here and is intentionally omitted.
 - **Review-only auditors** — `sys-performance-engineer` and `sys-security-auditor`
-  carry `disallowed-tools: Write, Edit` and route all remediation to
+  carry `disallowedTools: Write, Edit` and route all remediation to
   `sys-code-fixer`. Keeps the review/fix separation explicit and auditable.
 - **Shared verb-first command names (v1.5.0)** — commands use bare filenames
   (invoked as `/system-developer:<name>`) drawn from the naming standard shared
@@ -220,7 +220,7 @@ C/C++/Python/Bash guidance changed.
   separately; scope includes references/).
 
 Follow-ups: the skills `description` cap (600) is a regression brake, not a target — worst
-today is 514 (`embedded-cpp`); tightening waits on eval evidence that a shorter description
+today is 435 (`modern-python`); tightening waits on eval evidence that a shorter description
 still fires the right skill. The section-lint burn-down is tracked separately.
 
 ## Refresh Log (v1.3.1 — 2026-07-08)

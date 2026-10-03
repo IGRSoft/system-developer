@@ -1,32 +1,12 @@
 # Meson and Make Reference
 
-Use this when:
-
-- You are starting a clean C/C++ project and want a faster, stricter build than CMake.
-- You are deciding whether to keep a plain `Makefile` or move to a real build system.
-- You inherited Make and need the signal for *when* migration is worth it.
-
-Skip if:
-
-- You want the default C/C++ build system (CMake) — that is [cmake-modern.md](cmake-modern.md).
-- You only need to pick a package manager — see [package-managers.md](package-managers.md).
-- The problem is runtime, not build — see [diagnostics](../../diagnostics/SKILL.md).
-
-Jump to:
-
-- Meson 1.11 Setup / Compile / Test
-- Meson Dependencies (subprojects / wrap)
-- When Plain Make Is the Right Tool
-- A Minimal Correct Makefile
-- The Make → CMake/Meson Migration Signal
-
----
+Meson for clean C/C++ projects, when plain Make is still right, and when to migrate off
+it. CMake, the default: [cmake-modern.md](cmake-modern.md).
 
 ## Meson 1.11 Setup / Compile / Test
 
-Meson 1.11 is current. It is faster to configure than CMake, has terser syntax, defaults
-to the Ninja backend, and is strict by default (warnings, unused deps). Good for
-greenfield C/C++.
+Meson 1.11 is current: faster configure than CMake, terser syntax, Ninja backend, strict
+by default.
 
 ```meson
 # meson.build
@@ -51,18 +31,17 @@ meson test -C build        # run the test suite
 meson setup --reconfigure build   # re-run configure after changing options
 ```
 
-- **Out-of-source always** — `build/` is created by `meson setup`, never the source tree.
-- `meson setup build -Dcpp_std=c++20 --buildtype=debugoptimized` overrides options at
-  configure time; `--buildtype` values: `debug`, `debugoptimized` (the profiling
-  equivalent of RelWithDebInfo), `release`.
-- `compile_commands.json` is emitted automatically — clang-tidy / clangd just work.
+### Options
 
----
+- `meson setup build -Dcpp_std=c++20 --buildtype=debugoptimized` overrides options;
+  `--buildtype` is `debug`, `debugoptimized` (the RelWithDebInfo equivalent, for
+  profiling), or `release`.
+- `compile_commands.json` is emitted automatically for clang-tidy and clangd.
 
 ## Meson Dependencies (subprojects / wrap)
 
-Meson resolves dependencies via `dependency()`, falling back to a **subproject** when the
-system copy is absent. Wrap files live in `subprojects/`.
+`dependency()` uses the system/pkg-config copy first and falls back to a subproject from
+a wrap file in `subprojects/`.
 
 ```meson
 # Prefer a system/pkg-config copy, fall back to a wrap-provided subproject
@@ -86,32 +65,22 @@ meson wrap install fmt      # fetch a wrap from WrapDB (the Meson package regist
 meson subprojects update    # refresh checked-in subprojects
 ```
 
-- `dependency('x', fallback: [...])` uses pkg-config/system first, then builds the
-  subproject — the single mechanism for both system and vendored deps.
-- Pin `revision` to a tag or commit; a branch makes builds irreproducible.
-
----
 
 ## When Plain Make Is the Right Tool
 
-Make is not obsolete — it is the right tool in two narrow cases:
+Two cases:
 
-1. **An existing, working `Makefile`** for a project that is not growing. Do not migrate a
-   build that works and is not in your way; rewriting it is pure risk.
-2. **One simple, single-language target** — a single binary from a handful of `.c`/`.cpp`
-   files, no external packages, no cross-platform requirement. A 10-line Makefile beats a
-   CMake project here.
+1. An existing, working `Makefile` for a project that is not growing. Rewriting it is
+   pure risk.
+2. One simple single-language binary from a handful of files, no external packages, no
+   cross-platform requirement.
 
-Outside those cases, prefer CMake (the default) or Meson. Make has no dependency
-resolution, no package-manager integration, no presets, and no portable feature
-detection — you reimplement all of that by hand, badly.
-
----
+Otherwise prefer CMake or Meson: Make has no dependency resolution, package-manager
+integration, presets, or portable feature detection.
 
 ## A Minimal Correct Makefile
 
-If Make is genuinely the right call, write it correctly: out-of-tree objects, automatic
-header dependencies, phony targets.
+Out-of-tree objects, automatic header dependencies, phony targets:
 
 ```make
 CC      := cc
@@ -139,15 +108,12 @@ test: $(BIN)
 	$(BIN) --self-test
 ```
 
-- `-MMD -MP` + `-include *.d` give you correct header-change rebuilds — the single most
-  common thing hand-written Makefiles get wrong.
-- `| $(BUILD)` is an order-only prerequisite (create the dir, don't relink on its mtime).
-- Mark non-file targets `.PHONY`.
+- `-MMD -MP` + `-include *.d` rebuild on header changes, which hand-written Makefiles most
+  often get wrong.
+- `| $(BUILD)` is order-only: create the dir without relinking on its mtime.
 
-This is GNU Make syntax. BSD make differs (no `$(wildcard ...)`, different conditionals) —
-if you need portability across both, that *is* the migration signal below.
-
----
+This is GNU Make. BSD make differs (no `$(wildcard ...)`, different conditionals);
+needing both is a migration signal.
 
 ## The Make → CMake/Meson Migration Signal
 
@@ -161,15 +127,11 @@ Migrate off plain Make when any of these become true:
 | You add a second language or a shared library + tests + install | Link order, install rules, and export configs become error-prone by hand. |
 | CI needs reproducible, cached dependency builds | No lockfile, no preset, no binary cache. |
 
-When you migrate: **CMake** if you need the broadest package-manager/IDE ecosystem (the
-default — [cmake-modern.md](cmake-modern.md)); **Meson** for a clean, fast, strict build
-with less boilerplate. Both give you out-of-source builds, `compile_commands.json`, real
-dependency handling, and test integration that Make cannot.
+Migrate to CMake for the broadest package-manager and IDE ecosystem, or Meson for a
+fast, strict build with less boilerplate.
 
 ## Related References
 
-- [build-systems SKILL.md](../SKILL.md) — build-system selection table
-- [cmake-modern.md](cmake-modern.md) — the CMake target/preset/dependency doctrine
-- [package-managers.md](package-managers.md) — dependency strategy across CMake/Meson/uv
-- [ci-pipelines.md](ci-pipelines.md) — wiring Meson or Make builds into CI
-- [version-feature-matrix](../../../_shared/version-feature-matrix.md) — Meson/compiler version floors
+- [package-managers.md](package-managers.md): dependency strategy across CMake, Meson, and uv
+- [ci-pipelines.md](ci-pipelines.md): wiring Meson or Make builds into CI
+- [version-feature-matrix](../../../_shared/version-feature-matrix.md): Meson and compiler version floors

@@ -1,89 +1,79 @@
 ---
 name: secure-coding
-description: Non-negotiable security rules and bug-class defenses for C, C++, Python, and Bash — injection-safe process execution, memory-corruption sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, and secrets hygiene. Use when writing or reviewing systems code that touches untrusted input, spawns processes, parses data, handles paths, or manages credentials.
+description: Security rules and bug-class defenses for C, C++, Python, and Bash — injection-safe process execution, sanitizer mapping, integer safety, path-traversal/TOCTOU resistance, secrets hygiene, and dependency supply-chain trust. Use when writing or reviewing systems code that touches untrusted input, spawns processes, parses data, handles paths, manages credentials, or adds a dependency.
 ---
 
 # Secure Coding (C / C++ / Python / Bash)
 
-**Cross-language security rules that gate every diff. Violations are P0 review findings.**
+Cross-language security rules for every diff. A violation is a P0 review finding.
 
-## When to Use
+Applies when code accepts untrusted input (CLI args, env, files, network, IPC, API responses), spawns a subprocess or builds a query, parses or deserializes data, canonicalizes paths, does arithmetic that feeds a size or offset, or handles secrets.
 
-Use this skill when:
-- Code accepts untrusted input (CLI args, env, files, network, IPC, API responses).
-- Code spawns a subprocess, builds a command line, or constructs SQL/queries.
-- Code parses, deserializes, or canonicalizes paths.
-- Code allocates, indexes, or does arithmetic that feeds a size or offset.
-- Code handles secrets (tokens, keys, passwords).
+## Core Rules
 
-## Non-Negotiable Rules
+Exceptions need a documented, reviewed justification.
 
-These mirror the global security rules and never have exceptions without a documented, reviewed justification:
-
-1. **No raw user input in paths, command lines, or queries** — always sanitize, canonicalize, or pass through structured APIs (argv arrays, parameterized queries, `openat`).
+1. **No raw user input in paths, command lines, or queries** — sanitize, canonicalize, or pass through structured APIs (argv arrays, parameterized queries, `openat`).
 2. **No dynamic code construction or execution** — no `eval`/`exec`, no `system("…" + input)`, no shelling out to an interpreter on attacker data.
-3. **Validate all external API responses** — assume every byte from outside the process is hostile; check length, type, range, and encoding before use.
-4. **Never disable a security control without documented justification** — sanitizers off, `-Werror` removed, `verify=False`, suppression files: each needs an inline comment with the reason and a tracking reference.
+3. **Validate all external API responses** — every byte from outside the process is hostile; check length, type, range, and encoding before use.
+4. **Don't disable a security control without justification** — sanitizers off, `-Werror` removed, `verify=False`, suppression files: each needs an inline comment with the reason and a tracking reference.
 
-> A change that breaks any of these does not pass DR/SR review. See [CORPFLOW.md](../../../CORPFLOW.md) for stage gates.
+## Injection-Safe Execution
 
-## Injection-Safe Execution (per language)
-
-Never hand a string to a shell. Pass an argument vector to `exec`-family / structured APIs.
+Pass an argument vector to `exec`-family or structured APIs; never hand a string to a shell.
 
 | Language | Banned | Required |
 |----------|--------|----------|
-| C | `system(cmd)`, `popen(cmd, …)` with interpolated input | `posix_spawn` / `fork` + `execvp(file, argv)` with an explicit `argv[]` array; build args, never a shell string |
-| C++ | `std::system(...)`, `system`, `popen` | Same as C — `posix_spawn`/`execvp` with an argv vector; never `std::system` even for "trusted" input |
-| Python | `subprocess.run(cmd, shell=True)`, `os.system`, `eval`, `exec`, `pickle.loads`/`yaml.load` on untrusted data | `subprocess.run([prog, arg1, arg2], shell=False)` (the default); `json.loads`, `yaml.safe_load`; never `pickle` on external bytes |
-| Bash | `eval "$x"`, unquoted `$var`, command in a variable run bare | Quote **everything** (`"$var"`), use `--` before positional args, run fixed argv; never `eval` |
+| C | `system(cmd)`, `popen(cmd, …)` with interpolated input | `posix_spawn` / `fork` + `execvp(file, argv)` with an explicit `argv[]` |
+| C++ | `std::system`, `system`, `popen`, even for "trusted" input | Same as C, with an argv vector |
+| Python | `subprocess.run(cmd, shell=True)`, `os.system`, `eval`, `exec`, `pickle.loads`/`yaml.load` on untrusted data | `subprocess.run([prog, arg1, arg2])` (`shell=False` is the default); `json.loads`, `yaml.safe_load` |
+| Bash | `eval "$x"`, unquoted `$var`, a command stored in a variable and run bare | Quote every expansion (`"$var"`), `--` before positional args, fixed argv or arrays |
+
+### Examples
 
 ```python
-# DO — argv list, no shell
-subprocess.run(["grep", "--", pattern, path], shell=False, check=True)
-# DON'T — shell interprets pattern/path
-subprocess.run(f"grep {pattern} {path}", shell=True)  # injection
+subprocess.run(["grep", "--", pattern, path], check=True)   # DO: argv list, no shell
+subprocess.run(f"grep {pattern} {path}", shell=True)         # DON'T: injection
 ```
 
 ```bash
-# DO — quoted, with -- guard against leading-dash filenames
-rm -- "$file"
-# DON'T — word-splitting + glob + option injection
-rm $file
+rm -- "$file"   # DO: quoted, -- guards leading-dash names
+rm $file        # DON'T: word-splitting, glob, option injection
 ```
 
-Full doctrine, `posix_spawn` examples, environment scrubbing, and why dynamic code exec is banned: [references/command-execution-and-injection.md](references/command-execution-and-injection.md).
+`posix_spawn` examples, environment scrubbing, and the full dynamic-code ban: [references/command-execution-and-injection.md](references/command-execution-and-injection.md).
 
-Scan a tree for these banned constructs before review:
-`../scripts/injection_audit.sh --lang {c|cpp|python|bash} --path .` flags each hit
-as `path:line` (heuristic — confirm in context). Exits non-zero on findings, so it
-drops straight into a DR/SR or CI gate.
+### Scanning for banned constructs
 
-## Memory-Corruption Bug Classes (C / C++) → which sanitizer catches it
+To scan a tree for banned constructs, run `../scripts/injection_audit.sh --lang {c|cpp|python|bash} --path .`. It prints each hit as `path:line` (heuristic, so confirm in context) and exits non-zero on findings, so it works as a review or CI gate.
 
-| Bug class | What it is | Caught by | Notes |
-|-----------|-----------|-----------|-------|
-| Use-after-free (UAF) | Access freed heap | **ASan** | Also dangling-stack with `detect_stack_use_after_return=1` |
-| Double-free | `free` same pointer twice | **ASan** | |
-| Heap/stack/global OOB read/write | Index past bounds | **ASan** | Stack & global redzones built in |
-| Uninitialized read | Use of unset memory | **MSan** (Clang-only; instrument all deps or false positives) | Often impractical; prefer init-on-declare |
-| Signed integer overflow / shift / null-deref / misaligned | Undefined behavior | **UBSan** | Combine with ASan |
-| Data race | Concurrent unsynchronized access | **TSan** | Exclusive — cannot combine with ASan/MSan |
-| Memory leak | Never freed | **LSan** (bundled in ASan on Linux) | RAII / cleanup attribute prevents |
+## Memory-Corruption Bug Classes (C / C++)
 
-Combination rules: ASan + UBSan compose; TSan and MSan are mutually exclusive with ASan and with each other. Sanitizers find bugs only on paths you execute — pair with fuzzing/tests. Flag sets and dedupe workflow: [diagnostics](../../tooling/diagnostics/SKILL.md).
+| Bug class | Caught by | Notes |
+|-----------|-----------|-------|
+| Use-after-free | **ASan** | Stack UAF needs `detect_stack_use_after_return=1` |
+| Double-free | **ASan** | |
+| Heap/stack/global out-of-bounds | **ASan** | |
+| Uninitialized read | **MSan** | Clang-only; uninstrumented deps give false positives. Prefer init-on-declare |
+| Signed overflow, bad shift, null deref, misalignment | **UBSan** | Combine with ASan |
+| Data race | **TSan** | |
+| Leak | **LSan** (bundled in ASan on Linux) | |
 
-**Build-time hardening (C/C++):** ship release builds with the recommended hardening set — `-D_FORTIFY_SOURCE=3` (needs `-O2`), `-fstack-protector-strong`, PIE/RELRO, and `-ftrivial-auto-var-init=zero` to zero-initialize locals. GCC 14+ bundles the recommended set behind the `-fhardened` umbrella flag as a convenience; C++ adds `-D_GLIBCXX_ASSERTIONS` (libstdc++) or `_LIBCPP_HARDENING_MODE` (libc++) for hardened standard-library bounds checks.
+ASan + UBSan compose; TSan and MSan each run alone. Sanitizers only see executed paths, so pair them with tests or fuzzing. Flag sets and triage: [diagnostics](../../tooling/diagnostics/SKILL.md).
+
+### Release hardening
+
+`-D_FORTIFY_SOURCE=3` (needs `-O2`), `-fstack-protector-strong`, PIE/RELRO, `-ftrivial-auto-var-init=zero`. GCC 14+ bundles the set as `-fhardened`. C++ adds `-D_GLIBCXX_ASSERTIONS` (libstdc++) or `_LIBCPP_HARDENING_MODE` (libc++) for bounds-checked standard containers.
 
 ## Integer Safety
 
-Overflow in size/index/offset arithmetic is the root of most OOB. Use checked arithmetic at every untrusted boundary.
+Overflow in size/index/offset arithmetic causes most out-of-bounds bugs. Use checked arithmetic at every untrusted boundary.
 
-| Language | Mechanism | Marker / fallback |
-|----------|-----------|-------------------|
-| C | `ckd_add` / `ckd_sub` / `ckd_mul` from `<stdckdint.h>` | **C23**; pre-C23 fallback: `__builtin_*_overflow` (GCC/Clang) or manual pre-checks against `SIZE_MAX` |
-| C++ | `std::cmp_less` / `cmp_greater` / `cmp_equal` family + `std::in_range<T>(v)` from `<utility>` | **C++20**; pre-C++20 fallback: cast carefully and compare with explicit bounds, or `__builtin_*_overflow` |
-| Python | Ints are arbitrary precision — overflow risk lives at the **C-extension boundary** | Validate before passing to `ctypes`/C API; range-check against the target C type's limits |
+| Language | Mechanism | Fallback |
+|----------|-----------|----------|
+| C | `ckd_add` / `ckd_sub` / `ckd_mul` from `<stdckdint.h>` (**C23**) | `__builtin_*_overflow` (GCC/Clang) or manual checks against `SIZE_MAX` |
+| C++ | `std::cmp_less` etc. and `std::in_range<T>(v)` from `<utility>` (**C++20**) | Explicit casts and bounds, or `__builtin_*_overflow` |
+| Python | Ints don't overflow; the risk is at the C-extension/`ctypes` boundary | Range-check against the target C type before crossing |
 
 ```c
 size_t total;
@@ -91,16 +81,16 @@ if (ckd_mul(&total, count, elem_size)) return ERR_OVERFLOW;  // C23
 void *buf = malloc(total);
 ```
 
-Never mix signed/unsigned in a comparison that gates a buffer access. Parsing untrusted numbers safely (`strtol`+errno, `from_chars`, Python `int()`): [references/input-validation-and-parsing.md](references/input-validation-and-parsing.md).
+Don't mix signed and unsigned in a comparison that gates a buffer access. Safe number parsing (`strtol`+errno, `from_chars`, `int()`): [references/input-validation-and-parsing.md](references/input-validation-and-parsing.md).
 
 ## Path Traversal & TOCTOU
 
 | Risk | Defense |
 |------|---------|
-| `../` escaping a base directory | C/C++: `openat(dirfd, rel, O_NOFOLLOW)` + verify with `realpath`; Python: `base.resolve()` then `path.resolve().is_relative_to(base)` |
-| Symlink redirection | `O_NOFOLLOW`, `lstat`, never follow attacker-controlled symlinks |
-| Time-of-check/time-of-use | Operate on a file descriptor, not a re-resolved path; use `openat`/`fstat` on the same `fd`, never `access()` then `open()` |
-| Predictable temp files | `mkstemp` / Python `tempfile.mkstemp` / `NamedTemporaryFile` — **never** `mktemp`, `tmpnam`, or hand-rolled `/tmp/$$` |
+| `../` escaping a base directory | C/C++: `openat(dirfd, rel, O_NOFOLLOW)` or `realpath` + prefix check; Python: `path.resolve().is_relative_to(base.resolve())` |
+| Symlink redirection | `O_NOFOLLOW`, `lstat`; don't follow attacker-controlled symlinks |
+| Time-of-check/time-of-use | Open once and act on the fd (`fstat`), not `access()` then `open()` |
+| Predictable temp files | `mkstemp` / Python `tempfile.mkstemp` or `NamedTemporaryFile`, not `mktemp`, `tmpnam`, or `/tmp/$$` |
 
 ```python
 target = (base / user_name).resolve()
@@ -110,34 +100,46 @@ if not target.is_relative_to(base.resolve()):
 
 ## Secrets Hygiene
 
-| Rule | C | C++ | Python | Bash |
-|------|---|-----|--------|------|
-| Scrub after use | `memset_explicit` (**C23**); fallback `explicit_bzero` (BSD/glibc) or `SecureZeroMemory` | same as C on the buffer | overwrite is unreliable (immutable `str`/`bytes`); minimize lifetime, prefer `bytearray` + del | `unset VAR` |
-| Never log secrets | redact before any `printf`/log | same | filter logging formatters | never `set -x` around secret lines |
-| Pass via env, not argv | argv is world-readable via `/proc/PID/cmdline` and `ps` | same | same | export to env or read from fd/file, never `--password=$PW` on the command line |
+| Rule | C / C++ | Python | Bash |
+|------|---------|--------|------|
+| Scrub after use | `memset_explicit` (**C23**); fallback `explicit_bzero` or `SecureZeroMemory`. Plain `memset` can be optimized away | `str`/`bytes` can't be overwritten; keep lifetime short, prefer `bytearray` then `del` | `unset VAR` |
+| Don't log secrets | Redact before any print/log | Filter in logging formatters | No `set -x` around secret lines |
+| Pass via env or fd, not argv | argv is visible to other users via `ps` and `/proc/PID/cmdline` | same | Export or read from fd/file, never `--password=$PW` |
 
-A plain `memset` to zero a secret may be optimized away by the compiler ("dead store"); `memset_explicit`/`explicit_bzero` are guaranteed not to be elided.
+## Supply Chain
+
+A new dependency runs with your process's privileges, so treat adding one like accepting untrusted code.
+
+| Rule | How |
+|------|-----|
+| Pin exactly and commit the lock | `uv.lock`, vcpkg `builtin-baseline` + `overrides`, `conan.lock`; FetchContent by commit SHA, not a branch or tag |
+| Verify what you fetch | `--require-hashes` for pip requirements; `URL_HASH SHA256=` for FetchContent/ExternalProject downloads |
+| Vet before adding | Maintained, from the expected publisher (watch for typosquats), license fits, no open critical CVEs (`osv-scanner`, `pip-audit`) |
+| Use trusted sources only | No `curl ... \| sh` installers in builds; no extra package indexes that can shadow internal names (dependency confusion) |
+| Keep CI least-privilege | Pin third-party CI actions by SHA; no secrets in jobs that build untrusted pull requests |
 
 ## Diagnostic Table
 
-| Symptom / finding | Likely cause | Fix | Reference |
-|-------------------|-------------|-----|-----------|
-| `system()`/`popen` with interpolated input | shell injection | argv array via `execvp`/`posix_spawn` | [command-execution](references/command-execution-and-injection.md) |
-| `shell=True` in `subprocess` | shell injection | `shell=False` + list args | [command-execution](references/command-execution-and-injection.md) |
-| `eval`/`exec`/`pickle.loads` on external data | arbitrary code execution | structured parser (`json`, `yaml.safe_load`) | [command-execution](references/command-execution-and-injection.md) |
-| Unquoted `$var` flagged SC2086 | word-splitting / glob injection | `"$var"`, add `--` | [command-execution](references/command-execution-and-injection.md) |
-| ASan: heap-use-after-free | UAF | fix lifetime, RAII/ownership | [diagnostics](../../tooling/diagnostics/SKILL.md) |
-| ASan: heap-buffer-overflow | OOB + likely integer overflow | bounds + checked arithmetic (`ckd_*`/`in_range`) | [input-validation](references/input-validation-and-parsing.md) |
-| UBSan: signed-integer-overflow | unchecked arithmetic | `ckd_*` (C23) / `__builtin_*_overflow` | [input-validation](references/input-validation-and-parsing.md) |
-| Path accepts `../` and escapes base | traversal | `resolve()`+`is_relative_to` / `openat`+`O_NOFOLLOW` | [input-validation](references/input-validation-and-parsing.md) |
-| `mktemp`/`tmpnam` usage | predictable temp / race | `mkstemp` | [input-validation](references/input-validation-and-parsing.md) |
-| `access()` then `open()` | TOCTOU | operate on the `fd` | [input-validation](references/input-validation-and-parsing.md) |
-| Secret in argv / log / `set -x` | credential disclosure | env/fd + redact + `memset_explicit` | this file, Secrets Hygiene |
+### Injection and code execution
 
-## Related Skills
+| Finding | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
+| `system`/`popen`/`shell=True` with interpolated input | Shell injection | argv array (`execvp`/`posix_spawn`, list args) | [command-execution](references/command-execution-and-injection.md) |
+| `eval`/`exec`/`pickle.loads` on external data | Code execution | Structured parser (`json`, `yaml.safe_load`) | [command-execution](references/command-execution-and-injection.md) |
+| Unquoted `$var` (SC2086) | Word-splitting / glob injection | `"$var"`, add `--` | [command-execution](references/command-execution-and-injection.md) |
 
-- [input-validation-and-parsing.md](references/input-validation-and-parsing.md) — untrusted-input validation, safe integer parsing, canonicalization, deserialization
-- [command-execution-and-injection.md](references/command-execution-and-injection.md) — safe process execution, environment scrubbing, dynamic-code ban
-- [diagnostics/SKILL.md](../../tooling/diagnostics/SKILL.md) — sanitizer flag sets, combination rules, triage
-- [c-memory-ownership/SKILL.md](../../c/c-memory-ownership/SKILL.md) — ownership conventions and UB catalog (C)
-- [CORPFLOW.md](../../../CORPFLOW.md) — SR/DR security gates and handoff contract
+### Memory and integer bugs
+
+| Finding | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
+| ASan heap-use-after-free | Lifetime bug | Fix ownership; RAII | [c-memory-ownership](../../c/c-memory-ownership/SKILL.md) |
+| ASan heap-buffer-overflow | OOB, often from integer overflow | Bounds check + `ckd_*`/`in_range` | [input-validation](references/input-validation-and-parsing.md) |
+| UBSan signed-integer-overflow | Unchecked arithmetic | `ckd_*` / `__builtin_*_overflow` | [input-validation](references/input-validation-and-parsing.md) |
+
+### Paths, races, and secrets
+
+| Finding | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
+| Path accepts `../` | Traversal | `resolve`+`is_relative_to` / `openat`+`O_NOFOLLOW` | [input-validation](references/input-validation-and-parsing.md) |
+| `mktemp`/`tmpnam`, `access()` then `open()` | Race | `mkstemp`; operate on the fd | [input-validation](references/input-validation-and-parsing.md) |
+| Secret in argv, log, or `set -x` | Credential disclosure | env/fd, redact, `memset_explicit` | Secrets Hygiene above |

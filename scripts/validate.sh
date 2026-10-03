@@ -232,7 +232,7 @@ fi
 # 4. Command frontmatter: description, argument-hint, allowed-tools
 # ---------------------------------------------------------------------------
 
-TOOL_WHITELIST=" Read Write Edit Glob Grep Bash WebSearch WebFetch "
+TOOL_WHITELIST=" Read Write Edit Glob Grep Bash WebSearch WebFetch Agent Skill "
 
 if [[ -d commands ]]; then
 	while IFS= read -r f; do
@@ -254,7 +254,7 @@ if [[ -d commands ]]; then
 				base="$(printf '%s' "${entry}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/\(.*$//')"
 				[[ -z "${base}" ]] && continue
 				if [[ "${TOOL_WHITELIST}" != *" ${base} "* ]]; then
-					err "${rel}" "allowed-tools entry '${base}' not in whitelist" "use only: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch"
+					err "${rel}" "allowed-tools entry '${base}' not in whitelist" "use only: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch, Agent, Skill"
 				fi
 			done
 		fi
@@ -352,8 +352,8 @@ SEEN_NAMES=""
 if [[ -d agents ]]; then
 	while IFS= read -r f; do
 		rel="${f#./}"
-		# _base agents are shared templates (no YAML frontmatter, mirroring
-		# apple-developer's platform-agent.md); skip all frontmatter checks.
+		# _base agents are shared reference docs, not routable agents; their
+		# minimal frontmatter only restricts tools, so skip these checks.
 		if [[ "${rel}" == agents/_base/* ]]; then
 			continue
 		fi

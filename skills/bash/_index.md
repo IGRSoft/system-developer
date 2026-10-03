@@ -1,14 +1,13 @@
 # Bash Skills Index
 
 Quick navigation for the `skills/bash/` subtree. Start at [SKILL.md](SKILL.md)
-for the guided entry with the Bash-vs-POSIX choice, the "leave shell" rule, and
-the version snapshot.
+for the Bash-vs-POSIX choice and the "leave shell" rule.
 
 ## Skills
 
 | Skill | Use it for |
 |-------|------------|
-| [bash-scripting/SKILL.md](bash-scripting/SKILL.md) | Strict-mode prologue, quoting rules, `[[ ]]`/`local`/`readonly`, traps, `mktemp`, `printf`, when NOT to use Bash |
+| [bash-scripting/SKILL.md](bash-scripting/SKILL.md) | Strict-mode prologue, quoting rules, `[[ ]]`/`local`/`readonly`, traps, `mktemp`, `printf`, when not to use Bash |
 | [bash-testing/SKILL.md](bash-testing/SKILL.md) | bats-core test layout, shellcheck/shfmt gate, mocking commands |
 
 ## References
@@ -24,7 +23,7 @@ the version snapshot.
 
 | Topic | Location |
 |-------|----------|
-| Toolchain minimums (canonical) | `${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md` |
-| Input validation, injection defense | `${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md` |
-| When a script outgrows shell → Python | `${CLAUDE_SKILL_DIR}/python/python-tooling/SKILL.md` |
-| CI pipelines invoking shell | `${CLAUDE_SKILL_DIR}/tooling/build-systems/SKILL.md` |
+| Toolchain minimums (canonical) | [../_shared/version-feature-matrix.md](../_shared/version-feature-matrix.md) |
+| Input validation, injection defense | [../_shared/secure-coding/SKILL.md](../_shared/secure-coding/SKILL.md) |
+| When a script outgrows shell → Python | [../python/python-tooling/SKILL.md](../python/python-tooling/SKILL.md) |
+| CI pipelines invoking shell | [../tooling/build-systems/SKILL.md](../tooling/build-systems/SKILL.md) |

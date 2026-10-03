@@ -1,112 +1,22 @@
 # Bash Defensive Patterns
 
-Use this when:
+Copy-paste patterns for traps, temp files, locking, retries, logging, argument
+parsing, validation, and parallelism. Assumes Bash 4.4+; version and GNU/BSD
+differences are in [bash-versions-and-portability.md](bash-versions-and-portability.md).
 
-- You are writing production automation, a CI step, or a system utility that must
-  fail predictably and clean up after itself.
-- You need the precise behavior of `set -e`, traps, and signal handling.
-- You need copy-paste-correct patterns for temp files, locking, retries,
-  timeouts, structured logging, or `getopts` argument parsing.
+## Script Location
 
-Skip this file if:
-
-- You only need the prologue and quoting rules. Use [../SKILL.md](../SKILL.md).
-- Your question is about a Bash version feature or POSIX portability. Use
-  [bash-versions-and-portability.md](bash-versions-and-portability.md).
-- You are writing tests. Use [../../bash-testing/SKILL.md](../../bash-testing/SKILL.md).
-
-Jump to:
-
-- The Prologue, Explained
-- The `set -e` Caveat Matrix in Depth
-- Traps and Signal Interplay (EXIT / ERR / INT / TERM)
-- Safe Temporary Files and Directories
-- Locking with flock
-- Retries and Timeouts
-- Structured Logging
-- Argument Parsing with getopts
-- Long-Option Parsing (manual loop)
-- Input Validation and Required Variables
-- Dependency and Platform Checks
-- Dry-Run and Idempotency
-- Checklist
-
-Assumes Bash 4.4+ unless noted. Where a feature needs a newer Bash or differs
-on macOS 3.2, the portability reference is cross-linked.
-
-## The Prologue, Explained
+Add these after the [prologue](../SKILL.md) when a script needs its own path:
 
 ```bash
-#!/usr/bin/env bash
-set -Eeuo pipefail
-shopt -s inherit_errexit 2>/dev/null || true
-IFS=$'\n\t'
-
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
-
-trap 'printf "%s: error on line %d (exit %d)\n" "$SCRIPT_NAME" "$LINENO" "$?" >&2' ERR
-trap cleanup EXIT
-cleanup() { :; }   # defined below; runs on every exit path
 ```
 
-- `set -E` makes the ERR trap inherited by functions, command substitutions, and
-  subshells. Without it, an error inside a function would not trigger the trap.
-- `shopt -s inherit_errexit` (Bash 4.4+) makes `set -e` apply inside
-  command-substitution subshells (`v=$(false; echo x)` will fail). The
-  `2>/dev/null || true` guard keeps the line harmless on shells that lack it.
-- `IFS=$'\n\t'` drops space from word-splitting. This single change neutralizes
-  the most common class of "filename with spaces" bugs. Restore a default `IFS`
-  locally if a specific block needs space-splitting.
-- `SCRIPT_DIR` via `cd -- ... && pwd -P` resolves symlinks and works regardless
-  of the caller's working directory. `pwd -P` gives the physical path.
-
-Why `#!/usr/bin/env bash`: it finds the first `bash` on `PATH` (a modern 5.x from
-Homebrew on macOS), rather than the frozen 3.2 at `/bin/bash`. Pair it with a
-version guard — see [bash-versions-and-portability.md](bash-versions-and-portability.md).
-
-## The `set -e` Caveat Matrix in Depth
-
-`set -e` (errexit) is the backstop for *unanticipated* failures. It is silently
-suppressed in many contexts. Memorize where it does not fire:
-
-| Context | errexit fires? | Why / what to do |
-|---------|----------------|------------------|
-| Last command of a pipeline fails | Yes | — |
-| Non-last stage of a pipeline fails | **No** unless `set -o pipefail` | always set `pipefail` |
-| `if cmd; then` / `while cmd; do` | **No** (by design) | the condition is allowed to fail |
-| `cmd && other`, `cmd \|\| other` | **No** (it's a list) | handle both branches explicitly |
-| `!cmd` | **No** | negation suppresses errexit |
-| `local v=$(failing)` | **No** | `local`'s own exit (0) masks `$(...)`. Split the declaration |
-| `var=$(failing)` in a subshell | **No** pre-4.4 | enable `inherit_errexit` |
-| `(subshell; commands)` | **No** pre-4.4 | enable `inherit_errexit` |
-| command inside `$(...)` | depends | governed by `inherit_errexit` |
-| a function called in a condition | **No** for the whole function | the function runs with errexit "off" semantics in that position |
-
-Split declaration from assignment so the command's exit code is visible
-(also fixes shellcheck SC2155):
-
-```bash
-# ❌ exit code of mktemp is lost; errexit will not fire
-local tmp=$(mktemp)
-
-# ✅ assignment failure now propagates
-local tmp
-tmp=$(mktemp)
-```
-
-For anything load-bearing, do not rely on `set -e` — check explicitly:
-
-```bash
-if ! deploy_artifact "$path"; then
-  log_error "deploy failed for $path"
-  return 1
-fi
-```
+`cd -- ... && pwd -P` resolves symlinks and works from any caller directory.
 
 ## Traps and Signal Interplay (EXIT / ERR / INT / TERM)
 
-A robust script wires four traps and understands their ordering.
 
 ```bash
 cleanup() {
@@ -121,20 +31,16 @@ trap 'exit 130' INT                     # Ctrl-C → exit 128+SIGINT(2)=130
 trap 'exit 143' TERM                    # SIGTERM → 128+15=143
 ```
 
-Key facts about trap ordering and behavior:
+- EXIT runs once, last, on every exit path. Keep cleanup there only; INT/TERM
+  handlers just `exit`, which fires EXIT.
+- Capture `$?` on the handler's first line (any command overwrites it) and
+  return it so the exit status survives cleanup.
+- ERR needs `set -E` to fire inside functions/subshells; it runs before EXIT.
+- `trap - EXIT` clears a trap; `trap '' INT` ignores a signal.
 
-- **EXIT runs once, last, on every exit path.** Put cleanup there; do not
-  duplicate cleanup in INT/TERM handlers — let them `exit`, which fires EXIT.
-- **Capture `$?` as the first line of the EXIT handler.** Any command inside the
-  handler overwrites `$?`; grab the real exit code before running cleanup, and
-  `return`/`exit` it so the script's exit status is preserved.
-- **ERR needs `set -E`** to fire inside functions/subshells. It runs *before*
-  EXIT when `set -e` aborts.
-- **INT/TERM**: the conventional exit codes are `130` (128 + SIGINT) and `143`
-  (128 + SIGTERM). Exiting from the handler triggers EXIT, so cleanup still runs.
-- **Resetting a trap**: `trap - EXIT` clears it (e.g., to skip cleanup on a known
-  good path). `trap '' INT` ignores a signal.
-- **Reap children on signal** so you do not orphan background jobs:
+### Reaping background children
+
+Reap children on signal so background jobs are not orphaned:
 
 ```bash
 pids=()
@@ -149,8 +55,8 @@ trap shutdown INT TERM
 
 ## Safe Temporary Files and Directories
 
-Never hardcode a temp path (`/tmp/foo.$$` is predictable and racy). Always
-`mktemp`, and register the cleanup trap *immediately* after creation:
+A fixed path like `/tmp/foo.$$` is predictable and racy. Use `mktemp` and
+register cleanup right after creation:
 
 ```bash
 tmp=$(mktemp -d) || { log_error "mktemp failed"; exit 1; }
@@ -159,12 +65,10 @@ trap 'rm -rf -- "$tmp"' EXIT
 workfile="$tmp/work.json"   # all temp artifacts live under $tmp
 ```
 
-- `mktemp -d` makes a private directory (mode 0700); put all scratch files inside
-  it so one `rm -rf -- "$tmp"` cleans everything.
-- Quote and `--`: `rm -rf -- "$tmp"` resists a `$tmp` that is empty or starts with `-`.
-- For a single file, `tmp=$(mktemp)` works; still trap its removal.
-- **Atomic write** (never leave a half-written target): write to a temp file in
-  the same directory, then `mv` (rename is atomic within a filesystem):
+- `mktemp -d` is private (0700); keep all scratch files inside so one `rm -rf`
+  cleans everything. A single `mktemp` file still needs its trap.
+- Atomic write: write a temp file in the same directory, then `mv` (rename is
+  atomic within a filesystem), so the target is never half-written:
 
 ```bash
 atomic_write() {            # atomic_write /etc/app.conf < newdata
@@ -175,14 +79,12 @@ atomic_write() {            # atomic_write /etc/app.conf < newdata
 }
 ```
 
-- Restrict permissions for secrets at creation with a subshell umask:
-  `(umask 077; : > "$secret")`.
+- Create secret files with restricted permissions: `(umask 077; : > "$secret")`.
 
 ## Locking with flock
 
-Prevent two instances from racing on shared state. `flock` (util-linux; on macOS
-install via Homebrew `flock` or use `mkdir` as a fallback) takes an advisory lock
-on a file descriptor:
+`flock` (util-linux; Homebrew on macOS) takes an advisory lock on a file
+descriptor so two instances can't race on shared state:
 
 ```bash
 exec 9>"/var/lock/$SCRIPT_NAME.lock"   # open FD 9 on the lock file
@@ -193,10 +95,9 @@ fi
 # lock auto-releases when FD 9 closes (i.e., when the script exits)
 ```
 
-- The lock is released automatically when the holding process exits and FD 9
-  closes — no manual unlock, no stale lock after a crash.
-- Use `flock -w 30 9` to wait up to 30 seconds instead of failing immediately.
-- Portable fallback where `flock` is absent (`mkdir` is atomic):
+- No stale lock after a crash: it releases when FD 9 closes.
+- `flock -w 30 9` waits up to 30 seconds instead of failing.
+- Where `flock` is absent, `mkdir` is atomic:
 
 ```bash
 lockdir="/tmp/$SCRIPT_NAME.lock.d"
@@ -209,14 +110,13 @@ fi
 
 ## Retries and Timeouts
 
-Bound external calls so a hung dependency cannot wedge the script.
+Bound external calls so a hung dependency can't wedge the script:
 
 ```bash
-# Bound a single command's wall-clock time (coreutils `timeout`)
 timeout 30s curl -fsS "$url" -o "$out" || { log_error "curl timed out/failed"; exit 1; }
 ```
 
-Retry with exponential backoff for transient failures:
+Exponential backoff for transient failures:
 
 ```bash
 retry() {                    # retry <max> <base_delay_s> -- cmd args...
@@ -236,15 +136,14 @@ retry() {                    # retry <max> <base_delay_s> -- cmd args...
 retry 5 1 -- curl -fsS "$url" -o "$out"
 ```
 
-- Use `curl -fsS` (`-f` fail on HTTP errors, `-sS` quiet but show errors) so a 500
-  is a non-zero exit, not a "successful" download of an error page.
-- On macOS, `timeout` comes from coreutils as `gtimeout` unless symlinked —
-  detect and adapt (see [bash-versions-and-portability.md](bash-versions-and-portability.md)).
+- `curl -fsS` makes an HTTP error a non-zero exit instead of a saved error page.
+- On macOS, `timeout` is Homebrew coreutils' `gtimeout`; detect it or use the
+  fallback in [bash-versions-and-portability.md](bash-versions-and-portability.md).
 
 ## Structured Logging
 
-Log to stderr (so stdout stays reserved for the script's actual output/data),
-with timestamps and levels controlled by an env var:
+Log to stderr so stdout carries only the script's data (pipelines and `$(...)`
+capture stdout):
 
 ```bash
 log()       { printf '%s [%s] %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$1" "${*:2}" >&2; }
@@ -254,12 +153,10 @@ log_error() { log ERROR "$@"; }
 log_debug() { [[ "${DEBUG:-0}" == 1 ]] && log DEBUG "$@" || true; }
 ```
 
-- **stderr, always.** Logging to stdout corrupts pipelines and command
-  substitution that capture the script's real output.
-- Gate verbosity with an env var (`DEBUG=1 ./script`) rather than a global edit.
-- Optional system integration: `logger -t "$SCRIPT_NAME" "$msg"` writes to syslog.
-- For machine consumption, emit one JSON object per line via `jq -nc` rather than
-  hand-building JSON (quoting is a security and correctness hazard):
+- Gate verbosity with an env var (`DEBUG=1 ./script`).
+- `logger -t "$SCRIPT_NAME" "$msg"` writes to syslog.
+- For machine-readable logs, build JSON with `jq -nc`, not string concatenation
+  (quoting hazard):
 
 ```bash
 log_json() { jq -nc --arg level "$1" --arg msg "$2" '{ts: now|todate, level: $level, msg: $msg}' >&2; }
@@ -267,7 +164,7 @@ log_json() { jq -nc --arg level "$1" --arg msg "$2" '{ts: now|todate, level: $le
 
 ## Argument Parsing with getopts
 
-For short options, `getopts` is the built-in, POSIX-friendly parser:
+`getopts` is the built-in parser for short options:
 
 ```bash
 verbose=0 output="" jobs=4
@@ -288,21 +185,17 @@ while getopts ':vo:j:h' opt; do
     o) output="$OPTARG" ;;
     j) jobs="$OPTARG" ;;
     h) usage 0 ;;
-    :) log_error "option -$OPTARG requires an argument"; usage 1 ;;
-    \?) log_error "unknown option: -$OPTARG"; usage 1 ;;
+    :) log_error "option -$OPTARG requires an argument"; usage 2 ;;
+    \?) log_error "unknown option: -$OPTARG"; usage 2 ;;
   esac
 done
 shift $((OPTIND - 1))    # drop parsed options; "$@" now holds positional args
 ```
 
-- The **leading colon** in `':vo:j:h'` enables silent error handling, giving you
-  the `:` (missing argument) and `\?` (unknown option) cases to report cleanly.
-- A trailing colon after a letter (`o:`) means that option takes an argument,
-  available in `$OPTARG`.
-- `shift $((OPTIND - 1))` removes the consumed options so `"$@"` holds only the
-  remaining positional arguments — then validate them quoted.
-
-`getopts` does **not** handle long options (`--output`). For those, write a manual loop.
+- The leading colon in `':vo:j:h'` enables silent errors, so the `:` (missing
+  argument) and `\?` (unknown option) cases report cleanly.
+- `o:` means `-o` takes an argument, in `$OPTARG`.
+- `getopts` has no long options (`--output`); use the manual loop below.
 
 ## Long-Option Parsing (manual loop)
 
@@ -314,34 +207,29 @@ while [[ $# -gt 0 ]]; do
     --output=*)   output="${1#*=}"; shift ;;
     -h|--help)    usage 0 ;;
     --)           shift; break ;;     # everything after -- is positional
-    -*)           log_error "unknown option: $1"; usage 1 ;;
+    -*)           log_error "unknown option: $1"; usage 2 ;;
     *)            break ;;            # first non-option → positional args
   esac
 done
 # remaining "$@" are positional arguments
 ```
 
-- Support both `--output VALUE` and `--output=VALUE` forms.
-- `--` terminates option parsing — required so user data starting with `-` is not
-  misread as a flag.
-- `${2:?msg}` errors with a message if the value is missing.
+Accept both `--output VALUE` and `--output=VALUE`; `--` ends option parsing so
+data starting with `-` isn't read as a flag.
 
 ## Input Validation and Required Variables
 
 ```bash
 : "${API_TOKEN:?API_TOKEN must be set}"          # fail immediately if unset/empty
-[[ -n "$output" ]] || { log_error "-o/--output is required"; usage 1; }
+[[ -n "$output" ]] || { log_error "-o/--output is required"; usage 2; }
 [[ "$jobs" =~ ^[0-9]+$ ]] || { log_error "jobs must be numeric: $jobs"; exit 2; }
 [[ -r "$input" ]] || { log_error "cannot read: $input"; exit 2; }
 ```
 
-- `${VAR:?message}` is the canonical "required env var or die" idiom.
-- Validate numerics with a regex (`=~ ^[0-9]+$`) before using them in arithmetic.
-- Validate file preconditions (`-r`, `-w`, `-d`, `-x`) before operating, with a
-  clear error — do not let a deep command fail cryptically.
-- **Never** interpolate unvalidated input into `eval`, a glob, or a path. For
-  command construction with dynamic args, use an array
-  (`cmd=(rsync -a -- "$src" "$dst"); "${cmd[@]}"`). Injection defense lives in
+- Regex-check numerics before arithmetic, and check file preconditions up front
+  so failures are clear rather than deep and cryptic.
+- Keep unvalidated input out of `eval`, globs, and paths; build dynamic commands
+  as arrays. Injection defense:
   [secure-coding](../../../_shared/secure-coding/SKILL.md).
 
 ## Dependency and Platform Checks
@@ -365,9 +253,8 @@ case "$(uname -s)" in
 esac
 ```
 
-- Use `command -v`, never `which` (which is an external, non-portable program).
-- Abstract GNU/BSD divergence behind a wrapper function — see the full divergence
-  table in [bash-versions-and-portability.md](bash-versions-and-portability.md).
+Use `command -v`, not `which` (external and non-portable). GNU/BSD divergences:
+[bash-versions-and-portability.md](bash-versions-and-portability.md).
 
 ## Dry-Run and Idempotency
 
@@ -384,42 +271,39 @@ run() {                      # run cp -- "$src" "$dst"
 ensure_dir() { [[ -d "$1" ]] || run mkdir -p -- "$1"; }  # idempotent
 ```
 
-- Make destructive operations reversible-preview via `DRY_RUN=1`.
-- Design for re-runs: check-then-act so a second invocation is a no-op, not a
-  duplicate or an error.
+Preview destructive operations with `DRY_RUN=1`, and check-then-act so a re-run
+is a no-op rather than a duplicate or an error.
 
 ## Bounded Parallelism
 
-When work items are independent, run them concurrently but cap concurrency so you
-do not fork-bomb the machine. Prefer `xargs -P` driven by NUL-delimited input:
+Cap concurrency for independent work items. Prefer `xargs -P` on NUL-delimited
+input (the command must be an executable; xargs can't call shell functions):
 
 ```bash
-# Process every *.log with up to N parallel workers, NUL-safe for odd filenames
 find . -name '*.log' -print0 \
   | xargs -0 -P "$(getconf _NPROCESSORS_ONLN)" -I{} -- compress_log {}
 ```
 
-When you need shell logic per item rather than a single command, throttle a
-background-job pool manually with `wait -n` (Bash 4.3+):
+For shell logic per item, throttle a job pool with `wait -n` (Bash 4.3+):
 
 ```bash
 max_jobs=4
 for item in "${items[@]}"; do
   process "$item" &
-  # block until at least one slot frees up
   while (( $(jobs -rp | wc -l) >= max_jobs )); do wait -n; done
 done
 wait    # drain the remaining jobs
 ```
 
-- Use `getconf _NPROCESSORS_ONLN` (portable) or `nproc` (GNU) for the CPU count.
-- `wait -n` waits for *any* one job; the loop keeps the in-flight count bounded.
-- A failure in a backgrounded job will not abort the parent under `set -e` —
-  collect statuses explicitly if each job's success matters.
+- CPU count: `getconf _NPROCESSORS_ONLN` (portable) or `nproc` (GNU).
+- A failed background job doesn't abort the parent under `set -e`; collect
+  statuses explicitly if each job matters.
 
 ## Annotated Script Skeleton
 
-A complete, defensible starting point combining the patterns above:
+Combines the patterns above: prologue, traps with exit-code capture, stderr
+logging, `getopts`, validation, `flock`, `mktemp -d`, array commands, dry-run,
+and publish by rename.
 
 ```bash
 #!/usr/bin/env bash
@@ -453,13 +337,13 @@ main() {
       s) src="$OPTARG" ;;
       d) dst="$OPTARG" ;;
       h) usage 0 ;;
-      :) log_error "-$OPTARG requires a value"; usage 1 ;;
-      \?) log_error "unknown option -$OPTARG"; usage 1 ;;
+      :) log_error "-$OPTARG requires a value"; usage 2 ;;
+      \?) log_error "unknown option -$OPTARG"; usage 2 ;;
     esac
   done
   shift $((OPTIND - 1))
 
-  [[ -n "$src" && -n "$dst" ]] || usage 1
+  [[ -n "$src" && -n "$dst" ]] || usage 2
   [[ -d "$src" ]] || { log_error "src not a directory: $src"; exit 2; }
   command -v rsync >/dev/null 2>&1 || { log_error "rsync required"; exit 127; }
 
@@ -483,25 +367,3 @@ main() {
 
 main "$@"
 ```
-
-This skeleton demonstrates: the full prologue, four traps with exit-code capture,
-stderr logging, `getopts` parsing, input/dependency validation, `flock`,
-`mktemp -d` with cleanup, array-built commands, `--` separators, dry-run support,
-and atomic publish via rename.
-
-## Checklist
-
-- [ ] `#!/usr/bin/env bash`, `set -Eeuo pipefail`, `inherit_errexit`, `IFS=$'\n\t'`.
-- [ ] EXIT trap captures `$?` first, then cleans temp files and reaps children.
-- [ ] ERR/INT/TERM traps wired; INT→130, TERM→143.
-- [ ] Every expansion quoted; `"$@"` for iteration; `--` before user data.
-- [ ] No reliance on `set -e` for load-bearing failures — explicit checks.
-- [ ] `mktemp -d` + immediate cleanup trap; atomic `mv` for target writes.
-- [ ] `flock` (or `mkdir`) guards shared state.
-- [ ] External calls bounded with `timeout`; transient ones wrapped in `retry`.
-- [ ] Logs go to stderr with levels; `DEBUG` gate.
-- [ ] Required vars via `${VAR:?}`; numerics regex-validated; files precondition-checked.
-- [ ] Dependencies verified with `command -v`; GNU/BSD differences abstracted.
-- [ ] `shellcheck` clean (or each suppression justified inline) — see
-      [shellcheck-shfmt.md](../../bash-testing/references/shellcheck-shfmt.md).
-- [ ] If it crossed ~100 lines or grew structured-data handling — port to Python.

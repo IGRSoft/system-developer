@@ -1,28 +1,9 @@
 # C Concurrency: <threads.h>, _Atomic, Memory Orders
 
-Use this when:
-
-- You are writing or reviewing multithreaded C using C11/C17 `<threads.h>` or `<stdatomic.h>`.
-- You need to choose a memory order, or to justify one in review.
-- You are deciding between ISO C threads and pthreads.
-
-Skip this file if:
-
-- You need C23 language features. Use [c23-features.md](c23-features.md).
-- You are debugging a specific data race. Run TSan first via `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md`, then return here for the fix pattern.
-
-Jump to:
-
-- API Choice: ISO C Threads vs pthreads vs Atomics-Only
-- Availability Matrix
-- <threads.h> Essentials
-- _Atomic Essentials
-- Memory Orders
-- Canonical Patterns
-- Thread-Local Storage
-- When pthreads Instead
-- Verification with TSan
-- Pitfalls
+C11/C17 `<threads.h>` and `<stdatomic.h>`: choosing an API and a memory
+order, canonical patterns, and TSan verification. For a specific data race,
+run TSan first ([diagnostics](../../../tooling/diagnostics/SKILL.md)), then
+use the fix patterns here.
 
 ## API Choice: ISO C Threads vs pthreads vs Atomics-Only
 
@@ -44,8 +25,8 @@ reach for first.
 | Linux + glibc | Yes | glibc 2.28+ |
 | Linux + musl | Yes | Yes (1.1.5+) |
 | FreeBSD / NetBSD | Yes | Yes |
-| macOS | Yes | Historically absent from the SDK — verify against your SDK; assume pthreads on Apple platforms |
-| MSVC | Partial (`/experimental:c11atomics` history — verify) | VS 2022 17.8+ (verify) |
+| macOS | Yes | Absent from the SDK; use pthreads on Apple platforms |
+| MSVC | `/experimental:c11atomics` (VS 2022 17.5+) | VS 2022 17.8+ |
 
 Feature-test macros (test in this order, at compile time):
 
@@ -83,8 +64,7 @@ int run(struct job *j) {
 ```
 
 Return codes: `thrd_success`, `thrd_nomem`, `thrd_timedout`, `thrd_busy`,
-`thrd_error`. **Check every one** — `thrd_create` fails under resource
-pressure exactly when you least expect it.
+`thrd_error`. Check every one; `thrd_create` fails under resource pressure.
 
 Other lifecycle calls: `thrd_detach(t)` (then never join), `thrd_current()`,
 `thrd_equal(a, b)`, `thrd_yield()`, `thrd_exit(rc)`,
@@ -112,8 +92,8 @@ void critical(void) {
 | `mtx_recursive` | Same thread may relock; usually a design smell |
 | `mtx_timed` | Enables `mtx_timedlock` (combine: `mtx_timed \| mtx_recursive`) |
 
-There is **no static initializer** (no `PTHREAD_MUTEX_INITIALIZER`
-equivalent) — call `mtx_init` exactly once, e.g. via `call_once`:
+There is no static initializer (no `PTHREAD_MUTEX_INITIALIZER`
+equivalent); call `mtx_init` exactly once, e.g. via `call_once`:
 
 ```c
 static once_flag once = ONCE_FLAG_INIT;
@@ -151,7 +131,9 @@ void producer(void) {
 }
 ```
 
-`cnd_timedwait` takes an **absolute** `TIME_UTC` timespec
+#### Timed Waits
+
+`cnd_timedwait` takes an absolute `TIME_UTC` timespec
 (`timespec_get(&ts, TIME_UTC)` then add the timeout). There is no monotonic
 clock option — a system clock jump skews your timeout. If that matters, use
 pthreads with `pthread_condattr_setclock(CLOCK_MONOTONIC)`.
@@ -192,18 +174,20 @@ int read_counter(void) {
 }
 ```
 
-Rules of engagement:
+### Rules of Engagement
 
 - Plain reads/writes of an `_Atomic` object (`counter++`, `x = counter`) are
   atomic with `memory_order_seq_cst` — correct, but hides the ordering
   decision. Prefer `_explicit` calls in reviewed code so the order is visible.
 - `_Atomic` is part of the type. Mixing atomic and non-atomic access to the
   same object is UB. There is no blessed "atomic view" of a plain variable.
-- `volatile` is **not** atomic and provides **no** ordering. It is for MMIO,
-  not threads.
+- `volatile` is not atomic and provides no ordering. It is for MMIO, not
+  threads.
 - Whole-struct `_Atomic` works (`_Atomic struct pair p;`) but compiles to a
   lock if not lock-free — check `atomic_is_lock_free(&p)`; prefer packing
   into a `uint64_t` instead.
+
+### Lock-Free Guarantees
 
 `atomic_flag` is the only type guaranteed lock-free on all implementations:
 
@@ -232,7 +216,9 @@ macros (2 = always lock-free).
 | `memory_order_seq_cst` | Acq-rel + single global order of all seq_cst ops | Default; anything involving 2+ atomic variables whose relative order matters |
 | `memory_order_consume` | In practice promoted to acquire by all compilers | Do not use; write `acquire` |
 
-**Policy**: default to `seq_cst` (omit `_explicit` or spell it out). Downgrade
+### Ordering Policy
+
+Default to `seq_cst` (omit `_explicit` or spell it out). Downgrade
 to acquire/release or relaxed only with a comment justifying it and a TSan-clean
 run. The cost difference is zero on x86 for acquire/release vs plain loads and
 small everywhere; the debugging cost of a wrong relaxed is enormous.
@@ -359,7 +345,9 @@ void queue_close(struct queue *q) {             // wake everyone for shutdown
 }
 ```
 
-Ownership rule: a job pointer belongs to exactly one side at a time — the
+#### Job Ownership
+
+A job pointer belongs to exactly one side at a time — the
 producer until `queue_push` returns true, the consumer after `queue_pop`
 returns it. See [../../c-memory-ownership/SKILL.md](../../c-memory-ownership/SKILL.md).
 
@@ -399,7 +387,7 @@ only when a destructor must run (e.g., per-thread caches that own memory).
 
 | Need | ISO C threads | pthreads |
 |------|---------------|----------|
-| Runs on macOS without a shim | No (`<threads.h>` absent — verify SDK) | Yes |
+| Runs on macOS without a shim | No (`<threads.h>` absent) | Yes |
 | Read-write locks | None | `pthread_rwlock_t` |
 | Barriers | None | `pthread_barrier_t` |
 | Stack size / scheduling attributes | None | `pthread_attr_*` |
@@ -409,7 +397,9 @@ only when a destructor must run (e.g., per-thread caches that own memory).
 | Thread names for debuggers | None | `pthread_setname_np` (nonportable suffix; both glibc and BSD variants exist) |
 | Semantics | Thin subset, same model | Superset; C11 threads are specified to be implementable on pthreads |
 
-Practical rule: applications targeting Linux-only may enjoy `<threads.h>`;
+### Choosing Between Them
+
+Applications targeting Linux-only may enjoy `<threads.h>`;
 portable libraries and anything touching macOS use pthreads directly. The
 atomics story is unaffected either way — `<stdatomic.h>` works with pthreads.
 
@@ -433,24 +423,34 @@ TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1" ./app_tsan
 - valgrind `--tool=helgrind` / `--tool=drd` are the no-rebuild fallback; far
   slower, more false positives around atomics.
 
-Full sanitizer workflow: `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md`.
-
 ## Pitfalls
+
+### Ordering and Atomics Symptoms
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Works on x86, crashes on ARM | Relaxed (or plain non-atomic) where release/acquire needed; x86's strong hardware ordering hid it | Publish/consume pattern; TSan on any platform finds it |
 | `error: address argument to atomic operation must be a pointer to _Atomic type` | Atomic API called on plain object | Declare the object `_Atomic`; never cast around it |
-| Deadlock in `cnd_wait` | Predicate checked with `if`, or signal sent before waiter locked | `while` loop + signal while/after holding the mutex |
-| `mtx_init` UB / lock corrupt | Relying on zero-init or copying a `mtx_t` | `mtx_init` once via `call_once`; never memcpy mutexes |
 | Counter updates lost | `x++` on plain shared int ("it's just an increment") | `_Atomic` fetch_add; plain `++` is load+add+store |
-| Timed wait fires early/late after clock change | `cnd_timedwait` uses `TIME_UTC` realtime | pthreads + `CLOCK_MONOTONIC` condattr |
-| `'threads.h' file not found` on macOS | Apple SDK does not ship it | pthreads (see matrix above) |
 | TSan reports race on `_Atomic` variable | Mixed atomic and non-atomic access to same object | All accesses through atomic ops, including init-after-share |
 | Struct atomic is mysteriously slow | Not lock-free; libatomic lock taken per op | `atomic_is_lock_free` check; pack into `uint64_t` or use a mutex honestly |
+
+### Locking and Timing Symptoms
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Deadlock in `cnd_wait` | Predicate checked with `if`, or signal sent before waiter locked | `while` loop + signal while/after holding the mutex |
+| `mtx_init` UB / lock corrupt | Relying on zero-init or copying a `mtx_t` | `mtx_init` once via `call_once`; never memcpy mutexes |
+| Timed wait fires early/late after clock change | `cnd_timedwait` uses `TIME_UTC` realtime | pthreads + `CLOCK_MONOTONIC` condattr |
+
+### Platform and Build Symptoms
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `'threads.h' file not found` on macOS | Apple SDK does not ship it | pthreads (see matrix above) |
 | `undefined reference to __atomic_*` at link | Target needs libatomic for that width | Link `-latomic` (common on RISC-V/older ARM) |
 
-Cross-references: C23 keyword spellings and `ATOMIC_VAR_INIT` removal in
-[c23-features.md](c23-features.md); ownership rules for data handed between
-threads in [../../c-memory-ownership/SKILL.md](../../c-memory-ownership/SKILL.md);
-TSan/helgrind workflow in `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md`.
+Related: C23 keyword spellings and `ATOMIC_VAR_INIT` removal in
+[c23-features.md](c23-features.md); ownership of data handed between threads in
+[c-memory-ownership](../../c-memory-ownership/SKILL.md); TSan/helgrind workflow
+in [diagnostics](../../../tooling/diagnostics/SKILL.md).

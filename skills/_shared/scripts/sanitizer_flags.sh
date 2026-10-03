@@ -6,8 +6,9 @@
 # sanitizer set, so a build never re-derives them from prose. Output goes to
 # stdout (safe to pipe into a build); warnings go to stderr.
 #
-# Source of truth: skills/tooling/diagnostics/SKILL.md § Copy-Paste Flag Sets,
-# § Ground Rules, § Runtime options. Keep this script in sync with that prose.
+# Source of truth: skills/tooling/diagnostics/SKILL.md § Sanitizer Flag Sets,
+# § Ground Rules, and references/sanitizers.md § Runtime Options. Keep this
+# script in sync with that prose.
 #
 # USAGE
 #   sanitizer_flags.sh --lang {c|cpp|python} --sanitizer SET [--output MODE]

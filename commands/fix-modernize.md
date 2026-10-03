@@ -1,7 +1,7 @@
 ---
 description: Modernize C, C++, Python, or Bash one standard jump at a time, gating each migration class on a green build and tests
 argument-hint: [path (default .)] --target c23|cpp20|cpp23|py314|bash [--dry-run]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 estimated-cost:
   min-tokens: 4000
   max-tokens: 30000
@@ -12,43 +12,33 @@ estimated-cost:
 ---
 
 # Code Modernize
-<!-- Updated: June 2026 -->
 
-Move a C, C++, Python, or Bash codebase to a newer language standard incrementally and safely. Modernization is sequenced as a ledger of discrete *migration classes* (e.g. "concepts over SFINAE", "ruff UP autofixes", "strict-mode prologue"), and every class is verified by a full build + test run before its commit and before the next class begins. Mechanical rewrites are delegated to `system-developer:sys-code-fixer`; semantic migrations that need judgment go to `system-developer:cpp-developer` or `system-developer:python-developer`.
+Move a C, C++, Python, or Bash codebase to a newer language standard incrementally. The work is an ordered ledger of discrete *migration classes* (e.g. "concepts over SFINAE", "ruff UP autofixes", "strict-mode prologue"), mechanical first, then semantic. Each class is applied, verified by a full build + test run, and committed on its own, so a red build points at exactly one transform. Mechanical rewrites go to `system-developer:sys-code-fixer`; migrations that need judgment go to the language developer.
 
-[Extended thinking: A standard jump is dozens of independent transforms with sharply different risk. Doing them all at once produces an un-reviewable diff and a build that is either green or broken with no way to bisect which transform broke it. This command instead builds an ordered ledger at `.context/.modernize/plan.md`, then walks it class by class — mechanical (clang-tidy `modernize-*`, `ruff --select UP`) first, then semantic — running `/system-developer:build-test` after each class and committing one class per commit. Crucially, it never skips a standard: C++17 modernizes to 20, *then* 20 to 23 — never 17 straight to 23, because each step's idioms (concepts, then `std::expected`) build on the last and the toolchain gates differ. `--dry-run` produces the ledger and stops, so you can review the plan before any edit. Mechanical-vs-semantic routing keeps cheap deterministic rewrites on haiku via the code-fixer and reserves the language developer for the rewrites that change shape, not just spelling.]
+## Rules
 
-## CRITICAL BEHAVIORAL RULES
+### Sequencing
 
-You MUST follow these rules exactly. Violating any of them is a failure.
+- One standard jump at a time. `--target cpp23` on a C++17 project runs *17 -> 20*, then *20 -> 23*, each fully verified and committed before the next, because each step's idioms build on the last and the toolchain gates differ.
+- One migration class per commit, with a subject naming the class. Don't batch unrelated classes.
+- Run the build + test gate after every class. A class that isn't green isn't committed; a red build halts the run.
+- `--dry-run` writes the ledger and stops: no source edits, no commits.
 
-1. **One standard jump at a time.** `--target cpp23` on a C++17 project means **17 -> 20, then 20 -> 23** — two ordered passes, each fully verified and committed before the next. Never skip a standard (never 17 -> 23 directly). Detect the current standard first (see Inventory) and refuse to jump more than one level without first completing the intermediate level.
-2. **One migration class per commit.** Each ledger row is applied, verified, and committed on its own. Never batch unrelated classes into one diff. The commit subject names the class (e.g. `refactor: adopt std::span over pointer+size`).
-3. **Verify after every class.** After applying a class, run `/system-developer:build-test` (build + tests). If it is not green, the class is NOT committed — revert or fix before moving on. A red build halts the run; report it and stop.
-4. **`--dry-run` produces the ledger only.** In `--dry-run`, write `.context/.modernize/plan.md` and stop. Make ZERO source edits and ZERO commits. This is the review-the-plan mode.
-5. **Mechanical vs semantic routing.** Pure mechanical rewrites (clang-tidy `modernize-*` fixes, `ruff check --select UP --fix`, `shfmt`) delegate to `system-developer:sys-code-fixer`. Rewrites needing judgment (SFINAE -> concepts where the constraint must be designed, error-code -> `std::expected` API changes, `#define` -> typed `constexpr`, free-threading readiness, `set -e` blind-spot audits) delegate to `system-developer:c-developer` / `system-developer:cpp-developer` / `system-developer:python-developer` / `system-developer:bash-developer`. Never hand a semantic migration to the code-fixer.
-6. **Gate features on the toolchain, not the calendar.** Before adopting a standard's feature, confirm the project's compiler/CPython supports it (see `skill: version-feature-matrix`). For C/C++, prefer feature-test macros (`__cpp_lib_*`, `__STDC_VERSION__`, `__has_include`) over compiler-version checks; for Python gate on `sys.version_info` or a capability probe, and for Bash on `BASH_VERSINFO` — never on the calendar. If the toolchain cannot guarantee the target standard, report the gap and stop — do not write code that will not compile.
-7. **Single-command Bash invocations.** Use each tool's own path/recursion flags. Never `cd`-chain or `&&`-chain directory changes — scoped Bash patterns do not match compound commands.
-8. **Tool-missing never hard-fails.** If a required tool is absent, print the install hint, skip that class (or language), and continue. Report what was skipped.
-9. **Never enter plan mode.** This command IS the procedure — execute it (or, with `--dry-run`, produce the ledger and stop).
+### Delegation and toolchain
+
+- Mechanical rewrites (clang-tidy `modernize-*` fixes, `ruff check --select UP --fix`, `shfmt`) go to `sys-code-fixer`. Anything needing judgment (designing concepts, `std::expected` API changes, typed `constexpr`, free-threading readiness, `set -e` audits) goes to the language developer, never the code-fixer.
+- Gate features on the toolchain, not the calendar. For C/C++ prefer feature-test macros (`__cpp_lib_*`, `__STDC_VERSION__`, `__has_include`) over compiler-version checks; for Python gate on `sys.version_info` or a capability probe; for Bash on `BASH_VERSINFO`. If the toolchain can't reach the target, report the gap and stop rather than write code that won't compile.
+- Use each tool's own path/recursion flags instead of `cd` or `&&` chains; scoped Bash permissions don't match compound commands.
+- A missing tool never hard-fails: print its install hint, skip that class (or language), continue, and report the skip.
 
 ## Usage
 
 ```bash
-# Preview the C++23 migration ledger without touching any source
-/system-developer:fix-modernize . --target cpp23 --dry-run
-
-# Modernize a C17 project to C23 idioms (one jump)
-/system-developer:fix-modernize src/ --target c23
-
-# Modernize a C++17 project to C++20 (one jump)
-/system-developer:fix-modernize src/ --target cpp20
-
-# Bring Python sources up to 3.14 idioms
-/system-developer:fix-modernize . --target py314
-
-# Harden shell scripts to the strict-mode baseline
-/system-developer:fix-modernize scripts/ --target bash
+/system-developer:fix-modernize . --target cpp23 --dry-run   # preview the ledger only
+/system-developer:fix-modernize src/ --target c23            # C17 -> C23
+/system-developer:fix-modernize src/ --target cpp20          # C++17 -> C++20
+/system-developer:fix-modernize . --target py314             # Python 3.14 idioms
+/system-developer:fix-modernize scripts/ --target bash       # strict-mode baseline
 ```
 
 ## Options
@@ -56,204 +46,191 @@ You MUST follow these rules exactly. Violating any of them is a failure.
 | Option | Default | Effect |
 |--------|---------|--------|
 | `path` | `.` | Directory or file to modernize. Inventory and detection are rooted here. |
-| `--target c23\|cpp20\|cpp23\|py314\|bash` | required | The destination standard / hardening profile. For C++, the command auto-inserts the intermediate jump if the source is more than one level below the target. `cpp26` is a recognized future stub — see the note below. |
-| `--dry-run` | off | Produce `.context/.modernize/plan.md` (the migration ledger) and stop. No edits, no commits. |
+| `--target c23\|cpp20\|cpp23\|py314\|bash` | required | Destination standard or hardening profile. For C++, the intermediate jump is inserted automatically when the source is more than one level below. |
+| `--dry-run` | off | Write `.context/.modernize/plan.md` and stop. |
 
-`--target` is required — there is no default standard, because the right destination depends on the deployment toolchain. `c23` modernizes a C17 codebase to C23 idioms (single jump — see the `--target c23` playbook). `cpp26` is recognized but **not yet a working profile** (C++26 is at DIS 2026 — not shipping); the command reports the stub and stops (see Error Handling). For C++26 features today, adopt them one-by-one behind `__cpp_*` feature-test macros via `system-developer:cpp-developer` rather than a bulk modernization pass.
+`--target` has no default because the right destination depends on the deployment toolchain. `cpp26` is recognized but has no bulk profile; the command prints the C++26 note and stops (see Error Handling).
 
 ## Inventory
 
-Before building the ledger, establish the *current* standard so the jump count is correct.
+Detect the current standard so the jump count is right. In mixed repos, detect per file or subtree.
 
 | Language | Where the current standard lives | Read |
 |----------|----------------------------------|------|
-| C | `CMAKE_C_STANDARD` / `target_compile_features(... c_std_NN)` in `CMakeLists.txt`; `c_std=` in `meson.build`; `-std=c17`/`-std=c23`/`-std=c2x` in a `Makefile`/compile flags | the highest pinned `NN` (C17 is the safe baseline) |
-| C++ | `CMAKE_CXX_STANDARD` / `target_compile_features(... cxx_std_NN)` in `CMakeLists.txt`; `cpp_std=` in `meson.build`; `-std=c++NN` in a `Makefile`/compile flags | the highest pinned `NN` |
-| Python | `requires-python` in `pyproject.toml`; `python_requires` in `setup.py`; `.python-version` | the floor version; modernize to `--target` only if the floor allows it |
-| Bash | shebangs (`#!/usr/bin/env bash` vs `#!/bin/sh`), presence of `set -euo pipefail`, `[[ ]]` vs `[ ]`, arrays | how far from the strict-mode baseline |
+| C | `CMAKE_C_STANDARD` / `target_compile_features(... c_std_NN)`; `c_std=` in `meson.build`; `-std=c17`/`c23`/`c2x` in a Makefile or flags | highest pinned `NN` (C17 is the safe baseline) |
+| C++ | `CMAKE_CXX_STANDARD` / `target_compile_features(... cxx_std_NN)`; `cpp_std=` in `meson.build`; `-std=c++NN` in a Makefile or flags | highest pinned `NN` |
+| Python | `requires-python` in `pyproject.toml`; `python_requires` in `setup.py`; `.python-version` | the floor; modernize only if the floor allows the target |
+| Bash | shebangs (`#!/usr/bin/env bash` vs `#!/bin/sh`), `set -euo pipefail`, `[[ ]]` vs `[ ]`, arrays | distance from the strict-mode baseline |
 
-The marker -> language map is canonical in `skill: language-detection` — detect **per file/subtree** for mixed repos, do not fork the routing logic. Use `skill: version-feature-matrix` to translate the detected current standard and `--target` into the required compiler/CPython floor and the per-jump feature set.
+### Stop conditions
 
-**One-jump enforcement (C++):** if current is C++17 and `--target cpp23`, the ledger contains two sections — *Jump 1: C++17 -> C++20* and *Jump 2: C++20 -> C++23* — and the workflow completes Jump 1 (all classes built, tested, committed) before opening Jump 2. If current already meets or exceeds `--target`, report "already at or above target" and stop.
+If current already meets or exceeds `--target`, report "already at or above target" and stop. If C++ is below C++17 or C is below C17, stop with the "Source below supported baseline" error: the playbooks start at C++17 and C17.
 
 ## The Migration Ledger
 
-The inventory's output is `.context/.modernize/plan.md`: an ordered checklist of migration classes, mechanical-first within each jump. Template:
+`.context/.modernize/plan.md` is the source of truth across resumes; read it rather than relying on context memory.
 
 ```markdown
 # Modernization Ledger
 Target: {c23|cpp20|cpp23|py314|bash} | Current: {detected} | Path: {path}
-Toolchain gate: {compiler/CPython + min version from version-feature-matrix} — {PASS | GAP: ...}
+Toolchain gate: {compiler/CPython + min version} — {PASS | GAP: ...}
 
 ## Jump 1: {from} -> {to}
 | # | Migration class | Kind | Owner | Status |
 |---|-----------------|------|-------|--------|
 | 1 | clang-tidy modernize-* autofixes | mechanical | sys-code-fixer | pending |
 | 2 | SFINAE -> concepts | semantic | cpp-developer | pending |
-| 3 | pointer+size -> std::span | semantic | cpp-developer | pending |
 | ... | ... | ... | ... | ... |
 
 ## Jump 2: {from} -> {to}   <!-- only when target is >1 level above current -->
-| # | Migration class | Kind | Owner | Status |
-| ... |
 ```
 
-Status transitions per row: `pending -> applied -> verified -> committed` (or `reverted` on a red build). The ledger is the source of truth across resumes — read it, do not rely on context-window memory.
+Row status: `pending -> applied -> verified -> committed`, or `reverted` on a red build.
 
 ## Per-Target Playbooks
 
-Each playbook is an ordered list of migration classes. Mechanical classes lead (cheap, deterministic, low-risk); semantic classes follow. Every feature claim carries a standard marker and a fallback row from `skill: version-feature-matrix`.
+Mechanical classes lead (cheap, deterministic); semantic classes follow.
 
 ### `--target c23` (from C17)
 
-Toolchain gate: `-std=c23` is the canonical spelling from **GCC 14 / Clang 18** (older toolchains use `-std=c2x`); newest stable mid-2026 is **GCC 15.x / Clang 20-21.x**. GCC 15 defaults to `-std=gnu23` for C — always pin `-std`. Treat MSVC as C17-only unless a feature is verified. Per `skill: version-feature-matrix` (C section). Gate each feature with `__has_include`/`__STDC_VERSION__ >= 202311L` or a feature probe, never a bare compiler version. Single jump — C17->C23 has no intermediate standard.
+Toolchain gate: `-std=c23` from GCC 14 / Clang 18 (older toolchains spell it `-std=c2x`). GCC 15 defaults C to `-std=gnu23`, so always pin `-std`. Treat MSVC as C17-only unless a feature is verified. Gate features on `__STDC_VERSION__ >= 202311L`, `__has_include`, or a probe. Single jump. If the toolchain can't reach C23, keep `-std=c17` and report the gap.
 
-C17->C23 ledger (mechanical-first):
+#### Core rewrites
 
 | Order | Class | Kind | Notes |
 |-------|-------|------|-------|
-| 1 | `clang-tidy -checks='modernize-*,readability-*' -fix` (C pass) | mechanical | Picks up C-applicable modernize/readability fixes. Delegate to `sys-code-fixer`. |
-| 2 | `NULL` -> **`nullptr`** | mechanical | C23 `nullptr` (and `nullptr_t`); type-safe null pointer constant. |
-| 3 | `K&R` / empty `()` prototypes -> **`(void)`** semantics | mechanical-ish | In C23 an empty `()` now means `(void)` (no args), not "unspecified args" — audit declarations that relied on the old meaning before relying on it. |
-| 4 | macro/enum constants -> **`constexpr` objects** | semantic | C23 `constexpr` for object definitions; replace `#define`d numeric constants where a typed `constexpr` reads better. Route to `c-developer` for judgment. |
-| 5 | hand-rolled overflow checks -> **`<stdckdint.h>`** (`ckd_add`/`ckd_sub`/`ckd_mul`) | semantic | Checked integer arithmetic; replaces error-prone manual overflow guards. |
-| 6 | embedded binary blobs -> **`#embed`** | semantic | `#embed` resource inclusion — **GCC 15+ / Clang 19+** (verify against your toolchain; keep the xxd/objcopy fallback where the toolchain lags). |
-| 7 | `typeof` / `typeof_unqual` | mechanical-ish | C23 standardizes `typeof`; replace GNU `__typeof__` reliance where portability now allows. |
-| 8 | wide-fixed-width arithmetic -> **`_BitInt(N)`** | semantic | Precise-width integers; adopt only where a fixed bit width is a real requirement. |
-| 9 | diagnostics/attributes -> **`[[nodiscard]]` / `[[maybe_unused]]` / `[[deprecated]]`** | mechanical-ish | C23 standard attribute syntax (was compiler-specific `__attribute__`); apply on APIs whose return must be checked or that are being retired. |
+| 1 | `clang-tidy -checks='modernize-*,readability-*' -fix` (C pass) | mechanical | C-applicable modernize/readability fixes. |
+| 2 | `NULL` -> `nullptr` | mechanical | C23 `nullptr` / `nullptr_t`. |
+| 3 | K&R / empty `()` prototypes -> `(void)` semantics | mechanical-ish | In C23 empty `()` means no args; audit declarations that relied on "unspecified args". |
+| 4 | macro/enum constants -> `constexpr` objects | semantic | Replace `#define`d numeric constants where a typed `constexpr` reads better. |
+| 5 | hand-rolled overflow checks -> `<stdckdint.h>` (`ckd_add`/`ckd_sub`/`ckd_mul`) | semantic | Checked integer arithmetic. |
 
-Hardening cross-ref: pair the jump with `-fhardened` (GCC 14+) and `-ftrivial-auto-var-init=zero` where appropriate (`skill: secure-coding`). Adopt features one-by-one behind a feature probe; if the toolchain cannot reach C23, keep `-std=c17` as the safe baseline and report the gap.
+#### Newer C23 features
+
+| Order | Class | Kind | Notes |
+|-------|-------|------|-------|
+| 6 | embedded binary blobs -> `#embed` | semantic | GCC 15+ / Clang 19+; keep the xxd/objcopy fallback where the toolchain lags. |
+| 7 | `typeof` / `typeof_unqual` | mechanical-ish | Replace GNU `__typeof__` where portability now allows. |
+| 8 | wide fixed-width arithmetic -> `_BitInt(N)` | semantic | Only where a fixed bit width is a real requirement. |
+| 9 | `__attribute__` -> `[[nodiscard]]` / `[[maybe_unused]]` / `[[deprecated]]` | mechanical-ish | On APIs whose return must be checked or that are being retired. |
+
+Pair the jump with `-fhardened` (GCC 14+) and `-ftrivial-auto-var-init=zero` where appropriate.
 
 ### `--target cpp20` (from C++17)
 
-Toolchain gate: confirm GCC 10+ / Clang with usable ranges & concepts (verify against your toolchain) per `skill: version-feature-matrix`. Gate each feature with `__cpp_concepts`, `__cpp_lib_ranges`, `__cpp_lib_span`, etc.
+Toolchain gate: GCC 10+ / Clang with usable ranges and concepts. Gate on `__cpp_concepts`, `__cpp_lib_ranges`, `__cpp_lib_span`, etc.
 
 | Order | Class | Kind | Notes |
 |-------|-------|------|-------|
-| 1 | `clang-tidy -checks='modernize-*' -fix` | mechanical | `modernize-use-nullptr`, `-use-override`, `-use-using`, `-loop-convert`, etc. Delegate to `sys-code-fixer`. |
-| 2 | SFINAE / `enable_if` -> **concepts** | semantic | Replace `template<class T, enable_if_t<...>>` with `template<Concept T>` / `requires`. Constraints must be *designed*, not transliterated. |
-| 3 | hand-written ranges -> **`<ranges>`** views/algorithms | semantic | `views::filter`/`transform`/`take`; prefer lazy views over eager copies. Fallback: range-v3 if the deployment toolchain lags. |
-| 4 | pointer + length params -> **`std::span`** | semantic | Replace `(T* p, size_t n)` signatures; watch the lifetime trap (span is non-owning, like `string_view`). |
-| 5 | positional aggregate init -> **designated initializers** | mechanical-ish | `Config{.timeout = 5, .retries = 3}` for clarity; verify the aggregate stays an aggregate. |
-| 6 | hand-rolled comparison operators -> **`<=>`** (spaceship) | semantic | `auto operator<=>(const T&) const = default;` where defaulted ordering is correct. |
+| 1 | `clang-tidy -checks='modernize-*' -fix` | mechanical | `use-nullptr`, `use-override`, `use-using`, `loop-convert`, ... |
+| 2 | SFINAE / `enable_if` -> concepts | semantic | `template<Concept T>` / `requires`. Constraints must be designed, not transliterated. |
+| 3 | hand-written loops -> `<ranges>` views/algorithms | semantic | Prefer lazy views over eager copies. Fallback: range-v3. |
+| 4 | pointer + length params -> `std::span` | semantic | Span is non-owning; watch lifetimes. |
+| 5 | positional aggregate init -> designated initializers | mechanical-ish | Verify the type stays an aggregate. |
+| 6 | hand-rolled comparisons -> `<=>` | semantic | `= default` where defaulted ordering is correct. |
 
 ### `--target cpp23` (from C++20)
 
-Toolchain gate: C++23 support is partial across compilers (GCC 13+, Clang 17+ partial, deducing-this Clang 18+ — verify against your toolchain) per `skill: version-feature-matrix`. **Availability-check every feature** with `__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter` before adopting; if unavailable, keep the fallback and skip the class.
+Toolchain gate: C++23 support is partial (GCC 13+, Clang 17+ partial, deducing this Clang 18+). Check every feature with `__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`; if unavailable, keep the fallback and skip the class.
 
 | Order | Class | Kind | Notes |
 |-------|-------|------|-------|
-| 1 | `clang-tidy -checks='modernize-*' -fix` (C++23 pass) | mechanical | Picks up newly-available `modernize-*` checks. Delegate to `sys-code-fixer`. |
-| 2 | error codes / out-params -> **`std::expected<T, E>`** | semantic | Convert functions returning `bool`+out-param or sentinel error codes. API-shape change — route to `cpp-developer`. Fallback: `tl::expected`. |
-| 3 | `printf` / `iostream` formatting -> **`std::print` / `std::println`** | semantic | Cleaner, type-safe. Fallback: `fmt::print` (fmtlib). Gate on `__cpp_lib_print`. |
-| 4 | CRTP / explicit-`this` boilerplate -> **deducing this** | semantic | `template<class Self> auto f(this Self&& self)`; deduplicates const/non-const & ref-qualified overloads. Gate on `__cpp_explicit_this_parameter`. |
+| 1 | `clang-tidy -checks='modernize-*' -fix` (C++23 pass) | mechanical | Newly available `modernize-*` checks. |
+| 2 | error codes / out-params -> `std::expected<T, E>` | semantic | API-shape change. Fallback: `tl::expected`. |
+| 3 | `printf` / `iostream` -> `std::print` / `std::println` | semantic | Fallback: `fmt::print`. |
+| 4 | CRTP / duplicated const overloads -> deducing this | semantic | `template<class Self> auto f(this Self&& self)`. |
 
 ### `--target py314`
 
-Toolchain gate: `requires-python` must allow 3.14; otherwise this is a *version-bump* decision (raise the floor) before idiom modernization. Per `skill: version-feature-matrix`.
+Toolchain gate: `requires-python` must allow 3.14; otherwise raising the floor is a separate version-bump decision to make first.
 
 | Order | Class | Kind | Notes |
 |-------|-------|------|-------|
-| 1 | `ruff check --select UP --target-version py314 --fix` | mechanical | The headline first pass — `pyupgrade` rules rewrite legacy idioms (old typing imports, `super()` args, f-string conversions, ...). Delegate to `sys-code-fixer`. |
-| 2 | generics -> **PEP 695 type parameters** | semantic | `def f[T](x: T) -> T` and `class Box[T]`; `type Alias[T] = ...`. Drop `TypeVar`/`Generic` boilerplate where the rewrite is clean. Route to `python-developer`. |
-| 3 | removed-deprecation sweep | semantic | Remove uses of APIs removed/deprecated by 3.14 (verify the exact list against your toolchain / the 3.14 "What's New" via Context7/Ref). |
-| 4 | drop `from __future__ import annotations` | mechanical-ish | On 3.14, PEP 649 deferred annotations are default; the future import forces older string semantics — remove it (see `skill: version-feature-matrix` fallback row). |
-| 5 | free-threading readiness notes (C extensions) | semantic / advisory | For projects shipping C extensions: audit for `Py_mod_gil` declaration and thread-safety; emit readiness notes rather than auto-rewriting native code. Route to `python-developer`. |
+| 1 | `ruff check --select UP --target-version py314 --fix` | mechanical | pyupgrade rules (typing imports, `super()` args, f-strings, ...). |
+| 2 | generics -> PEP 695 type parameters | semantic | `def f[T](x: T) -> T`, `class Box[T]`, `type Alias[T] = ...`; drop `TypeVar`/`Generic` where clean. |
+| 3 | removed-deprecation sweep | semantic | Check the exact list against the 3.14 "What's New". |
+| 4 | drop `from __future__ import annotations` | mechanical-ish | PEP 649 deferred annotations are the default on 3.14; the import forces the older string semantics. |
+| 5 | free-threading readiness (C extensions) | semantic / advisory | Audit `Py_mod_gil` and thread safety; emit notes, don't rewrite native code. |
 
 ### `--target bash`
 
-Toolchain gate: none beyond the gate trio (`shellcheck`, `shfmt`). Exit criterion for every script is **shellcheck-clean**. Mind the macOS `/bin/bash` 3.2 caveat (`skill: version-feature-matrix`) — prefer `#!/usr/bin/env bash` + a version guard over 4.x/5.x-only features in portable scripts.
+Toolchain gate: `shellcheck` and `shfmt`. Every script must end shellcheck-clean. macOS `/bin/bash` is 3.2, so prefer `#!/usr/bin/env bash` plus a version guard over 4.x/5.x-only features in portable scripts.
 
 | Order | Class | Kind | Notes |
 |-------|-------|------|-------|
-| 1 | strict-mode prologue -> **`set -Eeuo pipefail`** | semantic | Add the prologue; audit each script for places `set -e` silently misbehaves (honest caveat matrix in `skill: bash-scripting`). |
-| 2 | cleanup -> **`trap ... EXIT`** | semantic | Replace ad-hoc cleanup with a `trap cleanup EXIT` (and `ERR`/`INT` where apt); idempotent temp-file/lock removal. |
-| 3 | `[ ]` -> **`[[ ]]`**; quoting fixes | mechanical | `[[ ]]` for tests; quote all expansions (clears SC2086/SC2046). Delegate to `sys-code-fixer`. |
-| 4 | undeclared vars -> **`local`**; lists -> **arrays** | semantic | Function-scope with `local`; replace word-split string lists with real arrays (`"${arr[@]}"`). |
-| 5 | `shfmt -w` formatting | mechanical | Normalize indentation/style last, after logic changes. Delegate to `sys-code-fixer`. |
+| 1 | strict-mode prologue `set -Eeuo pipefail` | semantic | Audit each script for places `set -e` silently misbehaves. |
+| 2 | ad-hoc cleanup -> `trap cleanup EXIT` | semantic | Add `ERR`/`INT` where apt; idempotent temp-file/lock removal. |
+| 3 | `[ ]` -> `[[ ]]`; quote expansions | mechanical | Clears SC2086/SC2046. |
+| 4 | undeclared vars -> `local`; word-split lists -> arrays | semantic | `"${arr[@]}"`. |
+| 5 | `shfmt -w` | mechanical | Last, after logic changes. |
 
 ## Workflow
 
-### Phase 1: Inventory & Ledger (Bash + Read)
+### 1. Inventory and ledger
 
-1. Confirm `path` exists; if not, emit the Error Handling "path not found" message and stop.
-2. If `--target cpp26`, emit the "C++26 future stub" message and stop (Error Handling).
-3. Validate `--target` is one of `c23|cpp20|cpp23|py314|bash`; if missing/invalid, emit the "missing target" message and stop.
-4. Detect the current standard per the Inventory table (read `CMAKE_CXX_STANDARD`/`cxx_std_NN`, `requires-python`, shebangs). Resolve the toolchain gate via `skill: version-feature-matrix`. If the gate is a GAP (toolchain cannot reach `--target`), report it and stop (Rule 6).
-5. If current already meets/exceeds `--target`, report "already at or above target" and stop.
-6. For C++: if `--target` is more than one level above current, split the ledger into ordered Jumps (Rule 1).
-7. Write `.context/.modernize/plan.md` from the matching playbook(s), all rows `pending`.
-8. **If `--dry-run`: stop here.** Report the ledger path and the planned classes. Make no edits, no commits.
+1. Stop with the matching Error Handling message if `path` doesn't exist, `--target` is `cpp26`, or `--target` is missing or invalid.
+2. Detect the current standard (Inventory) and resolve the toolchain gate. On a GAP, report it and stop. If already at or above target, stop.
+3. For C++ more than one level below target, split the ledger into ordered Jumps.
+4. Write `.context/.modernize/plan.md` from the matching playbook(s), all rows `pending`. Confirm each class's tool (Tool Availability); mark classes with a missing tool as skipped.
+5. With `--dry-run`, report the ledger path and planned classes and stop.
 
-### Phase 2: Apply Classes In Order (delegated)
+### 2. Per class, top-down
 
-Walk the ledger top-down, one row at a time. For each `pending` row:
+For each `pending` row: mark it `applied`, delegate, verify, commit. When every row in a Jump is `committed`, open the next Jump.
 
-1. **Mark `applied`** in the ledger as you start it.
-2. **Delegate by kind:**
-   - **mechanical** ->
-     **Use Task tool with subagent_type="system-developer:sys-code-fixer"**
-     Prompt: "Apply ONLY the migration class **{class}** for `{path}` (target {target}, jump {from}->{to}). Run the exact mechanical transform: {e.g. `clang-tidy -p {path}/build -checks='modernize-*' -fix {files}` / `ruff check --select UP --target-version py314 --fix {path}` / `shfmt -w {files}`}. Do NOT apply any other class. Make minimal, deterministic edits. Report every file and rule/check touched. Do not run the test suite."
-   - **semantic (C)** ->
-     **Use Task tool with subagent_type="system-developer:c-developer"**
-     Prompt: "Perform ONLY the migration class **{class}** for `{path}` (C17->C23). {e.g. Replace `#define`d constants with typed `constexpr` objects / convert hand-rolled overflow checks to `<stdckdint.h>` ckd_* / adopt `#embed` for binary blobs with an xxd/objcopy fallback / introduce `_BitInt(N)` only where a fixed width is required}. Gate every adopted feature with `__STDC_VERSION__ >= 202311L`/`__has_include`/a feature probe; if a feature is unavailable on the project toolchain (e.g. `#embed` needs GCC 15+/Clang 19+), keep the fallback and report it. Do not touch other classes. Return the diff and the feature-probe rationale."
-   - **semantic (C++)** ->
-     **Use Task tool with subagent_type="system-developer:cpp-developer"**
-     Prompt: "Perform ONLY the migration class **{class}** for `{path}` ({from}->{to}). {e.g. Replace SFINAE/enable_if constraints with designed concepts / convert pointer+size signatures to std::span watching lifetime / convert error-code returns to std::expected}. Gate every adopted feature with the relevant `__cpp_*`/`__cpp_lib_*` macro; if a feature is unavailable on the project toolchain, keep the fallback and report it. Do not touch other classes. Return the diff and the feature-test rationale."
-   - **semantic (Python)** ->
-     **Use Task tool with subagent_type="system-developer:python-developer"**
-     Prompt: "Perform ONLY the migration class **{class}** for `{path}` (target 3.14). {e.g. Rewrite TypeVar/Generic to PEP 695 type parameters / sweep removed-deprecations / audit C-extension free-threading readiness and emit notes}. Verify 3.14 behavior against the toolchain (Context7/Ref) where a detail is volatile. Do not touch other classes. Return the diff (and readiness notes for advisory classes)."
-   - **semantic (Bash)** ->
-     **Use Task tool with subagent_type="system-developer:bash-developer"**
-     Prompt: "Perform ONLY the migration class **{class}** for `{path}` (Bash modernization). {e.g. Add the `set -Eeuo pipefail` prologue and audit each script for the places `set -e` is blind / replace ad-hoc cleanup with `trap cleanup EXIT` / scope variables with `local` and replace word-split string lists with real arrays}. Keep the scripts portable — assume the macOS `/bin/bash` 3.2 floor unless the shebang pins a newer bash, and guard any 4.x/5.x-only feature. Exit criterion is shellcheck-clean. Do not touch other classes. Return the diff and the portability rationale."
-3. **Mark `verified`** only after the build+test gate (Phase 3) is green for this class.
+#### Delegate
 
-### Phase 3: Verify After Every Class (per class)
+Agent tool with the owner from the row:
 
-After each applied class, run the build + test gate by invoking the project's canonical sequence (the same one `/system-developer:build-test` resolves):
+| Kind | `subagent_type` | Language-specific instruction |
+|------|-----------------|-------------------------------|
+| mechanical | `system-developer:sys-code-fixer` | Run the exact transform, e.g. `clang-tidy -p {path}/build -checks='modernize-*' -fix {files}`, `ruff check --select UP --target-version py314 --fix {path}`, `shfmt -w {files}`. Minimal, deterministic edits; don't run the test suite. |
+| semantic (C) | `system-developer:c-developer` | Gate on `__STDC_VERSION__ >= 202311L` / `__has_include` / a probe. |
+| semantic (C++) | `system-developer:cpp-developer` | Gate on the relevant `__cpp_*` / `__cpp_lib_*` macro. |
+| semantic (Python) | `system-developer:python-developer` | Check volatile 3.14 details against current docs; return readiness notes for advisory classes. |
+| semantic (Bash) | `system-developer:bash-developer` | Assume the macOS bash 3.2 floor unless the shebang pins newer; guard 4.x/5.x features. |
 
-1. Run `/system-developer:build-test {path}` (or equivalently its detected configure/build/test commands). Tee output to `.context/logs/`.
-2. **Green** -> mark the row `verified`, proceed to commit (Phase 4).
-3. **Red** -> the class did NOT pass:
-   - For a mechanical class, revert it (the fix-agent's diff) and report — mechanical fixes should never break a green build; a red one is a real signal.
-   - For a semantic class, hand the failing build/test excerpt back to the same language agent for a corrective pass (bounded — one corrective cycle, then stop and report).
-   - If still red, **halt the run**, mark the row `reverted`, and report (Rule 3). Do not proceed to later classes on a broken build.
+#### Delegation prompt
 
-### Phase 4: Commit One Class Per Migration (per class)
+```
+Apply only the migration class **{class}** to `{path}` ({from} -> {to}).
+{row notes from the playbook}
+{language-specific instruction}
+If a feature is unavailable on the project toolchain, keep the fallback and say so.
+Don't touch any other class. Return every file changed, the checks/rules applied,
+and the feature-gate or portability rationale.
+```
 
-After a class is `verified`:
+#### Verify
 
-1. Stage only the files that class touched.
-2. Commit with a conventional subject naming the class, e.g.:
-   - `refactor: replace SFINAE with concepts (C++17->20)`
-   - `refactor: adopt std::expected for parser errors (C++20->23)`
-   - `refactor: ruff pyupgrade pass for Python 3.14`
-   - `refactor: add strict-mode prologue and trap cleanup`
-3. Mark the row `committed` in the ledger.
-4. Move to the next `pending` row. When a Jump's rows are all `committed`, open the next Jump (C++ multi-jump only).
+Run `/system-developer:build-test {path}` (or its detected configure/build/test commands), teeing output to `.context/logs/`.
 
-> Per the user's git conventions: no `--no-verify`, no AI-attribution footers, and follow the repo's commit format. If the repo is mid-feature on a protected branch, branch first.
+- Green: mark `verified`.
+- Red, mechanical class: revert that diff and halt; mechanical fixes shouldn't break a green build, so it's a real signal.
+- Red, semantic class: give the failing excerpt back to the same agent for one corrective pass. Still red: revert, mark `reverted`, and halt. Later classes aren't attempted on a broken build.
 
-> Doc constraint: modernization rationale and before/after notes belong in the PR / `.context/development-N.md`, NOT in source comments — per the compact code-documentation standard (`corpflow:code-comment-standard`). Source comments carry only the non-obvious WHY and the contract.
+#### Commit
 
-### Phase 5: Report
+Stage only the files the class touched and commit with a conventional subject naming the class, e.g. `refactor: replace SFINAE with concepts (C++17->20)`, `refactor: ruff pyupgrade pass for Python 3.14`. Follow the repo's commit format; no `--no-verify`, no AI-attribution trailers; branch first if on a protected branch. Mark the row `committed`.
 
-Emit the Output Format. Summarize classes applied/verified/committed/skipped per Jump, and the ledger path for the audit trail.
+Modernization rationale and before/after notes go in the commit or PR, not in source comments.
+
+### 3. Report
+
+Emit the Output Format with per-Jump status and the ledger path.
 
 ## Tool Availability
 
-Confirm each class's tool before delegating. Missing -> print the hint, skip that class, continue, and note the skip in the ledger and report.
-
 | Missing tool | Install hint |
 |--------------|--------------|
-| `clang-tidy` / `clang-format` (C++ modernize-* / format) | `brew install llvm` |
-| `cmake` / `ctest` (build+test gate, `compile_commands.json` for clang-tidy) | `brew install cmake ninja` |
-| `ruff` (Python UP pass) | `uv tool install ruff` |
-| `uv` (Python build+test gate) | `curl -LsSf https://astral.sh/uv/install.sh \| sh` (verify against your toolchain) |
-| `shellcheck` (Bash exit criterion) | `brew install shellcheck` |
-| `shfmt` (Bash formatting class) | `brew install shfmt` |
+| `clang-tidy` / `clang-format` | `brew install llvm` |
+| `cmake` / `ctest` (build gate, `compile_commands.json` for clang-tidy) | `brew install cmake ninja` |
+| `ruff` | `uv tool install ruff` |
+| `uv` (Python build gate) | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| `shellcheck` | `brew install shellcheck` |
+| `shfmt` | `brew install shfmt` |
 
-Exact flag spellings vary across tool releases — verify against your toolchain when a flag is rejected. Never hard-fail on a missing tool: print the hint, skip the class/language, continue, and report the skip.
+Flag spellings vary across tool releases; check `--help` when a flag is rejected. Report HALTED with aggregated hints only when no class can run.
 
 ## Output Format
 
@@ -270,7 +247,11 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 <!-- dry-run: stop after the ledger -->
 ### Planned Migration Classes ({count})
 {rendered ledger table(s), all rows pending}
+```
 
+### Apply-mode body
+
+```markdown
 <!-- apply mode -->
 ### Jump 1: {from} -> {to}
 | # | Class | Kind | Owner | Status | Commit |
@@ -285,7 +266,11 @@ Exact flag spellings vary across tool releases — verify against your toolchain
 
 **Result:** COMPLETE / PARTIAL / HALTED ({reason})
 - Classes committed: {n} | verified-not-committed: {n} | reverted: {n} | skipped (tool missing): {n}
+```
 
+### Halt and skip blocks
+
+```markdown
 <!-- on a halt -->
 ### Halt
 - **Class:** {class} ({jump})
@@ -311,27 +296,12 @@ Error: --target is required and must be one of: c23, cpp20, cpp23, py314, bash.
 Suggestion: /system-developer:fix-modernize . --target cpp23 --dry-run
 ```
 
-### C++26 requested (future stub)
+### C++26 requested
 ```
-Note: --target cpp26 is not yet a working profile — C++26 is at DIS 2026
-(not shipping). Adopt C++26 features one-by-one behind __cpp_* feature-test
-macros via system-developer:cpp-developer rather than a bulk modernization
-pass. Re-run with --target cpp23 for a supported jump.
+Note: --target cpp26 has no bulk modernization profile yet. Adopt C++26
+features one by one behind __cpp_* feature-test macros via
+system-developer:cpp-developer. Re-run with --target cpp23 for a supported jump.
 ```
-See `skill: version-feature-matrix` (C++ section) for the C++26 emerging row and the feature-test-macro gating guidance.
-
-### C source modernization
-```
-Note: C17->C23 modernization is the --target c23 profile (nullptr, constexpr
-objects, <stdckdint.h>, #embed, typeof, _BitInt(N), () means (void),
-[[nodiscard]]/[[maybe_unused]]/[[deprecated]]). Semantic classes route through
-system-developer:c-developer; pin -std=c17 as the safe baseline if the
-toolchain cannot reach C23.
-```
-See `skill: version-feature-matrix` (C section) for the C23 feature/fallback table.
-
-### More than one standard jump requested
-Not an error — the command auto-inserts the intermediate jump (C++17 + `--target cpp23` -> two ordered Jumps). It will complete Jump 1 (built, tested, committed) before opening Jump 2 (Rule 1).
 
 ### Already at or above target
 ```
@@ -339,29 +309,21 @@ Note: {path} is already at or above {target} (detected: {current}).
 Nothing to modernize. Suggestion: target a higher standard or a different path.
 ```
 
+### Source below supported baseline
+```
+Error: {path} is at {current}; fix-modernize starts from C++17 (C++ targets) or C17 (c23).
+Suggestion: move the build to -std=c++17 / -std=c17 by hand with
+system-developer:cpp-developer or c-developer, get it green, then re-run.
+```
+
 ### Toolchain gate failure
 ```
 Error: Toolchain cannot guarantee {target}.
-{compiler/CPython} {detected version} < required {min version}
-(see skill: version-feature-matrix).
+{compiler/CPython} {detected version} < required {min version}.
 Suggestion: upgrade the toolchain, or modernize to the highest supported standard.
 ```
-Stop — do not write code that will not compile (Rule 6).
-
-### Build red after a class
-Halt the run (Rule 3). Mark the row `reverted`, report the first error and log path, and do NOT attempt later classes. For a semantic class, one bounded corrective cycle with the owning agent is allowed before the halt.
-
-### Tool missing
-Print the install hint from Tool Availability, skip the class (or language), continue, and note the skip. Only when no class can run does the command report HALTED with aggregated hints.
 
 ## See Also
 
-- `skill: version-feature-matrix` — canonical standard/version -> toolchain-floor + feature/fallback tables (gate every adopted feature here).
-- `skill: language-detection` — marker -> language -> agent routing (keep per-file detection in sync).
-- `skill: modern-c` — C17/C23 standard selection, the C23 quick-wins ledger (nullptr, constexpr objects, `<stdckdint.h>`, `#embed`, `typeof`, `_BitInt(N)`, attributes), and hygiene flags.
-- `skill: modern-cpp` — RAII/Rule-of-Zero, vocabulary types, the constexpr spectrum, and the version-ref playbooks (`cpp17/20/23-features`, ranges, error-handling).
-- `skill: modern-python` — t-strings, PEP 649 deferred annotations, the `from __future__` removal, except*/add_note.
-- `skill: bash-scripting` — strict-mode prologue, the honest `set -e` caveat matrix, portability and version guards.
-- `/system-developer:build-test` — the build + test gate run after every migration class.
-- `/system-developer:fix-quick` — the shallow mechanical pass (`clang-tidy modernize-*`, `ruff --select UP`) for a single language; this command sequences those plus semantic migrations across standard jumps.
-- `/system-developer:review-code` — review the modernized diff for behavioral drift once the ledger is complete.
+- `/system-developer:fix-quick`: the shallow single-language mechanical pass; this command sequences it with semantic migrations across standard jumps.
+- `/system-developer:review-code`: review the modernized diff for behavioral drift once the ledger is complete.

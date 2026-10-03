@@ -1,11 +1,6 @@
----
-name: severity-matrix
-description: Reusable severity and priority definitions for system-developer commands and agents
----
-
 # Severity Matrix Reference
 
-Shared definitions for severity levels, priority matrices, and effort/impact assessments.
+Shared definitions for severity levels, finding priorities, and remediation order.
 
 ## Severity Levels
 
@@ -27,25 +22,25 @@ Used by the Implementation/Review response formats of all system-developer agent
 | P2 | Should fix — quality/maintainability | Missing error propagation, magic numbers, oversized function, weak test coverage on changed code |
 | P3 | Nice to have — style | Formatting, naming, comment polish (auto-fixable via clang-format/ruff/shfmt) |
 
-## Priority Matrix (impact × effort)
+## Remediation Order (impact × effort)
 
-| Priority | Impact | Effort | Action |
-|----------|--------|--------|--------|
-| P0 | Critical | Any | Immediate remediation |
-| P1 | High | Low | Do first (quick wins) |
-| P2 | High | High | Plan and schedule |
-| P3 | Medium | Low | Batch together |
-| P4 | Low | High | Deprioritize or skip |
+For planning a backlog, not for review findings. These levels are named, not numbered, so they don't collide with the P0-P3 finding priorities above.
+
+| Level | Impact | Effort | Action |
+|-------|--------|--------|--------|
+| Now | Critical | Any | Immediate remediation |
+| Quick win | High | Low | Do first |
+| Schedule | High | High | Plan and schedule |
+| Batch | Medium | Low | Batch together |
+| Defer | Low | High | Deprioritize or skip |
 
 ## Effort/Impact Quadrant
 
 ```
 High Impact ┌──────────────┬──────────────┐
-            │   SCHEDULE   │  DO FIRST    │
-            │  (P2: Plan)  │ (P1: Quick)  │
+            │   SCHEDULE   │  QUICK WIN   │
             ├──────────────┼──────────────┤
-            │    AVOID     │  FILL-INS    │
-            │ (P4: Defer)  │ (P3: Batch)  │
+            │    DEFER     │    BATCH     │
 Low Impact  └──────────────┴──────────────┘
              High Effort    Low Effort
 ```
@@ -70,10 +65,3 @@ Low Impact  └──────────────┴──────�
 | Business logic | 75% | 80%+ |
 | Utilities | 60% | 70%+ |
 | CLI surfaces / glue scripts | 50% | 60%+ |
-
-## Usage
-
-Reference this file in commands using:
-```markdown
-See: skills/_shared/severity-matrix.md for severity definitions
-```

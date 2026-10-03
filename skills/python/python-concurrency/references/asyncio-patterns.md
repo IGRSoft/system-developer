@@ -1,76 +1,26 @@
 # Asyncio Patterns (TaskGroup Era)
 
-Use this when:
-
-- You are writing or reviewing `async`/`await` code on **CPython 3.14**.
-- You need structured concurrency, timeouts, cancellation, or backpressure.
-- You must bridge synchronous code (blocking libraries, other threads) into async.
-- You are writing tests for coroutines.
-
-Skip if:
-
-- You are deciding *whether* to use asyncio at all → start at [../SKILL.md](../SKILL.md).
-- Your bottleneck is CPU-bound pure Python → see `free-threading.md` / `subinterpreters.md`.
-
-Jump to:
-
-- The Modern Baseline (what changed)
-- Structured Concurrency with TaskGroup
-- Timeouts
-- Cancellation and Shielding
-- Tasks: References, Fire-and-Forget, Backpressure
-- gather vs TaskGroup
-- Async Iterators and Streams
-- Queues and Producer/Consumer
-- Synchronization Primitives
-- Bridging Sync and Async
-- Running Blocking and CPU Work
-- Testing Async Code
-- Anti-Patterns
-
-> Baseline: **Python 3.14**. `TaskGroup` and `asyncio.timeout()` arrived in 3.11,
-> so these patterns also run on 3.11–3.13. Where 3.14 adds something new, the text
-> says "3.14". Verify edge-case behavior against your interpreter (`python3.14 -VV`).
-
----
+`TaskGroup` and `asyncio.timeout()` arrived in 3.11, so these patterns also run on 3.11–3.13; 3.14-only items say so. Choosing a model: [../SKILL.md](../SKILL.md).
 
 ## The Modern Baseline (what changed)
 
-If you learned asyncio before 3.11, retire these habits:
-
 | Old pattern | Use instead | Reason |
 |---|---|---|
-| `asyncio.get_event_loop()` | `asyncio.run(main())`; `asyncio.get_running_loop()` inside coroutines | `get_event_loop()` from sync code is deprecated and error-prone |
+| `asyncio.get_event_loop()` | `asyncio.run(main())`; `asyncio.get_running_loop()` inside coroutines | 3.14: raises `RuntimeError` when no loop is set |
 | `loop.run_until_complete(...)` | `asyncio.run(...)` | One managed entry point; sets up and tears down the loop |
 | `asyncio.gather(*tasks)` for "do these together" | `asyncio.TaskGroup` | Structured: cancels siblings on error, awaits cleanup |
 | `asyncio.wait_for(coro, timeout)` | `async with asyncio.timeout(seconds):` | Composes and nests; clearer scope |
 | `asyncio.ensure_future(...)` | `asyncio.create_task(...)` or `tg.create_task(...)` | `create_task` is the explicit, current API |
-| `@asyncio.coroutine` / `yield from` | `async def` / `await` | Removed long ago |
+| `@asyncio.coroutine` / `yield from` | `async def` / `await` | Removed in 3.11 |
 
-`asyncio.run()` is the only entry point you need from synchronous code. It creates a
-fresh event loop, runs the coroutine, and closes the loop — including an orderly
-shutdown of async generators.
-
-```python
-import asyncio
-
-async def main() -> None:
-    ...
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
----
+`asyncio.run()` is the only entry point needed from synchronous code: it creates a
+loop, runs the coroutine, shuts down async generators, and closes the loop.
 
 ## Structured Concurrency with TaskGroup
 
-`TaskGroup` is the default tool for "run several coroutines concurrently and wait
-for all of them." It gives you three guarantees that bare tasks do not:
-
-1. The group does not exit until every child task finishes.
-2. If any child raises, the rest are cancelled.
-3. Errors surface as an `ExceptionGroup` you handle with `except*`.
+`TaskGroup` is the default for "run several coroutines and wait for all of them."
+The group doesn't exit until every child finishes; if any child raises, the rest
+are cancelled; errors surface as an `ExceptionGroup` handled with `except*`.
 
 ```python
 import asyncio
@@ -119,15 +69,12 @@ async def process_all(items: list[str]) -> list[str]:
     return [t.result() for t in tasks]
 ```
 
-**Do not add tasks to a group after its `async with` body has begun unwinding** —
-once the group starts shutting down, `create_task` raises `RuntimeError`.
-
----
+Once the group starts shutting down, `create_task` on it raises `RuntimeError`.
 
 ## Timeouts
 
-Use `asyncio.timeout()` as a context manager. It bounds *everything* inside the
-block, composes with `TaskGroup`, and nests.
+`asyncio.timeout()` bounds everything inside the block, composes with `TaskGroup`,
+and nests.
 
 ```python
 import asyncio
@@ -167,14 +114,12 @@ async def main() -> None:
 `asyncio.wait_for(coro, timeout)` still exists and is fine for wrapping a *single*
 awaitable, but prefer `timeout()` for anything with more than one statement.
 
----
-
 ## Cancellation and Shielding
 
 Cancellation is delivered as a `CancelledError` raised at the next suspension
 point. Treat it as control flow, not an error.
 
-### Always re-raise CancelledError
+### Re-raise CancelledError
 
 ```python
 async def worker() -> None:
@@ -183,7 +128,7 @@ async def worker() -> None:
             await do_unit_of_work()
     except asyncio.CancelledError:
         await flush_buffers()      # cleanup is fine
-        raise                      # MUST re-raise so cancellation propagates
+        raise                      # re-raise so cancellation propagates
 ```
 
 Swallowing `CancelledError` (catching it without re-raising) breaks structured
@@ -231,14 +176,11 @@ async def session() -> None:
             await conn.aclose()
 ```
 
----
-
 ## Tasks: References, Fire-and-Forget, Backpressure
 
-### The unreferenced-task footnote (a real bug)
+### Keep a reference to every task
 
-`asyncio.create_task()` returns a Task the loop holds only **weakly**. If you do not
-keep a reference and the local goes out of scope, the task can be garbage-collected
+The loop holds tasks only weakly; an unreferenced task can be garbage-collected
 mid-execution and silently disappear.
 
 ```python
@@ -278,8 +220,6 @@ async def fetch_all(urls: list[str], limit: int = 10) -> list[bytes]:
     return [t.result() for t in tasks]
 ```
 
----
-
 ## gather vs TaskGroup
 
 | Need | Use | Notes |
@@ -288,9 +228,8 @@ async def fetch_all(urls: list[str], limit: int = 10) -> list[bytes]:
 | Run N, collect every result *and* every error | `gather(*aws, return_exceptions=True)` | Returns a list mixing results and exception objects |
 | Run N where one failure should NOT cancel siblings | `gather(..., return_exceptions=True)` | Then inspect each item |
 
-`gather` without `return_exceptions=True` cancels the *gather* on first error but
-leaves other tasks running if you created them separately — a classic leak. If you
-use `gather`, pass the coroutines directly so it owns them.
+`gather` without `return_exceptions=True` raises the first error immediately, but
+the other awaitables keep running unattended — they are not cancelled.
 
 ```python
 results = await asyncio.gather(
@@ -304,17 +243,13 @@ for r in results:
         handle(r)
 ```
 
-`asyncio.as_completed()` yields results in completion order — useful for "process
-each as soon as it lands."
+`asyncio.as_completed()` yields results in completion order, to process each as
+soon as it lands:
 
 ```python
-async def first_to_finish(coros) -> str:
-    for coro in asyncio.as_completed(coros):
-        return await coro    # returns the earliest-completing result
-    raise RuntimeError("no coroutines")
+for next_done in asyncio.as_completed(aws):
+    handle(await next_done)
 ```
-
----
 
 ## Async Iterators and Streams
 
@@ -364,16 +299,11 @@ async def open_many(configs: list[Config]) -> None:
         await run(conns)
 ```
 
----
-
 ## Queues and Producer/Consumer
 
-`asyncio.Queue` gives you backpressure: a bounded queue makes producers wait when
-consumers fall behind.
+A bounded `asyncio.Queue` gives backpressure: producers wait when consumers fall behind.
 
 ```python
-import asyncio
-
 async def producer(q: asyncio.Queue[int], n: int) -> None:
     for i in range(n):
         await q.put(i)          # blocks when the queue is full → backpressure
@@ -396,16 +326,16 @@ async def main() -> None:
             w.cancel()
 ```
 
-Use a sentinel (`None`) on the queue, or cancel the consumers as above. Prefer
-`q.join()` + `task_done()` over manual counting: it tracks outstanding work for you.
+### Stopping consumers
 
----
+Alternatives to cancelling: a sentinel (`None`) per consumer, or (3.13+)
+`q.shutdown()`, after which `get()` raises `QueueShutDown` once the queue drains.
 
 ## Synchronization Primitives
 
-asyncio's `Lock`, `Semaphore`, `Event`, and `Condition` coordinate **coroutines on
-one loop** — they are *not* thread-safe and not interchangeable with
-`threading.Lock`.
+asyncio's `Lock`, `Semaphore`, `Event`, and `Condition` coordinate coroutines on
+one loop; they are not thread-safe. Across threads, use `threading`/`queue`
+primitives plus the bridging functions below.
 
 ```python
 class Cache:
@@ -414,7 +344,7 @@ class Cache:
         self._data: dict[str, bytes] = {}
 
     async def get_or_load(self, key: str) -> bytes:
-        async with self._lock:                  # serialize loads of the same key
+        async with self._lock:                  # serializes all loads; per-key locks scale better
             if key not in self._data:
                 self._data[key] = await load(key)
             return self._data[key]
@@ -434,32 +364,19 @@ async def setup() -> None:
     ready.set()
 ```
 
-For cross-thread coordination, do **not** use asyncio primitives — use
-`threading`/`queue` primitives plus the bridging functions below.
-
----
-
 ## Bridging Sync and Async
 
 ### Sync → async (start a loop)
 
-Only from genuinely synchronous code (e.g., a CLI entry point):
-
-```python
-def main() -> None:
-    asyncio.run(async_main())
-```
-
-Never call `asyncio.run()` from inside a coroutine or a running loop — it raises
-`RuntimeError: asyncio.run() cannot be called from a running event loop`. To run
-async work from within sync code that is *itself* called by a loop, you are in the
-wrong layer; refactor so the function is `async`.
+Call `asyncio.run()` only from genuinely synchronous code (a CLI entry point).
+Inside a running loop it raises `RuntimeError: asyncio.run() cannot be called from a
+running event loop`; sync code called by a loop that needs async work belongs in an
+`async` function instead.
 
 ### Async → sync (call blocking code without freezing the loop)
 
 `asyncio.to_thread()` runs a blocking callable in the default thread pool and
-returns an awaitable. The GIL releases during blocking I/O, so the loop stays
-responsive.
+returns an awaitable; the loop stays responsive.
 
 ```python
 import asyncio
@@ -487,9 +404,8 @@ async def run_many(fns) -> list:
 
 ### Worker thread → loop (call a coroutine from another thread)
 
-When a non-loop thread needs to schedule a coroutine on the running loop, use
-`run_coroutine_threadsafe`. It returns a `concurrent.futures.Future` (not an
-asyncio Future).
+From a non-loop thread, `run_coroutine_threadsafe` schedules a coroutine on the
+loop and returns a `concurrent.futures.Future`.
 
 ```python
 import asyncio
@@ -500,26 +416,23 @@ def on_external_callback(loop: asyncio.AbstractEventLoop, payload: bytes) -> Non
     future.result(timeout=5)   # optional: block this worker thread for the result
 ```
 
-Capture `loop = asyncio.get_running_loop()` while on the loop and hand it to the
-worker; never call `get_running_loop()` from the non-loop thread.
-
----
+Capture `loop = asyncio.get_running_loop()` on the loop and hand it to the worker;
+`get_running_loop()` fails in a non-loop thread.
 
 ## Running Blocking and CPU Work
 
 | Work | Mechanism | Caveat |
 |---|---|---|
-| Blocking I/O (sync driver, file, `requests`) | `asyncio.to_thread` / thread executor | Limited by pool size; fine because the GIL releases during I/O |
+| Blocking I/O (sync driver, file, `requests`) | `asyncio.to_thread` / thread executor | Limited by pool size |
 | CPU-bound, default GIL build | `loop.run_in_executor(ProcessPoolExecutor(), ...)` | Picklable args/return; process overhead |
-| CPU-bound, free-threaded build (`python3.14t`) | thread executor *can* parallelize | See `free-threading.md`; still needs locks for shared state |
-| CPU-bound, in-process isolation | `InterpreterPoolExecutor` | See `subinterpreters.md`; data crosses by pickle |
+| CPU-bound, `python3.14t` | thread executor | Parallel; shared state needs locks ([free-threading.md](free-threading.md)) |
+| CPU-bound, in-process isolation | `InterpreterPoolExecutor` | Data crosses by pickle ([subinterpreters.md](subinterpreters.md)) |
 
-Wrapping CPU work in `to_thread` on the **default** build does *not* parallelize it —
-the GIL serializes pure-Python CPU. Use processes or (on 3.14t) the free-threaded
-build instead.
+`to_thread` does not parallelize pure-Python CPU work on the default build.
+
+### Process pools
 
 ```python
-import asyncio
 from concurrent.futures import ProcessPoolExecutor
 
 async def crunch(numbers: list[int]) -> int:
@@ -528,16 +441,12 @@ async def crunch(numbers: list[int]) -> int:
         return await loop.run_in_executor(pool, cpu_heavy, numbers)
 ```
 
-> 3.14 note: on Unix (except macOS), `ProcessPoolExecutor` now defaults to the
-> `forkserver` start method instead of `fork`. If you depend on inherited mutable
-> globals, pass an explicit `mp_context`. Verify against your platform.
-
----
+3.14: on Unix other than macOS, the default start method is now `forkserver`, not
+`fork`. Code that depends on inherited globals needs an explicit `mp_context`.
 
 ## Testing Async Code
 
-Use `pytest` with `pytest-asyncio` (or `anyio`'s pytest plugin). Configure the mode
-once in `pyproject.toml` so you do not decorate every test:
+Use `pytest` with `pytest-asyncio` (or `anyio`'s pytest plugin), mode set once:
 
 ```toml
 [tool.pytest.ini_options]
@@ -547,10 +456,6 @@ asyncio_mode = "auto"          # plain `async def test_*` functions just work
 ```python
 import asyncio
 import pytest
-
-async def test_fetch_returns_payload() -> None:
-    result = await fetch("ok")
-    assert result == "data:ok"
 
 async def test_timeout_raises() -> None:
     with pytest.raises(TimeoutError):
@@ -574,30 +479,11 @@ async def test_taskgroup_cancels_siblings() -> None:
             tg.create_task(boom())
 ```
 
-Tips:
+### Tips
 
-- Control time with small `asyncio.sleep` values or a fake clock; do not sleep for
-  real seconds in unit tests.
-- Assert cancellation behavior by checking that a sibling never completed (e.g., an
-  `Event` it would have set stays unset).
-- 3.14 adds asyncio introspection (`python -m asyncio ps <pid>` / `pstree`) for
-  inspecting the running task tree when debugging hangs — verify availability on
-  your build.
-
----
-
-## Anti-Patterns
-
-| Anti-pattern | Why it breaks | Fix |
-|---|---|---|
-| `time.sleep()` / blocking call in a coroutine | Freezes the whole loop | `await asyncio.sleep()` or `to_thread` |
-| Unreferenced `create_task(...)` | Task may be GC'd mid-run | `TaskGroup` or a strong reference set |
-| Swallowing `CancelledError` | Cancellation never propagates | Always `raise` after cleanup |
-| `asyncio.run()` inside a running loop | `RuntimeError` | `await` the coroutine; refactor to async |
-| Sharing an awaitable/Future across loops | "attached to a different loop" | One loop per thread; bridge with `run_coroutine_threadsafe` |
-| Unbounded `gather` over N inputs | FD/socket exhaustion | Cap with a `Semaphore` |
-| asyncio `Lock` used across threads | Not thread-safe | `threading.Lock` + bridging |
-| Mixing sync DB driver directly in async | Hidden blocking | `to_thread`, or switch to an async driver |
+- Use small `asyncio.sleep` values or a fake clock, not real seconds.
+- Assert cancellation by checking a sibling never completed (an `Event` it would set stays unset).
+- 3.14: `python -m asyncio ps <pid>` / `pstree <pid>` dump a running process's task tree when debugging hangs.
 
 ## Related References
 

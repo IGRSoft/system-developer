@@ -2,18 +2,13 @@
 
 Quick navigation for cross-cutting references shared by all system-developer agents, commands, and skills.
 
-## Workflow Integration
-
-| File | Description |
-|------|-------------|
-
 ## Routing & Versions
 
 | File | Description |
 |------|-------------|
 | `language-detection.md` | Marker → language → agent routing table, detection priority, tie-breaking rules |
 | `version-feature-matrix.md` | C17/C23, C++17/20/23, Python 3.12-3.14, Bash 5.2/5.3 → minimum toolchains + headline features |
-| `model-selection.md` | Per-agent model/effort/maxTurns assignments and opus+xhigh override paths |
+| `model-selection.md` | Per-agent model/effort/maxTurns assignments and opus override paths |
 
 ## Quality & Security
 

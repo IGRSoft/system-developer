@@ -5,8 +5,9 @@
 # Generates .shellcheckrc and .editorconfig (and, with --with-precommit, a
 # .pre-commit-config.yaml) using the canonical settings from
 # skills/bash/bash-testing/references/shellcheck-shfmt.md — the enforced shfmt
-# set is `-i 2 -ci -bn` and ShellCheck gates at severity=warning. Keep in sync
-# with that reference (the source of truth).
+# set is `-i 2 -ci -bn` and ShellCheck gates at --severity=info (CLI only;
+# .shellcheckrc has no severity key). Keep in sync with that reference (the
+# source of truth).
 #
 # USAGE
 #   bash/scripts/shellcheck_shfmt_scaffold.sh [--with-precommit] [--write] [--dir DIR]
@@ -80,8 +81,8 @@ shellcheckrc() {
 # Dialect for extensionless / sourced files
 shell=bash
 
-# Gate at warning and above
-severity=warning
+# ShellCheck ignores a severity key here; gate with --severity=info on the
+# command line or in SHELLCHECK_OPTS
 
 # Opt into stricter optional checks
 enable=quote-safe-variables
@@ -118,7 +119,7 @@ repos:
     rev: v0.10.0
     hooks:
       - id: shellcheck
-        args: [--severity=warning, --external-sources]
+        args: [--severity=info, --external-sources]
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.10.0-2
     hooks:

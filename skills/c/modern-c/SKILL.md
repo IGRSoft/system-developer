@@ -10,31 +10,21 @@ description: >-
 
 # Modern C (C17 / C23)
 
-**Practical standard selection and C23 adoption with C17 fallbacks**
-
-## When to Use
-
-Use this skill when:
-- Starting a new C project or component and choosing a `-std` level
-- Reviewing C code for outdated idioms with modern replacements
-- Adopting specific C23 features and needing compiler-support gates
-- Replacing hand-rolled overflow checks, byte embedding, or zeroization
-
 ## C17 vs C23 Selection
 
 | Situation | Target | Why |
 |-----------|--------|-----|
-| New code, toolchain is GCC 13+/Clang 16+ | C23 (`-std=c23`, or `-std=c2x` on GCC 13/Clang 16-17) | Quick wins below are free safety/clarity |
+| New code, toolchain is GCC 14+/Clang 18+ | C23 (`-std=c23`; `-std=c2x` on GCC 13/Clang 16-17) | Quick wins below are free safety/clarity |
 | Must build on older distros, embedded SDKs, MSVC | C17 (`-std=c17`) | C17 is bugfix-only over C11; universally supported |
 | Library headers consumed by unknown compilers | C17 in public headers | Gate C23-isms behind `#if __STDC_VERSION__ >= 202311L` |
-| Shared headers with C++ | C17 subset + interop care | See [ffi-interop](${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md) |
+| Shared headers with C++ | C17 subset + interop care | See [ffi-interop](../../tooling/ffi-interop/SKILL.md) |
 
 `__STDC_VERSION__`: C17 = `201710L`, C23 = `202311L`. GCC 15 defaults to
-`gnu23` — always pin `-std` in the build system.
+`gnu23`, so pin `-std` in the build system.
 
 ## C23 Quick Wins (adopt first)
 
-All usable from GCC 13+ / Clang 16+ unless noted; per-feature minimums and
+Usable from GCC 13+ / Clang 17+ (enum underlying types: Clang 20); per-feature minimums and
 fallbacks in [references/c23-features.md](references/c23-features.md).
 
 ```c
@@ -44,8 +34,8 @@ int *p = nullptr;                       // C17: NULL
 // bool/true/false are keywords - no <stdbool.h> needed
 bool ready = false;
 
-// Empty initializer zeroes everything, including padding-free portability
-struct config cfg = {};                 // C17: = {0}
+// Empty initializer zeroes every member and the padding
+struct config cfg = {};                 // C17: = {0} (padding not guaranteed)
 
 // Enums with fixed underlying type - ABI-stable, usable in headers
 enum status : uint8_t { OK = 0, RETRY = 1, FATAL = 2 };
@@ -74,10 +64,10 @@ auto count = 0u;                // unsigned int, inferred (objects only)
 Use `auto` sparingly: iterator-ish locals and macro internals. Spell out types
 in public APIs and struct fields.
 
-## constexpr Objects (NOT Functions)
+## constexpr Objects, Not Functions
 
-C23 `constexpr` applies to **objects only** — there are no `constexpr`
-functions in C. This is the key difference from C++.
+C23 `constexpr` applies to objects only; C has no `constexpr` functions
+(the key difference from C++). Clang 19+ / GCC 13+.
 
 ```c
 constexpr size_t BUF_CAP = 4096;          // true constant: usable in array
@@ -91,15 +81,15 @@ C17 fallback: `enum { BUF_CAP = 4096 }` for ints, `#define` otherwise
 
 ## Checked Arithmetic: <stdckdint.h>
 
-Replaces manual overflow checks. `ckd_*` returns `true` on overflow and
-stores the wrapped result.
+Replaces manual overflow checks (GCC 14+ / Clang 18+). `ckd_*` returns
+`true` on overflow and stores the wrapped result.
 
 ```c
 #include <stdckdint.h>
 
 size_t total;
 if (ckd_mul(&total, count, elem_size) || ckd_add(&total, total, HDR_LEN)) {
-    return ERR_OVERFLOW;            // handle, never allocate with junk
+    return ERR_OVERFLOW;            // don't allocate with the wrapped size
 }
 void *p = malloc(total);
 ```
@@ -113,8 +103,8 @@ automatically with `../scripts/gen_checked_arithmetic.sh` instead of writing the
 
 Exact-width integers without promotion surprises (`_BitInt(8)` arithmetic
 stays in `_BitInt(8)`; no silent promotion to `int`). GCC 14+ (64-bit
-targets), Clang 14+. Width cap is `BITINT_MAXWIDTH` — implementation-defined,
-verify against your toolchain.
+targets), Clang 14+. Width cap is the implementation-defined
+`BITINT_MAXWIDTH`.
 
 ```c
 _BitInt(24) sample = 0wb;          // wb/uwb literal suffixes
@@ -147,16 +137,15 @@ memset_explicit(key, 0, sizeof key);   // zeroization the optimizer must keep
 ```
 
 Fallbacks: `__builtin_unreachable()`; `explicit_bzero` (glibc/BSD) or
-`memset_s` (Annex K, macOS). `memset_explicit` needs glibc 2.37+ — verify
-against your libc.
+`memset_s` (Annex K, macOS). `memset_explicit` needs glibc 2.37+.
 
-## Semantic Changes You Must Know
+## Semantic Changes
 
 | Change | Consequence |
 |--------|-------------|
 | `void f();` now means `void f(void);` | Calls with arguments through `()` declarations are errors in C23 — audit old headers before switching `-std` |
 | K&R function definitions removed | `int f(a) int a; { }` no longer compiles |
-| Two's complement mandated | Sign-magnitude/ones'-complement assumptions gone; signed overflow is **still UB** |
+| Two's complement mandated | Sign-magnitude/ones'-complement assumptions gone; signed overflow is still UB |
 | `realloc(p, 0)` is UB | Never use it as `free` |
 | `ATOMIC_VAR_INIT` removed | Initialize atomics directly: `_Atomic int n = 0;` |
 
@@ -169,25 +158,24 @@ against your libc.
 -Wstrict-prototypes -Wold-style-definition
 ```
 
-Hardening (`-D_FORTIFY_SOURCE=3`, `-fstack-protector-strong`, PIE/RELRO):
-GCC 14+ bundles the recommended set behind the `-fhardened` umbrella flag, and
-`-ftrivial-auto-var-init=zero` zero-initializes locals. Full doctrine:
-see [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md).
+Hardening: GCC 14+ `-fhardened` bundles `-D_FORTIFY_SOURCE=3`,
+`-fstack-protector-strong`, PIE/RELRO, and `-ftrivial-auto-var-init=zero`.
+Full doctrine: [secure-coding](../../_shared/secure-coding/SKILL.md).
 
 ## Diagnostics
 
-| Error | Cause | Fix | Reference |
-|-------|-------|-----|-----------|
-| `'nullptr' undeclared` | Not in C23 mode | `-std=c23` (GCC 14+/Clang 18+) or `-std=c2x` | [c23-features.md](references/c23-features.md) |
-| `constexpr` rejected on a function | C has no constexpr functions | `constexpr` objects only; `static inline` for functions | [c23-features.md](references/c23-features.md) |
-| `#embed` unknown directive | Toolchain below GCC 15/Clang 19 | Upgrade or `xxd -i`/`objcopy` fallback | [c23-features.md](references/c23-features.md) |
-| `'ckd_add' undeclared` | Missing `<stdckdint.h>` or old toolchain | Include header; else `__builtin_add_overflow` | [c23-features.md](references/c23-features.md) |
-| `undefined reference to 'memset_explicit'` | libc too old / not glibc 2.37+ | `explicit_bzero` or `memset_s` fallback | [c23-features.md](references/c23-features.md) |
-| Call through `()` declaration fails in C23 | `()` now means `(void)` | Declare real prototypes | [c23-features.md](references/c23-features.md) |
-| `old-style function definition` error | K&R removed in C23 | Convert to prototype form | [c23-features.md](references/c23-features.md) |
-| `'threads.h' file not found` | Platform lacks C11 threads (e.g., macOS) | Use pthreads | [c-concurrency-atomics.md](references/c-concurrency-atomics.md) |
-| TSan: data race report | Unsynchronized shared access | `_Atomic` with explicit order, or mutex | [c-concurrency-atomics.md](references/c-concurrency-atomics.md) |
-| `-Wvla` warning | Runtime-sized stack array | Fixed cap or heap allocation | [c-memory-ownership](../c-memory-ownership/SKILL.md) |
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `'nullptr' undeclared` | Not in C23 mode | `-std=c23` (GCC 14+/Clang 18+) or `-std=c2x` |
+| `constexpr` rejected on a function | C has no constexpr functions | `static inline` |
+| `#embed` unknown directive | Below GCC 15/Clang 19 | `xxd -i`/`objcopy` fallback |
+| `'ckd_add' undeclared` | Header missing or old toolchain | `__builtin_add_overflow` |
+| `undefined reference to 'memset_explicit'` | libc below glibc 2.37 | `explicit_bzero` / `memset_s` |
+| Call through `()` declaration fails | `()` now means `(void)` | Declare real prototypes |
+| `old-style function definition` error | K&R removed in C23 | Prototype form |
+| `'threads.h' file not found` | No C11 threads (e.g., macOS) | pthreads |
+| TSan data race report | Unsynchronized shared access | `_Atomic` with explicit order, or mutex |
+| `-Wvla` warning | Runtime-sized stack array | Fixed cap or heap allocation |
 
 ## Deep-Dive References
 
@@ -197,6 +185,6 @@ see [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md).
 ## Related Skills
 
 - [c-memory-ownership](../c-memory-ownership/SKILL.md) — ownership conventions, allocators, UB catalog
-- [cpp modern-cpp](${CLAUDE_SKILL_DIR}/cpp/modern-cpp/SKILL.md) — constexpr/feature differences when sharing headers with C++
-- [diagnostics](${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md) — sanitizer and debugger workflows
-- [version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md) — canonical toolchain minimums
+- [modern-cpp](../../cpp/modern-cpp/SKILL.md) — constexpr/feature differences when sharing headers with C++
+- [diagnostics](../../tooling/diagnostics/SKILL.md) — sanitizer and debugger workflows
+- [version-feature-matrix](../../_shared/version-feature-matrix.md) — canonical toolchain minimums

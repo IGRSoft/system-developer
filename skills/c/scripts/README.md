@@ -1,10 +1,7 @@
 # C skill scripts
 
-Executable helpers for the `c/*` skills. Same conventions as
-[`../../_shared/scripts/README.md`](../../_shared/scripts/README.md): `#!/usr/bin/env bash`,
-`set -Eeuo pipefail`, macOS bash-3.2-safe, stdout by default, self-documenting
-`--help`, no new runtime dependencies, shellcheck-clean, covered by a test under
-`tests/`. SKILL.md files reference these by relative path, never symlink.
+Executable helpers for the `c/*` skills, following the conventions in
+[`../../_shared/scripts/README.md`](../../_shared/scripts/README.md).
 
 ## Scripts
 

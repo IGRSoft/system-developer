@@ -1,8 +1,3 @@
----
-name: language-detection
-description: Shared marker-to-language-to-agent routing table for system-developer commands and the router agent. Reference when deciding which language agent owns a file, directory, or repository.
----
-
 # Language Detection & Agent Routing
 
 Single source of truth for the marker → language → agent mapping used by `system-developer` (router), the orchestrator's platform router, and every command that scopes work per language. Keep command-local detection logic in sync with this file — do not fork the table.
@@ -29,7 +24,9 @@ Evaluate top-down; the first matching tier wins. Within a tier, apply the tie-br
 | `*.sh`, `*.bash`, `*.bats`, `.shellcheckrc` | Bash / POSIX shell | `system-developer:bash-developer` |
 | Mixed markers across tiers (e.g. `CMakeLists.txt` + `pyproject.toml`) | Cross-language | `system-developer:system-developer` (router; handles FFI, C extensions, mixed repos directly) |
 
-File-level extension map (for per-file routing inside a mixed repo):
+### File-level extension map
+
+For per-file routing inside a mixed repo:
 
 | Extension | Agent |
 |-----------|-------|
@@ -41,11 +38,21 @@ File-level extension map (for per-file routing inside a mixed repo):
 
 ## Tie-Breaking Rules
 
+Rules are numbered across the subsections; other rules and the tables cite them by number.
+
+### C vs C++
+
 1. **CMake/Meson with C-only sources → c-developer.** A `CMakeLists.txt` whose targets contain only `.c`/`.h` files (e.g. `project(x C)`) is a C project. Any `.cpp`/`.cc`/`.cxx`/`.hpp` source, `project(x CXX)`, or `CMAKE_CXX_STANDARD` flips it to `cpp-developer`.
 2. **Bare `.h` headers count as C** unless the tree has C++ markers (C++ sources, `extern "C"` guards wrapping a C++ build, `CMAKE_CXX_STANDARD`). When a `.h` is included from both languages, route the change to the agent owning the consuming target; cross-boundary API changes go to the router.
+
+### Scripts, Makefiles, and native extensions
+
 3. **Auxiliary scripts do not flip the project.** `scripts/*.sh` or a `Makefile` wrapper in a C++/Python repo does not make it a Bash project — route by the dominant build manifest; route edits *to those scripts* to `bash-developer`.
 4. **Python with native extensions → router.** `pyproject.toml` plus C/C++ extension sources (`CMakeLists.txt`, `setup.py` with `ext_modules`, scikit-build-core/pybind11/nanobind config) is FFI territory: `system-developer:system-developer` coordinates, delegating per-file work to the language agents.
 5. **`Makefile` is not a language marker by itself.** Classify by what it builds: C sources → `c-developer`; C++ → `cpp-developer`; only shell/phony targets → treat as repo tooling (rule 3).
+
+### Dominance and fallback
+
 6. **Lockfile beats stray files.** One `tools/helper.py` in a `vcpkg.json` repo does not make it a Python project; `uv.lock` outranks a vendored `*.c` file.
 7. **Still ambiguous → router.** When two tiers conflict irreconcilably (e.g. equal C++ and Python volume, no dominant manifest), dispatch `system-developer:system-developer` and let it split the work.
 
@@ -63,11 +70,11 @@ scripts/detect_language.py --path /repo --json   # full verdict: language, confi
 It counts tracked sources via `git ls-files` (never `node_modules`, `build*/`,
 `.venv/`, vendored dirs), falling back to a pruned filesystem walk outside a git
 checkout. It routes to the dominant language's agent only when that language holds
->70% of source files; otherwise to the router (tie-break 7). The script **mirrors**
+>70% of source files; otherwise to the router (tie-break 7). The script mirrors
 this file — keep the two in sync when a rule changes.
 
 ## Related Skills
 
 - `CORPFLOW.md` — how the routed agent participates in DV
-- `model-selection.md` — model/effort to pass with the routed `Task()` call
+- `model-selection.md` — model/effort for the routed agent
 - `version-feature-matrix.md` — standard/version floors once the language is known

@@ -1,36 +1,6 @@
 # Advanced pytest
 
-Use this when:
-
-- You need fixture factories, parametrized fixtures, or precise finalization/teardown order.
-- You are parametrizing through a fixture with `indirect=True`.
-- You are configuring async tests (`pytest-asyncio` vs `anyio`) and hitting loop-scope errors.
-- You need to choose between `monkeypatch` and the `mocker` fixture, or patch environment/attributes/imports.
-- You are writing Hypothesis strategies beyond the built-ins (composite, `st.builds`, stateful).
-- You are configuring coverage (branch, exclusions, combine) or parallelizing with `pytest-xdist`.
-
-Skip this file if:
-
-- You need the core rules, plain-assert basics, or the diagnostic table. Use [../SKILL.md](../SKILL.md).
-- You are testing concurrency-specific behavior (free-threading, subinterpreters). Use the python-concurrency skill.
-- You need the cross-language test pyramid, framework matrix, or coverage targets. Use [testing-principles](${CLAUDE_SKILL_DIR}/_shared/testing-principles.md).
-
-Jump to:
-
-- Fixture Factories
-- Parametrized Fixtures
-- Finalization and Teardown Order
-- autouse Fixtures
-- Indirect Parametrization
-- Async Testing in Depth
-- monkeypatch vs mocker
-- Mocking Patterns
-- Hypothesis Strategies
-- Coverage Configuration
-- Parallelization with xdist
-- pyproject Configuration
-
-All commands assume `uv run pytest`. Pin `pytest`, `pytest-asyncio`/`anyio`, `pytest-mock`, `pytest-cov`, `pytest-xdist`, and `hypothesis` in your lockfile; their behavior moves between releases — verify against your toolchain.
+Commands assume `uv run pytest`, with `pytest`, `pytest-asyncio`/`anyio`, `pytest-mock`, `pytest-cov`, `pytest-xdist`, and `hypothesis` pinned in the lockfile.
 
 ## Fixture Factories
 
@@ -58,11 +28,11 @@ def test_admin_can_ban(make_user):
     assert admin.ban(target) is True
 ```
 
-The factory closes over a list so teardown reaches every object the test created, no matter how many. This is the standard pattern for "give me N of these, each slightly different".
+The factory closes over a list so teardown reaches every object the test created.
 
 ## Parametrized Fixtures
 
-A fixture with `params=` runs every dependent test once per param. Use it to sweep a backend/config across an entire test module without touching each test:
+A fixture with `params=` runs every dependent test once per param, sweeping a backend or config across a module without touching each test:
 
 ```python
 @pytest.fixture(params=["sqlite", "postgres"])
@@ -77,38 +47,38 @@ def test_roundtrip(db_backend):        # runs twice: sqlite, postgres
     assert db_backend.get("k") == "v"
 ```
 
-Add readable IDs with `params=[...]` plus `ids=[...]`, or wrap values in `pytest.param(value, id="...")`. `request.param` is only available inside parametrized fixtures.
+Add IDs with `ids=[...]` or `pytest.param(value, id="...")`.
 
 ## Finalization and Teardown Order
 
-Two equivalent teardown styles:
+Two teardown styles:
 
 ```python
 @pytest.fixture
 def resource():
     r = acquire()
     yield r
-    release(r)                         # yield style — preferred, reads top-to-bottom
+    release(r)                         # preferred
 
 @pytest.fixture
 def resource_alt(request):
     r = acquire()
-    request.addfinalizer(lambda: release(r))   # finalizer style — for conditional cleanup
+    request.addfinalizer(lambda: release(r))   # for conditional cleanup
     return r
 ```
 
 Order guarantees:
 
-- Within a test, fixtures tear down in **reverse** order of setup (LIFO).
+- Fixtures tear down in reverse order of setup.
 - A higher-scoped fixture (session) tears down after all lower-scoped (function) fixtures that depend on it.
-- If setup raises *before* `yield`, teardown does not run for that fixture — guard partial setup yourself.
+- If setup raises before `yield`, that fixture's teardown does not run; guard partial setup yourself.
 - Multiple `addfinalizer` calls run in reverse registration order.
 
-Prefer `yield`; reach for `addfinalizer` only when cleanup must be registered conditionally (e.g., only after a resource was actually opened).
+Use `addfinalizer` only when cleanup must be registered conditionally, e.g. only after a resource actually opened.
 
 ## autouse Fixtures
 
-`autouse=True` applies a fixture to every test in its scope without being named. Use sparingly — for cross-cutting setup (reset a global, freeze a clock), never for state a test should explicitly request:
+`autouse=True` applies a fixture to every test in its scope without being named. Keep it for cross-cutting setup (reset a global, freeze a clock), not for state a test should request explicitly:
 
 ```python
 @pytest.fixture(autouse=True)
@@ -118,11 +88,11 @@ def reset_singleton():
     Registry.clear()
 ```
 
-Scope it as narrowly as correctness allows; an autouse `session` fixture that mutates state is a classic source of cross-test contamination.
+Scope it narrowly; an autouse `session` fixture that mutates state leaks between tests.
 
 ## Indirect Parametrization
 
-`indirect=True` routes parametrize values *through a fixture* before the test sees them — use it when the test needs the fixture's processed output, not the raw value:
+`indirect=True` routes parametrize values through a fixture, so the test gets the fixture's output instead of the raw value:
 
 ```python
 @pytest.fixture
@@ -146,7 +116,7 @@ def test_can_delete(user, expected):
     assert user.can_delete() is expected
 ```
 
-Reach for indirect parametrization when setup depends on the parameter; for plain value tables, direct parametrize is simpler and clearer.
+For plain value tables, direct parametrize is simpler.
 
 ## Async Testing in Depth
 
@@ -154,7 +124,7 @@ Reach for indirect parametrization when setup depends on the parameter; for plai
 
 | Concern | pytest-asyncio | anyio (`@pytest.mark.anyio`) |
 |---------|----------------|------------------------------|
-| Backends | asyncio only | asyncio and trio (per `anyio_backend`) |
+| Backends | asyncio only | asyncio by default; trio via `anyio_backend` |
 | Marking | `@pytest.mark.asyncio` or `asyncio_mode="auto"` | `@pytest.mark.anyio` |
 | Fixtures | `@pytest_asyncio.fixture` | plain `@pytest.fixture` with `async def` |
 | Best for | asyncio-only apps | libraries that must support trio too |
@@ -163,15 +133,15 @@ Configure once:
 
 ```toml
 [tool.pytest.ini_options]
-asyncio_mode = "auto"          # pytest-asyncio: treat every async def test as a coroutine test
+asyncio_mode = "auto"          # pytest-asyncio: every async def test runs without a marker
 ```
 
 ```python
 import pytest
 
-@pytest.fixture
-def anyio_backend():           # anyio: restrict to asyncio if you do not need trio
-    return "asyncio"
+@pytest.fixture(params=["asyncio", "trio"])
+def anyio_backend(request):    # anyio: default is asyncio only; this adds trio
+    return request.param
 
 @pytest.mark.anyio
 async def test_with_anyio():
@@ -180,7 +150,7 @@ async def test_with_anyio():
 
 ### The loop-scope trap
 
-An async fixture and its test must share one event loop. Mismatched scopes produce `RuntimeError: Event loop is closed` or `... attached to a different loop`.
+An async fixture and its test must share one event loop; mismatched scopes raise `Event loop is closed` or `... attached to a different loop`.
 
 ```python
 import pytest_asyncio
@@ -192,25 +162,19 @@ async def client():
     await c.aclose()
 ```
 
-Rules of thumb:
-
-- Default (function-scoped loop and fixture) is safest; widen only for genuinely expensive resources.
-- When you set `scope="session"` on an async fixture, set a matching `loop_scope="session"`.
-- The exact attribute name and defaults have changed across `pytest-asyncio` releases — verify against your installed version before relying on a wide loop scope.
+Function-scoped loop and fixture is the safe default; widen both together, and only for expensive resources. `loop_scope` needs pytest-asyncio 0.24 or later.
 
 ### Testing concurrency and timeouts
 
 ```python
 import asyncio, pytest
 
-@pytest.mark.asyncio
-async def test_gather_runs_concurrently():
-    async with asyncio.TaskGroup() as tg:       # 3.11+: structured, propagates errors
+async def test_fetches_run_concurrently():
+    async with asyncio.TaskGroup() as tg:
         a = tg.create_task(fetch("a"))
         b = tg.create_task(fetch("b"))
     assert a.result() and b.result()
 
-@pytest.mark.asyncio
 async def test_times_out():
     with pytest.raises(TimeoutError):
         async with asyncio.timeout(0.05):
@@ -219,7 +183,7 @@ async def test_times_out():
 
 ## monkeypatch vs mocker
 
-Both undo their changes at test end. Pick by *what* you are changing:
+Both undo their changes at test end. Pick by what you change:
 
 | Task | Tool | Call |
 |------|------|------|
@@ -240,7 +204,7 @@ def test_spies_on_call(mocker):
     spy.assert_called_once_with("work.done")
 ```
 
-Rule: `monkeypatch` for environment, filesystem cwd, `sys.path`, and dict/attr tweaks; `mocker` when you want a `Mock`'s recording/assertion surface. Both auto-restore, so never patch with a bare `setattr`.
+Don't patch with a bare `setattr`; it is never restored.
 
 ## Mocking Patterns
 
@@ -256,11 +220,11 @@ def run():
 
 ```python
 def test_run(mocker):
-    mocker.patch("myapp.service.fetch", return_value={"ok": True})  # NOT myapp.client.fetch
+    mocker.patch("myapp.service.fetch", return_value={"ok": True})  # not myapp.client.fetch
     assert run() == {"ok": True}
 ```
 
-Patching `myapp.client.fetch` would miss the already-imported binding in `myapp.service`. If the consumer does `import myapp.client` and calls `myapp.client.fetch(...)`, then patch `myapp.client.fetch` — patch the attribute on the object that the code actually looks up at call time.
+If the consumer instead does `import myapp.client` and calls `myapp.client.fetch(...)`, patch `myapp.client.fetch`: patch whatever the code looks up at call time.
 
 ### side_effect: sequences, exceptions, callables
 
@@ -270,16 +234,17 @@ fake.side_effect = ConnectionError("down")    # raise on call
 fake.side_effect = lambda x: x * 2            # compute from args
 ```
 
-Sequence side effects are the idiom for testing retry logic (fail twice, then succeed) — assert `fake.call_count == 3`.
+For retry logic, a sequence like `[Err(), Err(), value]` plus `fake.call_count == 3` covers fail-twice-then-succeed.
 
 ### autospec to catch signature drift
 
 ```python
-client = mocker.patch("myapp.client.Client", autospec=True)
-client.return_value.get.assert_not_called()   # wrong arg counts now raise in the test
+client_cls = mocker.patch("myapp.service.Client", autospec=True)
+run()                                          # a call with the wrong signature raises TypeError
+client_cls.return_value.get.assert_called_once_with("/data")
 ```
 
-`autospec=True` makes the mock reject calls that don't match the real signature, so a refactor that changes arguments fails the test instead of silently passing.
+`autospec=True` makes the mock reject calls that don't match the real signature, so a changed signature fails the test instead of passing silently.
 
 ### Mocking time
 
@@ -293,7 +258,7 @@ def test_token_expiry():
     assert token.expires_at == datetime(2026, 1, 15, 11, 0, 0)
 ```
 
-Better still, inject a clock (a `Callable[[], datetime]` parameter) so production code never reads the wall clock directly — then tests pass a fixed lambda and need no patching library.
+Better, inject a clock (a `Callable[[], datetime]` parameter) so tests pass a fixed lambda and need no patching library.
 
 ## Hypothesis Strategies
 
@@ -343,12 +308,12 @@ nonempty = st.text().filter(lambda s: s.strip())   # prefer map/builds; filter c
 
 from hypothesis import assume
 @given(st.integers())
-def test_nonzero(n):
-    assume(n != 0)                                  # discard uninteresting examples
-    assert (10 // n) * n <= 10
+def test_divmod_identity(n):
+    assume(n != 0)                                  # discard the invalid case
+    assert (10 // n) * n + 10 % n == 10
 ```
 
-Prefer `map`/`st.builds` over `filter`/`assume` — filtering discards examples and can exhaust Hypothesis's budget.
+Prefer `map`/`st.builds` over `filter`/`assume`: discarded examples count against Hypothesis's budget.
 
 ### settings, examples, and reproducing failures
 
@@ -362,11 +327,11 @@ def test_normalize_idempotent(s):
     assert normalize(normalize(s)) == normalize(s)
 ```
 
-When Hypothesis finds a failure it prints a `@reproduce_failure`/`@example` block — paste it in as a permanent regression. The `hypothesis` database also replays the last failing example automatically on the next run.
+A failure prints the shrunk falsifying example; add it as `@example(...)` to keep it as a regression. The local example database also replays the last failure on the next run.
 
 ### Stateful testing (brief)
 
-For sequences of operations against a model, use `RuleBasedStateMachine` to generate and shrink action sequences. Reserve it for stateful systems (caches, parsers with modes); most code is covered by `@given`.
+For operation sequences checked against a model, `RuleBasedStateMachine` generates and shrinks action sequences. Reserve it for stateful systems (caches, parsers with modes).
 
 ## Coverage Configuration
 
@@ -380,33 +345,18 @@ omit = ["*/tests/*", "*/__main__.py"]
 show_missing = true
 skip_covered = true
 fail_under = 85
-exclude_lines = [
-    "pragma: no cover",
+exclude_also = [                       # adds to the default "pragma: no cover"
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
-    "\\.\\.\\.",                       # Protocol/overload bodies
+    '^\s*\.\.\.$',                         # Protocol/overload bodies
 ]
 
 [tool.coverage.paths]
 source = ["src/", "*/site-packages/"]  # map installed paths back to source for combine
 ```
 
-Run and gate:
-
-```sh
-uv run pytest --cov=myapp --cov-branch --cov-report=term-missing --cov-fail-under=85
-uv run pytest --cov=myapp --cov-report=html        # browsable htmlcov/ report
-```
-
-Combining across processes (needed with xdist or multiple test runs):
-
-```sh
-uv run coverage combine        # merge .coverage.* data files
-uv run coverage report
-```
-
-`[tool.coverage.paths]` is what makes combine work when tests run from an installed wheel and you report against `src/`.
+`uv run pytest --cov=myapp --cov-report=html` writes a browsable `htmlcov/`. pytest-cov combines xdist workers' data itself; separate runs need `uv run coverage combine` then `coverage report`, and `[tool.coverage.paths]` maps installed-wheel paths back to `src/` for that.
 
 ## Parallelization with xdist
 
@@ -416,12 +366,8 @@ uv run pytest -n 4             # fixed worker count
 uv run pytest -n auto --dist loadgroup   # keep @pytest.mark.xdist_group tests on one worker
 ```
 
-Requirements and caveats:
-
-- Tests must be **independent** — xdist distributes them across processes in nondeterministic order. Order-dependent tests fail under `-n`.
-- `session`-scoped fixtures are built **once per worker**, not once globally. A fixture that assumed a single global instance (a port, a shared file) needs per-worker uniqueness (`tmp_path_factory`, `worker_id` from the `worker_id` fixture).
-- Coverage requires `combine` (see above); `pytest-cov` handles this when its `pytest-xdist` integration is active.
-- Use `--dist loadgroup` with `@pytest.mark.xdist_group("name")` to pin a set of tests that share an expensive resource to the same worker.
+- Tests must be independent; xdist runs them across processes in nondeterministic order.
+- `session` fixtures are built once per worker, not once globally. A single global resource (a port, a shared file) needs per-worker names via `tmp_path_factory` and the `worker_id` fixture.
 
 ```python
 def test_uses_unique_db(tmp_path_factory, worker_id):
@@ -431,7 +377,7 @@ def test_uses_unique_db(tmp_path_factory, worker_id):
 
 ## pyproject Configuration
 
-A complete, conventional `[tool.pytest.ini_options]` block:
+A conventional `[tool.pytest.ini_options]` block:
 
 ```toml
 [tool.pytest.ini_options]
@@ -439,7 +385,7 @@ minversion = "8.0"
 testpaths = ["tests"]
 addopts = [
     "-ra",                      # show summary of all non-passing outcomes
-    "--strict-markers",         # unknown @pytest.mark.* is an error, not a warning
+    "--strict-markers",         # a mistyped marker is an error, not a silent no-op
     "--strict-config",          # config typos fail fast
     "--import-mode=importlib",  # modern import mode; no sys.path hacks
 ]
@@ -458,5 +404,3 @@ uv run pytest -m integration           # only integration tests
 uv run pytest -k "user and not delete" # by test-name substring expression
 uv run pytest tests/test_api.py::test_create_user   # a single test by node id
 ```
-
-`--strict-markers` plus a declared `markers` list turns a mistyped marker into an immediate failure — keep it on so dead `@pytest.mark.slwo` markers never silently skip nothing.

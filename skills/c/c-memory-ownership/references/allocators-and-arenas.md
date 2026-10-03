@@ -1,32 +1,6 @@
 # Allocators and Arenas
 
-Use this when:
-
-- A codebase drowns in per-object `malloc`/`free` pairs and leaks keep appearing on error paths.
-- You are implementing or reviewing an arena, pool, or stack allocator.
-- You need correct alignment handling: `alignas`, `aligned_alloc`, flexible array members.
-- You are designing a library API and must decide how callers provide or receive memory.
-
-Skip this file if:
-
-- You are diagnosing a specific UB class or sanitizer report. Use `undefined-behavior-catalog.md`.
-- You need ownership documentation conventions and cleanup-pattern ranking. Use the parent `SKILL.md`.
-- You need C11 atomics for a thread-safe allocator. Use the `modern-c` skill's concurrency reference first.
-
-Jump to:
-
-- Choosing an Allocation Strategy
-- Alignment Fundamentals
-- Arena (Bump) Allocator
-- Growing Arena with Chained Blocks
-- Stack Allocator (LIFO Markers)
-- Pool Allocator (Fixed-Size Free List)
-- Flexible Array Members
-- Ownership API Design
-- Allocator Injection
-- Growth Patterns with realloc
-- Testing and Hardening Custom Allocators
-- Diagnostic Pitfalls
+Arena, pool, and stack allocators, alignment, flexible array members, and allocator-aware API design. UB classes and sanitizer reports: `undefined-behavior-catalog.md`; ownership conventions and cleanup ranking: the parent `SKILL.md`.
 
 ## Choosing an Allocation Strategy
 
@@ -38,9 +12,11 @@ Jump to:
 | Stack allocator | LIFO, marker-based | Nested scopes: recursive descent, undo points | Frees happen out of order |
 | Pool | Individual, O(1) | Many objects of one fixed size churning (nodes, connections) | Mixed sizes (per-size pools or fall back to malloc) |
 
-Decision shortcut: if you can name the single moment when *everything* becomes garbage, use an arena. If objects are uniform and churn, use a pool. Otherwise stay with `malloc` and the ownership conventions from the parent `SKILL.md`.
+### Decision Shortcut
 
-The payoff is not only speed (a bump allocation is an add and a compare). Arenas eliminate the leak-on-error-path bug class: one `arena_destroy` in the `goto cleanup` block releases every allocation the scope made, however the scope exits.
+If you can name the single moment when *everything* becomes garbage, use an arena. If objects are uniform and churn, use a pool. Otherwise stay with `malloc` and the ownership conventions from the parent `SKILL.md`.
+
+Beyond speed (a bump allocation is an add and a compare), arenas remove the leak-on-error-path bug class: one `arena_destroy` in the `goto cleanup` block releases everything the scope made.
 
 ## Alignment Fundamentals
 
@@ -49,9 +25,11 @@ The payoff is not only speed (a bump allocation is an add and a compare). Arenas
 | `_Alignof(T)` / `alignof` | C11 (`<stdalign.h>` macro); C23 makes `alignof` a keyword | Query the required alignment of a type |
 | `_Alignas(N)` / `alignas` | C11; C23 keyword | Over-align a declaration: `alignas(64) char buf[256];` |
 | `max_align_t` | C11, `<stddef.h>` | `malloc` results are aligned for any type with fundamental alignment, i.e., `alignof(max_align_t)` |
-| `aligned_alloc(align, size)` | C11 (corrected by DR 460/C17) | C11 as published made non-multiple `size` undefined; as corrected the call fails with NULL — round `size` up anyway for portability |
+| `aligned_alloc(align, size)` | C11; relaxed by DR 460 in C17 | C11 made a `size` that is not a multiple of `align` UB; C17 drops that rule, but older libcs still return NULL, so round `size` up |
 | `posix_memalign(&p, align, size)` | POSIX | `align` must be a power-of-two multiple of `sizeof(void *)`; result is `free()`-able |
-| `_aligned_malloc` / `_aligned_free` | MSVC (no `aligned_alloc` in UCRT) | Must pair with `_aligned_free`, never `free()` — verify against your toolchain |
+| `_aligned_malloc` / `_aligned_free` | MSVC (no `aligned_alloc` in UCRT) | Pair with `_aligned_free`, not `free()` |
+
+### Aligned Allocation Example
 
 ```c
 #include <stdalign.h>     /* pre-C23; harmless under C23 */
@@ -63,17 +41,12 @@ void *block = aligned_alloc(64, 4096);         /* size is a multiple of align */
 free(block);                                   /* aligned_alloc memory is free()-able */
 ```
 
-Why over-align:
+### Over-Alignment Rules
 
-- **SIMD**: vector loads may require or strongly prefer 16/32/64-byte alignment.
-- **False sharing**: `alignas(64)` (or C17 `... = max` cache-line macros where available) separates per-thread counters onto distinct cache lines.
-- **Hardware/DMA buffers**: device contracts.
+Over-align for SIMD loads, to keep per-thread counters on separate cache lines (`alignas(64)`), or for device/DMA contracts.
 
-Rules that bite:
-
-- `aligned_alloc(align, size)` portability: keep `align` a power of two supported by the implementation and `size` a multiple of `align`. Round up: `size = (size + align - 1) / align * align;`.
-- Availability varies on older platforms even where C11 is otherwise complete — keep `posix_memalign` as the POSIX fallback and `_aligned_malloc` on Windows; verify against your toolchain.
-- A custom allocator must *reproduce* `malloc`'s guarantee or take an explicit `align` parameter — handing out odd offsets of a `char` buffer is misaligned-access UB waiting for a strict target (see the catalog).
+- Keep `align` a power of two and round `size` up: `size = (size + align - 1) / align * align;`. Fall back to `posix_memalign` (POSIX) or `_aligned_malloc` (Windows) where `aligned_alloc` is missing.
+- A custom allocator must reproduce `malloc`'s alignment guarantee or take an explicit `align` parameter; handing out odd offsets of a `char` buffer is misaligned-access UB on strict targets.
 
 ## Arena (Bump) Allocator
 
@@ -82,7 +55,9 @@ Fixed-capacity core — allocation is pointer-bump plus overflow checks:
 ```c
 #include <stdalign.h>
 #include <stddef.h>
+#include <stdint.h>     /* SIZE_MAX */
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct {
     unsigned char *base;
@@ -121,10 +96,9 @@ void *arena_alloc(arena *a, size_t size, size_t align) {
 void arena_reset(arena *a) { a->used = 0; }    /* everything dies at once */
 ```
 
-Notes on the checks — both are load-bearing:
+### Overflow Checks and Typed Helpers
 
-- `offset < a->used` catches `align_up` wrapping past `SIZE_MAX`.
-- `size > a->cap - offset` is the overflow-proof form of `offset + size > a->cap` (the naive form can wrap and pass).
+Both checks are load-bearing: `offset < a->used` catches `align_up` wrapping past `SIZE_MAX`, and `size > a->cap - offset` is the overflow-proof form of `offset + size > a->cap`.
 
 Typed helpers keep call sites honest about alignment:
 
@@ -144,9 +118,11 @@ char *arena_strdup(arena *a, const char *s) {
 }
 ```
 
-Ownership rules an arena imposes (document them in the header):
+### Arena Ownership Rules
 
-- Pointers returned by `arena_alloc` are **borrowed from the arena** — never passed to `free()`, never used after `arena_reset`/`arena_destroy`.
+Document these in the header:
+
+- Pointers returned by `arena_alloc` are borrowed from the arena: never passed to `free()`, never used after `arena_reset`/`arena_destroy`.
 - There is no per-object free. If a caller needs one, the object does not belong in this arena.
 - Objects holding non-memory resources (file descriptors, `FILE *`, sockets) may *live* in an arena, but the arena will not close them — pair with `goto cleanup` for handles.
 
@@ -204,9 +180,9 @@ void garena_destroy(garena *g) {
 }
 ```
 
-Pre-C23 fallback for `ckd_add`: `if (data_cap > SIZE_MAX - sizeof(arena_block)) return NULL;`.
+### Pre-C23 Fallback and Block Alignment
 
-Because `data` is a flexible array member of `max_align_t`, offset 0 of every block is aligned for any fundamental type — `align_up` then handles interior offsets.
+Pre-C23 fallback for `ckd_add`: `if (data_cap > SIZE_MAX - sizeof(arena_block)) return NULL;`. Typing `data` as `max_align_t[]` aligns offset 0 of every block for any fundamental type; `align_up` handles interior offsets.
 
 ## Stack Allocator (LIFO Markers)
 
@@ -227,7 +203,7 @@ for (size_t i = 0; i < n_files; i++) {
 }
 ```
 
-Everything allocated after the marker dangles the instant `arena_release` runs — same severity as use-after-free, but invisible to ASan unless you poison (see Testing and Hardening below). Keep marker scopes small and lexically obvious.
+Everything allocated after the marker dangles once `arena_release` runs: a use-after-free that ASan misses unless you poison (see Testing and Hardening). Keep marker scopes small and lexically obvious.
 
 ## Pool Allocator (Fixed-Size Free List)
 
@@ -275,15 +251,15 @@ void pool_free(pool *p, void *obj) {
 void pool_destroy(pool *p) { free(p->slab); p->slab = NULL; p->free_list = NULL; }
 ```
 
-Correctness notes:
+### Pool Safety Notes
 
-- Writing `pool_node` into raw `malloc` memory is aliasing-clean: allocated storage has no declared type; each store sets the effective type.
-- The intrusive free list reuses freed objects' bytes — a use-after-free through a stale pool pointer corrupts the list itself. Debug builds should fill freed slots with a pattern (`0xDD`) and validate `next` on alloc.
-- `pool_free` does not check that `obj` came from this pool. If callers can be wrong, add a range check against `slab` and size in debug builds.
+- Writing `pool_node` into raw `malloc` memory is aliasing-clean: allocated storage has no declared type, so each store sets the effective type.
+- The intrusive free list reuses freed objects' bytes, so a use-after-free through a stale pool pointer corrupts the list. Debug builds should fill freed slots with `0xDD` and validate `next` on alloc.
+- `pool_free` does not check that `obj` came from this pool; add a range check against `slab` in debug builds if callers can get it wrong.
 
 ## Flexible Array Members
 
-A flexible array member (C99) puts a variable-length tail inside one allocation — one `malloc`, one `free`, one cache region:
+A flexible array member (C99) puts a variable-length tail inside one allocation: one `malloc`, one `free`:
 
 ```c
 typedef struct {
@@ -303,22 +279,22 @@ strbuf *strbuf_create(size_t len) {
 
 Pre-C23 fallback: `if (len > SIZE_MAX - sizeof(strbuf)) return NULL;`.
 
-Rules (C17 6.7.2.1):
+### FAM Rules (C17 6.7.2.1)
 
 | Rule | Consequence |
 |---|---|
 | FAM must be the last member of a struct with at least one other named member | `struct { char data[]; }` alone is invalid |
-| `sizeof(struct)` excludes the FAM but includes padding before it | `sizeof(strbuf) + len` may slightly over-allocate — that is fine; never hand-compute `offsetof`-based "exact" sizes without need |
+| `sizeof(struct)` excludes the FAM but includes padding before it | `sizeof(strbuf) + len` may slightly over-allocate; that is fine |
 | A struct with a FAM cannot be an array element or a member of another struct | Compose by pointer instead |
 | Assigning such structs copies everything *except* the FAM | Treat them as non-copyable; allocate + `memcpy` the full byte size |
 
-Do not use the pre-C99 `char data[1];` hack — indexing past element 0 is out-of-bounds UB, and ASan + `-fsanitize=bounds` will (correctly) report new code that inherits it. When modernizing, replace `[1]` with `[]` and delete the `- 1` size adjustments.
+Replace the pre-C99 `char data[1];` hack with `[]` and drop its `- 1` size adjustments: indexing past element 0 is out-of-bounds UB that `-fsanitize=bounds` reports.
 
-FAMs pair naturally with arenas: `arena_alloc(a, sizeof(strbuf) + len, alignof(strbuf))` carves variable-size records with zero per-record overhead.
+In an arena, `arena_alloc(a, sizeof(strbuf) + len, alignof(strbuf))` carves variable-size records with no per-record overhead.
 
 ## Ownership API Design
 
-Recap of caller-facing shapes (decision table in the parent `SKILL.md`), with the allocator angle:
+The caller-facing shapes from the parent `SKILL.md`, by allocator coupling:
 
 | Shape | Who allocates | Who frees | Allocator coupling |
 |---|---|---|---|
@@ -327,15 +303,15 @@ Recap of caller-facing shapes (decision table in the parent `SKILL.md`), with th
 | `int t_init(T *t, ...)` / `t_fini` | Caller | Caller | None — caller may use stack, arena, pool |
 | `size_t t_serialize(char *buf, size_t cap)` | Caller | Caller | None — two-call sizing |
 
-Design rules:
+### Design Rules
 
-- **Never export `free()` as the destructor.** Even if today's `t_create` is a single `malloc`, exporting `t_destroy` keeps the freedom to add nested allocations, pools, or a different allocator without breaking every caller.
-- **The `_init`/`_fini` pair is the composability workhorse**: it lets callers embed your type in their structs, arrays, arenas, and stacks. Offer it alongside `_create`/`_destroy` when the struct can be public.
-- **Two-call sizing** avoids allocation entirely: return the required size when the buffer is too small (the `snprintf` contract). Document whether the result is truncated or untouched on the small-buffer path.
+- Export `t_destroy`, not `free()`, even when `t_create` is a single `malloc`: it keeps room for nested allocations or a different allocator without breaking callers.
+- Offer `_init`/`_fini` alongside `_create`/`_destroy` when the struct can be public, so callers can embed it in their structs, arrays, arenas, and stacks.
+- For two-call sizing, return the required size when the buffer is too small (the `snprintf` contract) and document whether the buffer is truncated or untouched on that path.
 
 ## Allocator Injection
 
-Libraries that allocate should let embedders supply the allocator — arenas, pools, instrumented wrappers, or a hard-failing allocator in tests:
+Libraries that allocate should let embedders supply the allocator (arena, pool, instrumented wrapper, failing allocator in tests):
 
 ```c
 typedef struct {
@@ -353,6 +329,8 @@ static void sys_release(void *ctx, void *p) { (void)ctx; free(p); }
 
 static const allocator sys_allocator = { sys_alloc, sys_release, NULL };
 ```
+
+### Storing the Allocator in the Object
 
 The object stores the allocator it was created with, so `_destroy` cannot mismatch:
 
@@ -385,13 +363,13 @@ void widget_destroy(widget *w) {
 }
 ```
 
-The `allocator al = w->al;` copy matters: releasing `w` first and then reading `w->al` is use-after-free.
+### Destroy-Path Rules
 
-When the injected allocator is an arena, `release` is a no-op and `widget_destroy` becomes optional for memory — but still required by contract for non-memory resources. State which one your API is in the header.
+The `allocator al = w->al;` copy matters: reading `w->al` after releasing `w` is use-after-free. With an arena allocator `release` is a no-op, but `_destroy` is still required by contract for non-memory resources; say so in the header.
 
 ## Growth Patterns with realloc
 
-Dynamic arrays grow geometrically; every step is overflow-checked and uses the temp pattern (the `realloc`-failure rules live in the parent `SKILL.md`):
+Dynamic arrays grow geometrically, with every step overflow-checked and the realloc temp pattern from the parent `SKILL.md`:
 
 ```c
 typedef struct { int *data; size_t len, cap; } vec;
@@ -411,13 +389,15 @@ int vec_reserve(vec *v, size_t need) {
 }
 ```
 
-- Growth factor 1.5x vs 2x: 1.5x allows freed blocks to be reused by later growth on many allocators; 2x minimizes realloc count. Either is fine — growing by `+1` is not (quadratic copying).
-- After a successful `realloc`, **every** pointer into the old block is dangling — store indexes across `vec_reserve` calls, not element pointers (catalog: Use-After-Free, realloc variant).
-- Arenas do not `realloc` well: only the most recent allocation can grow in place. If a buffer must grow inside an arena, allocate-new-and-copy, accepting the dead space — that waste is the price of bulk free.
+### Growth Rules
+
+- 1.5x or 2x growth are both fine; growing by `+1` is quadratic copying.
+- After a successful `realloc`, every pointer into the old block dangles; keep indexes, not element pointers, across `vec_reserve` calls.
+- In an arena only the most recent allocation can grow in place; otherwise allocate new and copy, accepting the dead space.
 
 ## Testing and Hardening Custom Allocators
 
-ASan only redzones the *outer* `malloc` blocks — interior arena overruns land in your own valid memory. Poison the unused tail manually:
+ASan only redzones the outer `malloc` blocks, so interior arena overruns land in your own valid memory. Poison manually:
 
 ```c
 #if defined(__SANITIZE_ADDRESS__)            /* GCC */
@@ -438,13 +418,15 @@ ASan only redzones the *outer* `malloc` blocks — interior arena overruns land 
 #endif
 ```
 
+### Poisoning Hooks
+
 Wire the hooks at the three lifecycle points:
 
-- `arena_init`: `POISON(base, cap)` — nothing is handed out yet.
-- `arena_alloc`: `UNPOISON(p, size)` — only the granted bytes (alignment gaps stay poisoned, catching off-the-front underruns).
-- `arena_reset` / `arena_release`: re-`POISON` the reclaimed region — turns marker-rollback use-after-free into a hard ASan report.
+- `arena_init`: `POISON(base, cap)`.
+- `arena_alloc`: `UNPOISON(p, size)`, only the granted bytes; alignment gaps stay poisoned.
+- `arena_reset` / `arena_release`: re-`POISON` the reclaimed region, so marker-rollback use-after-free becomes an ASan report.
 
-Additional hardening that pays for itself:
+### Further Hardening
 
 | Technique | Cost | Catches |
 |---|---|---|
@@ -452,23 +434,22 @@ Additional hardening that pays for itself:
 | Per-allocation canaries before/after user bytes, verified on reset | A few bytes + check loop | Interior overruns without ASan |
 | Failure injection (`fail after N allocations` switch in the allocator vtable) | Test-only | Untested error paths — the place leaks live |
 | High-water-mark counter | One max() per alloc | Sizing arenas honestly instead of guessing |
-| Valgrind client requests (`VALGRIND_MAKE_MEM_NOACCESS` et al.) | Macro calls | The same poisoning story for Valgrind runs — verify against your toolchain |
+| Valgrind client requests (`VALGRIND_MAKE_MEM_NOACCESS` et al.) | Macro calls | The same poisoning for Valgrind runs |
 
 ## Diagnostic Pitfalls
+
+### Arena Symptoms
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | ASan stays green but arena data corrupts | Interior overrun inside one big block — no redzones | Manual poisoning hooks (above); per-allocation canaries |
 | `attempting free on address which was not malloc()-ed` | Caller `free()`d an arena/pool pointer | Header docs: arena pointers are borrowed; only `arena_destroy` frees |
 | `SIGBUS`/`alignment` UBSan report on arena object | `arena_alloc` called with `align = 1` for a typed object | `ARENA_NEW` macros so `alignof(T)` is automatic |
+| Leak report on every arena allocation site | `arena_destroy` missing on one exit path | Arena teardown belongs in the `goto cleanup` block — one line, all paths |
+
+### Pool and Alignment Symptoms
+
+| Symptom | Cause | Fix |
+|---|---|---|
 | `aligned_alloc` returns NULL for a "valid" call | `size` not a multiple of `align` on a strict implementation | Round size up; or `posix_memalign`/`_aligned_malloc` per platform |
 | Pool hands out a pointer that crashes on use | Stale pointer wrote through `pool_free`d object, corrupting the free list | Debug pattern fill + validate `next` range on alloc |
-| Heap usage never drops despite `arena_reset` | Reset keeps blocks by design (reuse) | That is the contract; call `garena_destroy` at true end-of-life |
-| Leak report on every arena allocation site | `arena_destroy` missing on one exit path | Arena teardown belongs in the `goto cleanup` block — one line, all paths |
-| Two structs assigned, tail data missing | Struct assignment does not copy FAM bytes | Treat FAM structs as non-copyable; `memcpy` the full byte size |
-
-Related references:
-
-- `undefined-behavior-catalog.md` — the UB classes these allocators must not commit (overflowed size math, misalignment, use-after-free)
-- Parent `SKILL.md` — ownership conventions, cleanup-pattern ranking, the realloc temp pattern, sanitizer-first workflow
-- `tooling/diagnostics` skill — sanitizer build matrices and heap profilers for measuring allocator behavior

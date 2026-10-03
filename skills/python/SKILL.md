@@ -10,68 +10,37 @@ description: >-
 
 # Python Skills
 
-**Navigation and version snapshot for Python 3.12-3.14 development**
+Routes Python 3.12-3.14 work to the right leaf skill or reference.
 
 ## Version Snapshot
 
-| Version | Headline (one line) |
-|---------|---------------------|
-| 3.12 | PEP 695 `type` statement and `class Foo[T]` generics; formalized f-string grammar (PEP 701); better error messages |
-| 3.13 | Experimental free-threaded build (`python3.13t`) and experimental JIT; new REPL |
-| 3.14 | Free-threading **supported** (PEP 779, still a separate build); subinterpreters in stdlib (PEP 734); t-strings (PEP 750); deferred annotations by default (PEP 649/749); `compression.zstd` (PEP 784) |
-| 3.15 | Beta (GA Oct 2026, PEP 790) — verify against release notes; free-threading-by-default is **Phase III (future, not 3.15)** |
+- 3.12: PEP 695 `type` statement and `class Foo[T]` generics; f-string grammar formalized (PEP 701).
+- 3.13: experimental free-threaded build (`python3.13t`) and JIT; new REPL.
+- 3.14: free-threading supported (PEP 779, still a separate build); subinterpreters in stdlib (PEP 734); t-strings (PEP 750); deferred annotations by default (PEP 649/749); `compression.zstd` (PEP 784).
+- 3.15: scheduled GA 2026-10-01 (PEP 790); check its release notes before relying on it. Free-threading by default is a later phase, not 3.15.
 
-Compiler/runtime minutiae shift between point releases — for anything you pin in
-CI, verify against your interpreter (`python3 -VV`) and link the canonical
-[version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md).
+Check feature minimums against the interpreter (`python3 -VV`) and the [version-feature-matrix](../_shared/version-feature-matrix.md).
 
-**Toolchain in one line:** `uv` (env + lockfile) - `ruff` (lint + format) -
-`pyright` or `mypy` (one as CI gate) - `pytest` (tests). Pin tool versions in
-`pyproject.toml`/`uv.lock`, never in prose.
+Toolchain: `uv` (env + lockfile), `ruff` (lint + format), `pyright` or `mypy` (one as the CI gate), `pytest`. Pin tool versions in `pyproject.toml`/`uv.lock`, not in prose.
 
-## Skill Selection Guide
+## Skill Selection
 
-| I need to... | Use this skill |
-|--------------|----------------|
-| Use a 3.14 feature (t-strings, deferred annotations, zstd, `except*`) | [modern-python/SKILL.md](modern-python/SKILL.md) |
-| Catch anti-patterns / map a fix to a ruff rule | [modern-python/references/python-anti-patterns.md](modern-python/references/python-anti-patterns.md) |
-| Add type annotations, generics, protocols, strict checking | [python-typing/SKILL.md](python-typing/SKILL.md) |
-| Pick asyncio vs threads vs subinterpreters vs multiprocessing | [python-concurrency/SKILL.md](python-concurrency/SKILL.md) |
-| Set up uv, ruff, packaging, project structure | [python-tooling/SKILL.md](python-tooling/SKILL.md) |
-| Write or structure pytest tests | [python-testing/SKILL.md](python-testing/SKILL.md) |
-
-## Decision Tree
-
-```
-Python task?
-├── Which version has feature X? → version-feature-matrix (canonical)
-├── Writing/reviewing modern code → modern-python/SKILL.md
-│   ├── 3.14 feature tour → modern-python/references/python-3.14-features.md
-│   └── Anti-pattern + ruff fix → modern-python/references/python-anti-patterns.md
-├── Type annotations / generics / strict checking → python-typing/SKILL.md
-├── Concurrency model choice → python-concurrency/SKILL.md
-│   ├── asyncio (many concurrent I/O) → references/asyncio-patterns.md
-│   ├── free-threading (CPU-bound, 3.14t) → references/free-threading.md
-│   └── subinterpreters (isolation) → references/subinterpreters.md
-├── uv / ruff / packaging → python-tooling/SKILL.md
-├── pytest, fixtures, coverage → python-testing/SKILL.md
-└── Migrating to 3.14 → /system-developer:fix-modernize
-```
-
-## File Overview
-
-| File | Purpose |
-|------|---------|
-| [_index.md](_index.md) | Full navigation for the python/ subtree |
-| [modern-python/SKILL.md](modern-python/SKILL.md) | 3.14 feature gates, t-strings, deferred annotations, exception groups |
-| [python-typing/SKILL.md](python-typing/SKILL.md) | PEP 695 generics, protocols, pyright/mypy strict |
-| [python-concurrency/SKILL.md](python-concurrency/SKILL.md) | Concurrency-model decision table for the free-threading era |
-| [python-tooling/SKILL.md](python-tooling/SKILL.md) | uv workflows, ruff, packaging, project layout |
-| [python-testing/SKILL.md](python-testing/SKILL.md) | pytest patterns, fixtures, coverage |
+| I need to... | Go to |
+|--------------|-------|
+| Use a 3.14 feature (t-strings, deferred annotations, zstd, `except*`) | [modern-python](modern-python/SKILL.md); full tour in [python-3.14-features.md](modern-python/references/python-3.14-features.md) |
+| Catch anti-patterns / map a fix to a ruff rule | [python-anti-patterns.md](modern-python/references/python-anti-patterns.md) |
+| Add type annotations, generics, protocols, strict checking | [python-typing](python-typing/SKILL.md) |
+| Pick asyncio vs threads vs subinterpreters vs multiprocessing | [python-concurrency](python-concurrency/SKILL.md) |
+| Set up uv, ruff, packaging, project structure | [python-tooling](python-tooling/SKILL.md) |
+| Write or structure pytest tests, fixtures, coverage | [python-testing](python-testing/SKILL.md) |
+| Migrate a codebase to 3.14 | `/system-developer:fix-modernize` |
+| Every file in this subtree | [_index.md](_index.md) |
 
 ## Related Skills
 
-- [modern-c](${CLAUDE_SKILL_DIR}/c/SKILL.md) / [cpp-skills](${CLAUDE_SKILL_DIR}/cpp/SKILL.md) — for C-extension and FFI boundaries
-- [ffi-interop](${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md) — binding C/C++ to Python (pybind11, nanobind, C API)
-- [secure-coding](${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md) — input validation, `shell=True`/pickle/yaml hazards
-- [version-feature-matrix](${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md) — canonical Python version minimums
+| I need to... | Go to |
+|--------------|-------|
+| C-extension and FFI boundaries | [c-skills](../c/SKILL.md), [cpp-skills](../cpp/SKILL.md) |
+| Bind C/C++ to Python (pybind11, nanobind, C API) | [ffi-interop](../tooling/ffi-interop/SKILL.md) |
+| Input validation, `shell=True`/pickle/yaml hazards | [secure-coding](../_shared/secure-coding/SKILL.md) |
+| Profiling (py-spy, cProfile, tracemalloc) | [diagnostics](../tooling/diagnostics/SKILL.md) |

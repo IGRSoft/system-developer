@@ -1,7 +1,7 @@
 # C Skills Index
 
 Quick navigation for the `skills/c/` subtree. Start at [SKILL.md](SKILL.md) for
-the guided entry with decision tree and `-std` flag quick reference.
+the selection table and `-std` flags.
 
 ## Skills
 
@@ -23,8 +23,8 @@ the guided entry with decision tree and `-std` flag quick reference.
 
 | Topic | Location |
 |-------|----------|
-| Toolchain minimums (canonical) | `${CLAUDE_SKILL_DIR}/_shared/version-feature-matrix.md` |
-| Sanitizers, gdb/lldb, valgrind | `${CLAUDE_SKILL_DIR}/tooling/diagnostics/SKILL.md` |
-| CMake, Meson, Make | `${CLAUDE_SKILL_DIR}/tooling/build-systems/SKILL.md` |
-| C/C++/Python boundaries | `${CLAUDE_SKILL_DIR}/tooling/ffi-interop/SKILL.md` |
-| Input validation, injection defense | `${CLAUDE_SKILL_DIR}/_shared/secure-coding/SKILL.md` |
+| Toolchain minimums (canonical) | [version-feature-matrix.md](../_shared/version-feature-matrix.md) |
+| Sanitizers, gdb/lldb, valgrind | [diagnostics](../tooling/diagnostics/SKILL.md) |
+| CMake, Meson, Make | [build-systems](../tooling/build-systems/SKILL.md) |
+| C/C++/Python boundaries | [ffi-interop](../tooling/ffi-interop/SKILL.md) |
+| Input validation, injection defense | [secure-coding](../_shared/secure-coding/SKILL.md) |
