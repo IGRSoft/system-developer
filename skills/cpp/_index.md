@@ -6,7 +6,7 @@ Quick navigation for C++17/20/23 language skills.
 
 | File | Description |
 |------|-------------|
-| `SKILL.md` | Entry point: canonical standard-selection table (need → minimum standard → C++17 fallback), decision tree |
+| `SKILL.md` | Entry point: canonical standard-selection table (per-standard needs with C++17 fallbacks, C++26 gating), skill routing |
 | `modern-cpp/SKILL.md` | RAII, Rule of Zero, smart-pointer policy, vocabulary types, constexpr family, deducing this, std::print |
 | `cpp-concurrency/SKILL.md` | jthread, atomics, memory ordering defaults, coroutines, TSan-first workflow |
 
@@ -31,17 +31,15 @@ Quick navigation for C++17/20/23 language skills.
 
 ## Quick Links by Problem
 
-### "I need to..."
-
-- **Know which standard has feature X** → `SKILL.md` > Standard Selection Table
-- **Pick unique_ptr vs shared_ptr vs raw pointer** → `modern-cpp/SKILL.md` > Ownership
-- **Avoid string_view/span dangling** → `modern-cpp/SKILL.md` > Vocabulary Types
-- **Choose constexpr vs consteval vs constinit** → `modern-cpp/SKILL.md` > Compile-Time Spectrum
-- **Replace CRTP with deducing this** → `modern-cpp/SKILL.md` > Deducing This
-- **Return errors without exceptions** → `modern-cpp/references/error-handling.md`
-- **Write a ranges pipeline on C++17** → `modern-cpp/references/ranges.md` (range-v3 fallback)
-- **Stop a data race** → `cpp-concurrency/SKILL.md`
-- **Understand memory_order_acquire** → `cpp-concurrency/references/atomics-and-memory-model.md`
-- **Write a generator coroutine** → `cpp-concurrency/references/coroutines.md`
-- **Set up CMake or vcpkg** → `../tooling/build-systems/SKILL.md`
-- **Run ASan/UBSan/TSan** → `../tooling/diagnostics/SKILL.md`
+- Know which standard has feature X → `SKILL.md` > Standard Selection Table
+- Pick unique_ptr vs shared_ptr vs raw pointer → `modern-cpp/SKILL.md` > Ownership
+- Avoid string_view/span dangling → `modern-cpp/SKILL.md` > Vocabulary Types
+- Choose constexpr vs consteval vs constinit → `modern-cpp/SKILL.md` > Compile-Time Spectrum
+- Replace CRTP with deducing this → `modern-cpp/SKILL.md` > Deducing This
+- Return errors without exceptions → `modern-cpp/references/error-handling.md`
+- Write a ranges pipeline on C++17 → `modern-cpp/references/ranges.md` (range-v3 fallback)
+- Stop a data race → `cpp-concurrency/SKILL.md`
+- Understand memory_order_acquire → `cpp-concurrency/references/atomics-and-memory-model.md`
+- Write a generator coroutine → `cpp-concurrency/references/coroutines.md`
+- Set up CMake or vcpkg → `../tooling/build-systems/SKILL.md`
+- Run ASan/UBSan/TSan → `../tooling/diagnostics/SKILL.md`

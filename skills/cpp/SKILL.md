@@ -10,89 +10,66 @@ description: >-
 
 # C++ Skills
 
-**Standard selection and navigation for C++17/20/23 development (plus emerging C++26)**
+Picks the C++ standard a feature needs and routes C++ work to the right leaf skill or reference.
 
-## Standard Selection Table (canonical)
+## Standard Selection Table
 
-Every C++ feature decision starts here. Pick the lowest standard that provides the feature; if your toolchain is pinned lower, use the fallback column.
+Pick the lowest standard that provides the feature; if the toolchain is pinned lower, use the C++17 fallback. Library support lags compiler-core support, so gate on feature-test macros (`__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`), not compiler versions. Per-feature toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).
 
-| Need | Minimum standard | C++17 fallback |
-|------|------------------|----------------|
-| `std::optional` / `std::variant` / `std::string_view` | C++17 | — (baseline) |
-| CTAD, structured bindings, `if constexpr` | C++17 | — (baseline) |
-| Concepts (`requires` clauses) | C++20 | `std::enable_if` + `static_assert` |
-| Ranges pipelines (`views::filter`, `views::transform`) | C++20 | range-v3 |
-| `std::format` | C++20 | fmtlib (`fmt::format`) |
-| `std::span` | C++20 | pointer + size pair, or `gsl::span` |
-| Three-way comparison `<=>` | C++20 | hand-written comparison operators |
-| Designated initializers | C++20 | constructors or member-by-member init |
-| `std::jthread` / `std::stop_token` | C++20 | `std::thread` + RAII join wrapper + atomic flag |
-| Coroutine machinery (`co_await`, `co_yield`) | C++20 | callbacks or explicit state machines |
-| `consteval` / `constinit` | C++20 | `constexpr` + discipline |
-| `std::expected` | C++23 | `tl::expected` |
-| `std::print` / `std::println` | C++23 | fmtlib (`fmt::print`) |
-| Deducing this (explicit object parameter) | C++23 | CRTP |
-| `std::generator` | C++23 | range-v3 generators or handwritten iterators |
-| `std::mdspan` | C++23 | Kokkos `mdspan` reference implementation |
-| `if consteval` | C++23 | `std::is_constant_evaluated()` (C++20) |
-| Modules / `import std;` | C++20 core, C++23-era tooling | headers + PCH (still the safe default) |
-| Static reflection (P2996), contracts, `std::execution` (P2300), `std::inplace_vector`, `std::optional<T&>`, `span::at`, `submdspan` | **C++26 *(emerging — DIS 2026, not shipping)*** | stay on C++23; adopt one-by-one behind `__cpp_*` feature-test macros |
+### C++17 (baseline)
 
-**Compiler reality (2026):** newest stable releases are **GCC 15.x** and **Clang 20-21.x** — both ship a complete C++20 core and most of the C++23 library above (`std::expected`, `std::print`, deducing this) and accept `-std=c++23` plus partial `-std=c++2c`; MSVC tracks closely. Library support lags compiler-core support, so gate on feature-test macros (`__cpp_lib_expected`, `__cpp_lib_print`, `__cpp_explicit_this_parameter`) and verify against your toolchain rather than trusting version tables from memory.
+`std::optional`, `std::variant`, `std::string_view`, CTAD, structured bindings, `if constexpr`.
 
-**C++26 (emerging):** C++26 (DIS 2026) — not shipping; gate on `-std=c++2c` + feature-test macros. Headline features: static reflection (P2996), contracts, `std::execution` / senders-receivers (P2300), `std::inplace_vector`, `std::hive`, hardened standard library / erroneous behavior, pack indexing, `_` placeholder, `std::optional<T&>`, `span::at`, `submdspan`. C++26 is feature-complete but **not yet shipping** — keep C++23 as the baseline and adopt features individually only behind their `__cpp_*` macros, confirmed by a CI compile probe. Per-feature toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).
+### C++20
 
-Per-feature toolchain minimums: [version-feature-matrix](../_shared/version-feature-matrix.md).
+| Need | C++17 fallback |
+|------|----------------|
+| Concepts (`requires` clauses) | `std::enable_if` + `static_assert` |
+| Ranges pipelines (`views::filter`, `views::transform`) | range-v3 |
+| `std::format` | fmtlib (`fmt::format`) |
+| `std::span` | pointer + size pair, or `gsl::span` |
+| Three-way comparison `<=>` | hand-written comparison operators |
+| Designated initializers | constructors or member-by-member init |
+| `std::jthread` / `std::stop_token` | `std::thread` + RAII join wrapper + atomic flag |
+| Coroutines (`co_await`, `co_yield`) | callbacks or explicit state machines |
+| `consteval` / `constinit` | `constexpr` + discipline |
+| Modules (`import std;` is C++23) | headers + PCH (still the safe default) |
 
-## Skill Selection Guide
+### C++23
 
-| I need to... | Use this skill |
-|--------------|----------------|
-| Write or review modern C++ idioms | [modern-cpp/SKILL.md](modern-cpp/SKILL.md) |
-| Choose ownership: `unique_ptr` vs `shared_ptr` vs raw | [modern-cpp/SKILL.md](modern-cpp/SKILL.md) > Ownership |
-| Decide exceptions vs `std::expected` | [modern-cpp/references/error-handling.md](modern-cpp/references/error-handling.md) |
-| Build ranges pipelines | [modern-cpp/references/ranges.md](modern-cpp/references/ranges.md) |
-| Use threads, atomics, or coroutines | [cpp-concurrency/SKILL.md](cpp-concurrency/SKILL.md) |
-| Run C++ on a microcontroller: `-fno-exceptions -fno-rtti`, no heap, ROM-able data | [embedded-cpp](../embedded/embedded-cpp/SKILL.md) |
-| Configure CMake/vcpkg/Conan | [build-systems](../tooling/build-systems/SKILL.md) |
-| Run sanitizers or debuggers | [diagnostics](../tooling/diagnostics/SKILL.md) |
-| Bind C++ to Python | [ffi-interop](../tooling/ffi-interop/SKILL.md) |
+| Need | Fallback |
+|------|----------|
+| `std::expected` | `tl::expected` |
+| `std::print` / `std::println` | fmtlib (`fmt::print`) |
+| Deducing this (explicit object parameter) | CRTP |
+| `std::generator` | range-v3 generators or handwritten iterators |
+| `std::mdspan` | Kokkos `mdspan` reference implementation |
+| `if consteval` | `std::is_constant_evaluated()` (C++20) |
 
-## Decision Tree
+### C++26 (not yet shipping)
 
-```
-C++ task?
-├── Which standard has feature X? → Standard Selection Table (above)
-├── Writing/reviewing code → modern-cpp/SKILL.md
-│   ├── C++17 baseline features → modern-cpp/references/cpp17-features.md
-│   ├── C++20 concepts/ranges/format → modern-cpp/references/cpp20-features.md
-│   ├── C++23 expected/print/deducing-this → modern-cpp/references/cpp23-features.md
-│   ├── Ranges pipelines → modern-cpp/references/ranges.md
-│   └── Error strategy → modern-cpp/references/error-handling.md
-├── Threads, atomics, memory ordering → cpp-concurrency/SKILL.md
-│   ├── Coroutines / std::generator → cpp-concurrency/references/coroutines.md
-│   └── Memory model deep-dive → cpp-concurrency/references/atomics-and-memory-model.md
-├── Bare-metal / microcontroller C++ → ../embedded/embedded-cpp/SKILL.md
-│   ├── -fno-exceptions -fno-rtti, RAII without unwinding, no heap → ../embedded/embedded-cpp/SKILL.md
-│   ├── Freestanding stdlib subset (what's available/costly) → ../embedded/embedded-cpp/references/freestanding-stdlib-subset.md
-│   └── Registers, ISRs, startup, linker scripts (language-agnostic) → ../embedded/embedded-systems/SKILL.md
-├── Build, packaging, dependencies → ../tooling/build-systems/SKILL.md
-├── Crashes, leaks, races → ../tooling/diagnostics/SKILL.md
-└── Migrating standards (17→20→23) → /system-developer:fix-modernize
-```
+Static reflection (P2996), contracts, `std::execution` (P2300), `std::inplace_vector`, `std::hive`, `std::optional<T&>`, `span::at`, `submdspan`, pack indexing, hardened standard library. Keep C++23 as the baseline and adopt features one at a time behind their `__cpp_*` macros under `-std=c++2c`, confirmed by a CI compile probe.
 
-## File Overview
+## Skill Selection
 
-| File | Purpose |
-|------|---------|
-| [_index.md](_index.md) | Full navigation for the cpp/ subtree |
-| [modern-cpp/SKILL.md](modern-cpp/SKILL.md) | Core idioms: RAII, vocabulary types, constexpr family |
-| [modern-cpp/references/](modern-cpp/references/_index.md) | 5 deep-dive references (17/20/23 features, ranges, errors) |
-| [cpp-concurrency/SKILL.md](cpp-concurrency/SKILL.md) | jthread, atomics, coroutines, TSan workflow |
+| I need to... | Go to |
+|--------------|-------|
+| Modern idioms, vocabulary types, constexpr family | [modern-cpp](modern-cpp/SKILL.md) |
+| `unique_ptr` vs `shared_ptr` vs raw | [modern-cpp](modern-cpp/SKILL.md) > Ownership |
+| A feature's details per standard | [cpp17](modern-cpp/references/cpp17-features.md), [cpp20](modern-cpp/references/cpp20-features.md), [cpp23](modern-cpp/references/cpp23-features.md) features |
+| Exceptions vs `std::expected` | [error-handling.md](modern-cpp/references/error-handling.md) |
+| Ranges pipelines | [ranges.md](modern-cpp/references/ranges.md) |
+| Threads, atomics, memory ordering | [cpp-concurrency](cpp-concurrency/SKILL.md), [atomics-and-memory-model.md](cpp-concurrency/references/atomics-and-memory-model.md) |
+| Coroutines, `std::generator` | [coroutines.md](cpp-concurrency/references/coroutines.md) |
+| Migrate standards (17→20→23) | `/system-developer:fix-modernize` |
 
 ## Related Skills
 
-- [modern-c](../c/modern-c/SKILL.md) — C17/C23 for C-only translation units and `extern "C"` boundaries
-- [embedded-cpp](../embedded/embedded-cpp/SKILL.md) — the C++ subset for bare-metal: no exceptions/RTTI, no heap, ROM-able data
-- [secure-coding](../_shared/secure-coding/SKILL.md) — input validation and injection-safe process execution
-- [version-feature-matrix](../_shared/version-feature-matrix.md) — toolchain minimums per standard
+| I need to... | Go to |
+|--------------|-------|
+| C++ on a microcontroller: `-fno-exceptions -fno-rtti`, no heap, ROM-able data | [embedded-cpp](../embedded/embedded-cpp/SKILL.md), [freestanding-stdlib-subset.md](../embedded/embedded-cpp/references/freestanding-stdlib-subset.md) |
+| CMake, vcpkg, Conan | [build-systems](../tooling/build-systems/SKILL.md) |
+| Sanitizers, debuggers | [diagnostics](../tooling/diagnostics/SKILL.md) |
+| Python bindings | [ffi-interop](../tooling/ffi-interop/SKILL.md) |
+| C-only translation units, `extern "C"` boundaries | [modern-c](../c/modern-c/SKILL.md) |
+| Input validation, injection-safe process execution | [secure-coding](../_shared/secure-coding/SKILL.md) |
