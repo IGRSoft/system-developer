@@ -4,7 +4,9 @@ Which C++ language and library features are affordable under `-fno-exceptions -f
 
 ## What "Freestanding" Guarantees in C++
 
-The standard requires only a small header set from a freestanding implementation, centred on language support and compile-time utilities:
+The standard requires only a small header set from a freestanding implementation, centred on language support and compile-time utilities.
+
+### Required headers by standard
 
 - **C++20:** `<cstddef>`, `<cstdint>`, `<cstdlib>` (subset), `<limits>`, `<climits>`, `<cfloat>`, `<version>`, `<new>`, `<typeinfo>`, `<exception>`, `<source_location>`, `<initializer_list>`, `<compare>`, `<coroutine>`, `<cstdarg>`, `<concepts>`, `<type_traits>`, `<bit>`, `<atomic>`.
 - **C++23** adds `<utility>`, `<tuple>`, `<ratio>`, `<iterator>`, `<ranges>`, and parts of `<memory>` and `<functional>`.
