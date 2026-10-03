@@ -22,6 +22,8 @@ Frontmatter in `agents/*.md` is the source of truth; keep this table in sync.
 
 ## Per-Agent Assignment
 
+### Router and language agents
+
 | Agent | Model | Effort | maxTurns | Override path |
 |-------|-------|--------|----------|---------------|
 | `system-developer` (router) | sonnet | medium | 40 | — routes work to specialists |
@@ -29,6 +31,11 @@ Frontmatter in `agents/*.md` is the source of truth; keep this table in sync.
 | `cpp-developer` | sonnet | high | 50 | → `opus` for novel design / template-heavy refactors |
 | `python-developer` | sonnet | high | 50 | → `opus` for free-threading / C-extension boundary work |
 | `bash-developer` | sonnet | high | 50 | — sonnet sufficient for shell work |
+
+### Specialists
+
+| Agent | Model | Effort | maxTurns | Override path |
+|-------|-------|--------|----------|---------------|
 | `system-architector` | opus | xhigh | 60 | already top tier; self-limits scope at Low complexity per § Complexity Triage |
 | `sys-test-generator` | sonnet | high | 50 | — sonnet sufficient for pattern work |
 | `sys-performance-engineer` | sonnet | high | 50 | → `opus` for deep trace analysis (review-only: `disallowedTools: Write, Edit`) |

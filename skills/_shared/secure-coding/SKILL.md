@@ -29,6 +29,8 @@ Pass an argument vector to `exec`-family or structured APIs; never hand a string
 | Python | `subprocess.run(cmd, shell=True)`, `os.system`, `eval`, `exec`, `pickle.loads`/`yaml.load` on untrusted data | `subprocess.run([prog, arg1, arg2])` (`shell=False` is the default); `json.loads`, `yaml.safe_load` |
 | Bash | `eval "$x"`, unquoted `$var`, a command stored in a variable and run bare | Quote every expansion (`"$var"`), `--` before positional args, fixed argv or arrays |
 
+### Examples
+
 ```python
 subprocess.run(["grep", "--", pattern, path], check=True)   # DO: argv list, no shell
 subprocess.run(f"grep {pattern} {path}", shell=True)         # DON'T: injection
@@ -40,6 +42,8 @@ rm $file        # DON'T: word-splitting, glob, option injection
 ```
 
 `posix_spawn` examples, environment scrubbing, and the full dynamic-code ban: [references/command-execution-and-injection.md](references/command-execution-and-injection.md).
+
+### Scanning for banned constructs
 
 To scan a tree for banned constructs, run `../scripts/injection_audit.sh --lang {c|cpp|python|bash} --path .`. It prints each hit as `path:line` (heuristic, so confirm in context) and exits non-zero on findings, so it works as a review or CI gate.
 
@@ -57,7 +61,9 @@ To scan a tree for banned constructs, run `../scripts/injection_audit.sh --lang 
 
 ASan + UBSan compose; TSan and MSan each run alone. Sanitizers only see executed paths, so pair them with tests or fuzzing. Flag sets and triage: [diagnostics](../../tooling/diagnostics/SKILL.md).
 
-**Release hardening:** `-D_FORTIFY_SOURCE=3` (needs `-O2`), `-fstack-protector-strong`, PIE/RELRO, `-ftrivial-auto-var-init=zero`. GCC 14+ bundles the set as `-fhardened`. C++ adds `-D_GLIBCXX_ASSERTIONS` (libstdc++) or `_LIBCPP_HARDENING_MODE` (libc++) for bounds-checked standard containers.
+### Release hardening
+
+`-D_FORTIFY_SOURCE=3` (needs `-O2`), `-fstack-protector-strong`, PIE/RELRO, `-ftrivial-auto-var-init=zero`. GCC 14+ bundles the set as `-fhardened`. C++ adds `-D_GLIBCXX_ASSERTIONS` (libstdc++) or `_LIBCPP_HARDENING_MODE` (libc++) for bounds-checked standard containers.
 
 ## Integer Safety
 
@@ -114,14 +120,26 @@ A new dependency runs with your process's privileges, so treat adding one like a
 
 ## Diagnostic Table
 
+### Injection and code execution
+
 | Finding | Cause | Fix | Reference |
 |---------|-------|-----|-----------|
 | `system`/`popen`/`shell=True` with interpolated input | Shell injection | argv array (`execvp`/`posix_spawn`, list args) | [command-execution](references/command-execution-and-injection.md) |
 | `eval`/`exec`/`pickle.loads` on external data | Code execution | Structured parser (`json`, `yaml.safe_load`) | [command-execution](references/command-execution-and-injection.md) |
 | Unquoted `$var` (SC2086) | Word-splitting / glob injection | `"$var"`, add `--` | [command-execution](references/command-execution-and-injection.md) |
+
+### Memory and integer bugs
+
+| Finding | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
 | ASan heap-use-after-free | Lifetime bug | Fix ownership; RAII | [c-memory-ownership](../../c/c-memory-ownership/SKILL.md) |
 | ASan heap-buffer-overflow | OOB, often from integer overflow | Bounds check + `ckd_*`/`in_range` | [input-validation](references/input-validation-and-parsing.md) |
 | UBSan signed-integer-overflow | Unchecked arithmetic | `ckd_*` / `__builtin_*_overflow` | [input-validation](references/input-validation-and-parsing.md) |
+
+### Paths, races, and secrets
+
+| Finding | Cause | Fix | Reference |
+|---------|-------|-----|-----------|
 | Path accepts `../` | Traversal | `resolve`+`is_relative_to` / `openat`+`O_NOFOLLOW` | [input-validation](references/input-validation-and-parsing.md) |
 | `mktemp`/`tmpnam`, `access()` then `open()` | Race | `mkstemp`; operate on the fd | [input-validation](references/input-validation-and-parsing.md) |
 | Secret in argv, log, or `set -x` | Credential disclosure | env/fd, redact, `memset_explicit` | Secrets Hygiene above |

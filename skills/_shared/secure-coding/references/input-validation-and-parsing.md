@@ -204,7 +204,10 @@ if (!S_ISREG(st.st_mode)) { close(fd); return -1; }
 ```
 
 - Resolve once, operate on the descriptor: no `access()`-then-`open()` or `stat()`-then-`open()` by path.
-- Temp files: use `mkstemp` (C/C++) / `tempfile.mkstemp` / `tempfile.NamedTemporaryFile` (Python) — they create+open atomically with `O_EXCL`. Not `mktemp`, `tmpnam`, `tempnam`, or a hand-built `/tmp/$$` name — those are predictable and racy.
+
+### Temp files
+
+Use `mkstemp` (C/C++) / `tempfile.mkstemp` / `tempfile.NamedTemporaryFile` (Python) — they create+open atomically with `O_EXCL`. Not `mktemp`, `tmpnam`, `tempnam`, or a hand-built `/tmp/$$` name — those are predictable and racy.
 
 ```python
 import tempfile, os
@@ -225,6 +228,8 @@ Deserialization that can instantiate arbitrary types or run code is remote code 
 | `json.loads` | Yes (data only; still validate the shape) | — |
 | `xml.etree` / `xml.dom` on untrusted XML | Risky — entity expansion / XXE | `defusedxml`, disable external entities |
 | C/C++ hand-rolled binary parsers | Risky — bounds errors | length-prefixed, bounds-checked reads; fuzz with ASan/UBSan |
+
+### After parsing
 
 - After `json.loads`/`safe_load`, the data is still untrusted — validate the schema (types, required keys, ranges) before use. Parsing is not validation.
 - For C/C++ binary parsing, read length-prefixed fields, bound every read against the remaining buffer, and run the parser under ASan+UBSan in CI (it is a prime fuzz target).

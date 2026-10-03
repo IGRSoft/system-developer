@@ -28,6 +28,8 @@ Detect the existing framework first; don't add a second framework to a project t
 
 Versions are the floors this plugin assumes (mid-2026); confirm against your toolchain. GoogleTest 1.17 follows a "live at head" policy and requires C++17 as its minimum standard.
 
+### Test registration
+
 Registration is part of test generation: `add_test()`/`gtest_discover_tests()`/`catch_discover_tests()` (CMake), `conftest.py` discovery (pytest), `setup()`/`teardown()` files (bats). A test that is not registered does not exist.
 
 ## Coverage Targets

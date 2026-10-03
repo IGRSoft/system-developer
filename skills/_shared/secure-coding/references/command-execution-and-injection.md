@@ -9,7 +9,7 @@ There are two ways to run a program:
 1. **Through a shell** — you hand a single string to `/bin/sh -c`, and the shell parses it: word-splitting, globbing, quotes, `;`, `|`, `$(...)`, `>` redirection. If any part of that string came from untrusted input, the attacker controls the shell. This is **command injection**.
 2. **Directly** — you hand the kernel a program path and an explicit argument vector (`argv[]`). No shell, no parsing, no metacharacters. An argument that happens to contain `; rm -rf /` is just a literal string passed to the program.
 
-Use direct execution. The argument vector is the security boundary: each element becomes exactly one `argv` entry, with zero reinterpretation. There is no quoting to get right because there is no shell.
+Use direct execution. The argument vector is the security boundary: each element becomes exactly one `argv` entry, with zero reinterpretation.
 
 You only need a shell when you genuinely need shell features (pipelines, redirection, globbing). In that case, never put untrusted data in the command string — pass it through the environment or as a positional argument to a fixed script (see Bash, below).
 
@@ -38,6 +38,8 @@ int run_grep(const char *pattern, const char *path) {
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 ```
+
+### `posix_spawn` rules
 
 - `posix_spawn`/`posix_spawnp` is the portable, race-free way to fork+exec; it works on Linux and macOS. The classic `fork()` + `execvp()` is equivalent — just remember that between `fork` and `exec` you may only call async-signal-safe functions.
 - Pass `--` as an argv element so a `pattern`/`path` beginning with `-` is not parsed as an option (option injection).
@@ -74,6 +76,8 @@ int run(std::string_view prog, std::vector<std::string> args) {  // by value: ar
 }
 ```
 
+### Banned calls and argv lifetime
+
 - `std::system`, `system`, and `popen` are banned even for "trusted" input: they invoke the shell, and input sources drift from trusted to untrusted over time.
 - Keep the `std::string` storage alive as long as the `argv` pointers; don't point `argv` at temporaries.
 
@@ -97,6 +101,8 @@ subprocess.run(f"grep {pattern} {path}", shell=True)        # injection
 subprocess.call("grep " + pattern + " " + path, shell=True) # injection
 os.system(f"grep {pattern} {path}")                          # injection
 ```
+
+### `subprocess` rules
 
 - `shell=False` is the default and is what you want. When `args` is a list and `shell=False`, special characters cannot be interpreted as shell metacharacters — each list element is one `argv` entry.
 - Add `--` (or the program's option terminator) before positional arguments that could start with `-`.
@@ -125,7 +131,7 @@ eval "rm $file"          # eval = arbitrary command execution
 cmd="rm $file"; $cmd     # variable run bare = re-parsed as syntax
 ```
 
-Rules:
+### Shell quoting rules
 
 - **Quote everything**: `"$var"`, `"${arr[@]}"`, `"$(cmd)"`. Unquoted expansions undergo word-splitting and globbing — the source of SC2086/SC2046 findings.
 - **Use `--`** before user-controlled positional arguments so a value like `-rf` or `--output=/etc/passwd` is treated as data, not an option.
@@ -137,10 +143,10 @@ Rules:
 
 A child process inherits the parent's environment by default. Untrusted or stale environment variables can change how the child behaves (`PATH`, `IFS`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `BASH_ENV`, `PYTHONPATH`, locale vars).
 
+### Minimal environment and pinned PATH
+
 - **Set an explicit, minimal environment** for children when running with elevated privilege or on behalf of untrusted callers. In C, pass a curated `envp` to `posix_spawn`/`execve` instead of `environ`. In Python, pass `env={...}` to `subprocess.run` with only the variables the child needs.
 - **Pin `PATH`** to a known-safe absolute value (or invoke programs by absolute path) so an attacker-controlled `PATH` cannot substitute a malicious binary. This defeats PATH-hijacking.
-- **Drop dangerous variables**: `LD_PRELOAD`, `LD_LIBRARY_PATH`, `DYLD_*` (macOS), `IFS`, `BASH_ENV`/`ENV`. The dynamic loader already ignores most of these for setuid binaries — do not rely on that for your own privilege transitions; scrub explicitly.
-- **Secrets in the environment**: a child's environment is visible to that child and (on Linux) via `/proc/PID/environ` to the same user. Prefer passing secrets via a pipe/fd over env, and never via `argv` (world-readable through `ps` and `/proc/PID/cmdline`).
 
 ```python
 import subprocess
@@ -153,6 +159,11 @@ subprocess.run(
 )
 ```
 
+### Dangerous variables and secrets
+
+- **Drop dangerous variables**: `LD_PRELOAD`, `LD_LIBRARY_PATH`, `DYLD_*` (macOS), `IFS`, `BASH_ENV`/`ENV`. The dynamic loader already ignores most of these for setuid binaries — do not rely on that for your own privilege transitions; scrub explicitly.
+- **Secrets in the environment**: a child's environment is visible to that child and (on Linux) via `/proc/PID/environ` to the same user. Prefer passing secrets via a pipe/fd over env, and never via `argv` (world-readable through `ps` and `/proc/PID/cmdline`).
+
 ## Why Dynamic Code Execution Is Banned
 
 Constructing code from data and then executing it collapses the data/code boundary — the single most powerful primitive an attacker can reach. Banned:
@@ -163,6 +174,8 @@ Constructing code from data and then executing it collapses the data/code bounda
 | C / C++ | `system`/`popen`/`std::system` on built strings; `dlopen` on an attacker-chosen path; generating + compiling + loading code at runtime | Runs attacker-controlled commands or native code |
 | Bash | `eval`, `source`/`.` on an attacker-controlled file, running a variable as a command | Re-parses data as shell code |
 | All | Building SQL/queries by string concatenation | SQL injection — use parameterized queries / prepared statements |
+
+### Replacements
 
 The replacement is always the same shape: **structured APIs over string interpolation.** Argv vectors instead of command strings. Parameterized queries instead of concatenated SQL. Data parsers (`json.loads`, `yaml.safe_load`) instead of `eval`/`pickle`. A dispatch table (`dict` of allowed callables) instead of `eval`-ing a function name.
 
