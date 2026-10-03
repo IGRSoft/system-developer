@@ -1,7 +1,7 @@
 ---
 description: Generate, register, and verify a runnable test suite for C, C++, Python, or Bash using the project's framework
 argument-hint: [path (default .)] [--framework googletest|catch2|cmocka|unity|pytest|bats] [--coverage-gaps]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 estimated-cost:
   min-tokens: 3000
   max-tokens: 22000
@@ -54,7 +54,7 @@ Generate tests for C, C++, Python, or Bash code, register them with the project'
 | Bash | `tests/*.bats`; `bats` in CI config | bats-core |
 
 - No framework and `--framework` given: use it; registration scaffolds the dependency.
-- No framework, no flag: C++ → GoogleTest, C → CMocka, Python → pytest, Bash → bats. Announce the choice.
+- No framework, no flag: C++ → GoogleTest, C → Unity, Python → pytest, Bash → bats. Announce the choice.
 - Language comes from file extensions and manifests (shebang for extensionless scripts). A bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`. In a mixed repo, detect and generate per language; never cross frameworks.
 
 ## Workflow
@@ -156,7 +156,7 @@ Delegation prompt:
 | Missing tool | Install hint |
 |--------------|--------------|
 | `cmake` / `ctest` / `clang` / `llvm-cov` | `brew install llvm cmake ninja` |
-| GoogleTest / Catch2 / CMocka | fetched via FetchContent or `find_package`; ensure the `vcpkg`/`conan` entry or FetchContent pin exists |
+| GoogleTest / Catch2 / Unity / CMocka | fetched via FetchContent or `find_package`; ensure the `vcpkg`/`conan` entry or FetchContent pin exists |
 | `gcovr` | `uv tool install gcovr` |
 | `uv` / `pytest` | `curl -LsSf https://astral.sh/uv/install.sh \| sh`; then `uv add --dev pytest` |
 | `kcov` | `brew install kcov` |
@@ -243,4 +243,3 @@ with --coverage-gaps to target the remaining gaps.
 - `/system-developer:sanitize-check` — run the new tests under ASan/UBSan/TSan once green.
 - `/system-developer:review-code` — review the code first; `--coverage-gaps` pairs well after a review.
 - `system-developer:python-testing`, `system-developer:bash-testing` — pytest and bats patterns.
-- `system-developer:diagnostics` — coverage tooling (llvm-cov/gcovr/kcov).

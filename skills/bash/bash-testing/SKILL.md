@@ -128,12 +128,12 @@ don't leak. For builtins or functions PATH can't shadow, define a function and
 
 ```bash
 shellcheck bin/*.sh                 # all findings
-shellcheck --severity=warning *.sh  # gate: error + warning only
+shellcheck --severity=info *.sh     # gate: error, warning, info
 shellcheck -f gcc *.sh              # file:line:col for CI
 ```
 
-SC2086 (unquoted `$var`) is `info` level, so a warning gate does not report
-it; fix it anyway. Project settings go in `.shellcheckrc` at the
+The gate is `info` because SC2086 (unquoted `$var`) and other common bugs are
+`info` level; `style` findings stay outside it. Project settings go in `.shellcheckrc` at the
 repo root. It takes `shell`, `enable`, `disable`, `external-sources`, and
 `source-path`, but not `severity`: set that with `--severity` or
 `SHELLCHECK_OPTS`.

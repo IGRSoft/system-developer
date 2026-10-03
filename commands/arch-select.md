@@ -1,7 +1,7 @@
 ---
 description: Select the structural, concurrency, and ownership pattern for a C, C++, Python, or Bash module or project
 argument-hint: <feature, module, or path> [--lang c|cpp|python|bash] [--pattern NAME] [--deep] [--abi-stable] [--no-write]
-allowed-tools: Read, Write, Glob, Grep, Bash
+allowed-tools: Read, Write, Glob, Grep, Bash, Agent
 estimated-cost:
   min-tokens: 3000
   max-tokens: 18000

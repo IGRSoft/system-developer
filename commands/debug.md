@@ -1,7 +1,7 @@
 ---
 description: Configure debugging workflows, or triage and root-cause a crash, hang, or wrong-value bug in C, C++, Python, or Bash
 argument-hint: [configure|triage] [path, error text, stack trace, core file, or pid]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 estimated-cost:
   min-tokens: 2000
   max-tokens: 16000

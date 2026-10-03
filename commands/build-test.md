@@ -1,7 +1,7 @@
 ---
 description: Detect the build system, configure, build, and run the test suite for C, C++, Python, or Bash projects
 argument-hint: [path (default .)] [--preset NAME] [--type Debug|Release] [--clean] [--no-test]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Edit, Agent
 estimated-cost:
   min-tokens: 1500
   max-tokens: 12000

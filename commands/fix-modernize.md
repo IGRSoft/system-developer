@@ -1,7 +1,7 @@
 ---
 description: Modernize C, C++, Python, or Bash one standard jump at a time, gating each migration class on a green build and tests
 argument-hint: [path (default .)] --target c23|cpp20|cpp23|py314|bash [--dry-run]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 estimated-cost:
   min-tokens: 4000
   max-tokens: 30000
@@ -57,7 +57,7 @@ Detect the current standard so the jump count is right. In mixed repos, detect p
 | Python | `requires-python` in `pyproject.toml`; `python_requires` in `setup.py`; `.python-version` | the floor; modernize only if the floor allows the target |
 | Bash | shebangs (`#!/usr/bin/env bash` vs `#!/bin/sh`), `set -euo pipefail`, `[[ ]]` vs `[ ]`, arrays | distance from the strict-mode baseline |
 
-If current already meets or exceeds `--target`, report "already at or above target" and stop.
+If current already meets or exceeds `--target`, report "already at or above target" and stop. If C++ is below C++17 or C is below C17, stop with the "Source below supported baseline" error: the playbooks start at C++17 and C17.
 
 ## The Migration Ledger
 
@@ -279,6 +279,13 @@ system-developer:cpp-developer. Re-run with --target cpp23 for a supported jump.
 ```
 Note: {path} is already at or above {target} (detected: {current}).
 Nothing to modernize. Suggestion: target a higher standard or a different path.
+```
+
+### Source below supported baseline
+```
+Error: {path} is at {current}; fix-modernize starts from C++17 (C++ targets) or C17 (c23).
+Suggestion: move the build to -std=c++17 / -std=c17 by hand with
+system-developer:cpp-developer or c-developer, get it green, then re-run.
 ```
 
 ### Toolchain gate failure

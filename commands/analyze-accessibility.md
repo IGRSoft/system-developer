@@ -1,7 +1,7 @@
 ---
 description: Audit a CLI program's terminal output for NO_COLOR, ANSI contrast, screen-reader friendliness, and --help clarity
 argument-hint: [path (default .)] [--lang c|cpp|python|bash] [--check no-color|contrast|output|help]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Agent
 model: haiku
 estimated-cost:
   min-tokens: 1500

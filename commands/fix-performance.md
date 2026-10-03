@@ -1,7 +1,7 @@
 ---
 description: Profile CPU, memory, or I/O hot paths or benchmark with hyperfine, then optionally apply the ranked fixes
 argument-hint: [path or target (default .)] [--mode cpu|memory|io|bench] [--duration SECONDS] [--apply]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 estimated-cost:
   min-tokens: 2000
   max-tokens: 26000
@@ -89,8 +89,25 @@ Resolve the OS once with `uname -s`, then run the row for `--mode` + language, s
 | Mode | Command |
 |------|---------|
 | `cpu` | `py-spy record --format speedscope -o "$OUT/pyspy.speedscope.json" -- python <entry>` (attach: `--pid <pid>`); `--native` for C-extension frames (Linux, extension built with `-g`); per-call counts: `python -m cProfile -o "$OUT/profile.prof" <entry>` |
-| `memory` | `tracemalloc` snapshot in-process (top allocation sites by `lineno`), top-N saved to `"$OUT/tracemalloc.txt"` |
+| `memory` | Write the runner below to `"$OUT/trace_mem.py"`, then `python -X tracemalloc=25 "$OUT/trace_mem.py" <entry> [args]`; top allocation sites by `lineno` land in `"$OUT/tracemalloc.txt"`. The target's source is not touched. |
 | `io` | `py-spy dump --pid <pid> > "$OUT/pyspy-dump.txt"` for a stuck/IO-waiting process; otherwise `strace`/`fs_usage` on the `python` process as for C/C++ |
+
+```python
+# trace_mem.py: run <entry> under tracemalloc (enabled by -X tracemalloc) and save the top sites.
+import os, runpy, sys, tracemalloc
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tracemalloc.txt")
+entry, sys.argv = sys.argv[1], sys.argv[1:]
+kept = None  # holds the script's globals so what it retained is still live at snapshot time
+try:
+    kept = runpy.run_path(entry, run_name="__main__")
+finally:
+    snap = tracemalloc.take_snapshot().filter_traces(
+        [tracemalloc.Filter(False, "<frozen importlib._bootstrap*>"), tracemalloc.Filter(False, __file__)])
+    current, peak = tracemalloc.get_traced_memory()
+    with open(out, "w") as f:
+        f.write(f"current={current} B peak={peak} B\n")
+        f.writelines(f"{s}\n" for s in snap.statistics("lineno")[:30])
+```
 
 ### Bash
 

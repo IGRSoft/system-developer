@@ -1,7 +1,7 @@
 ---
 description: Review C, C++, Python, and Bash changes with per-language reviewers plus a security pass, ranked P0-P3
 argument-hint: [scope: file/dir/PR#/branch — default: working changes] [--quick] [--fix] [--lang c|cpp|python|bash] [--security-focus]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Edit, Agent
 estimated-cost:
   min-tokens: 4000
   max-tokens: 28000

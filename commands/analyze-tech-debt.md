@@ -1,7 +1,7 @@
 ---
 description: Inventory, quantify, and rank C/C++/Python/Bash technical debt into a P0-P3 remediation plan
 argument-hint: [path (default .)] [--lang c|cpp|python|bash] [--focus standards|memory|build|typing|tests|abi|deps] [--quick] [--top N]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Agent
 estimated-cost:
   min-tokens: 5000
   max-tokens: 30000
@@ -108,7 +108,7 @@ All non-mutating. Check `command -v` first; a missing tool leaves its dimension 
 | C/C++ static findings | `clang-tidy` finding count over `compile_commands.json` | `brew install llvm`; no compile DB means no clang-tidy pass |
 | Warning gate | grep build config and CI workflows for `-Wall`/`-Wextra`/`-Werror`, `CMAKE_CXX_FLAGS` | always available |
 | Python lint / typing | `ruff check --statistics`, `mypy`/`ty` error count | `uv tool install ruff` / `uv tool install mypy` |
-| Bash | `shellcheck -f gcc` finding count over discovered scripts | `brew install shellcheck` |
+| Bash | `shellcheck -f gcc --severity=info` finding count over discovered scripts | `brew install shellcheck` |
 | Coverage | an existing `coverage.xml`, `lcov.info`, `.coverage`, or `llvm-cov` report | unmeasured; suggest `/system-developer:build-test` then `/system-developer:gen-tests` |
 | Dependencies | lockfile presence, pinned vs ranged versions; `osv-scanner`/`pip-audit` if installed | `uv tool install pip-audit` |
 | Exported symbols | `nm -gU` / `readelf --dyn-syms` on an already-built artifact | unmeasured; don't build one |

@@ -1,7 +1,7 @@
 ---
 description: Audit, upgrade, or add C, C++, and Python dependencies — CVE and license report, then gated one-at-a-time upgrades
 argument-hint: audit|upgrade|add [package] [--manager vcpkg|conan|fetchcontent|uv]
-allowed-tools: Read, Edit, Glob, Grep, Bash, WebSearch, WebFetch
+allowed-tools: Read, Edit, Glob, Grep, Bash, WebSearch, WebFetch, Agent, Skill
 estimated-cost:
   min-tokens: 3000
   max-tokens: 18000

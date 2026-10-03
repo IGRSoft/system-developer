@@ -1,7 +1,7 @@
 ---
 description: Generate or update Doxygen, Python docstring, and Bash header documentation, then verify it with the doc build
 argument-hint: [path (default .)] [--lang c|cpp|python|bash] [--public-only] [--readme] [--no-build] [--config]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 estimated-cost:
   min-tokens: 3000
   max-tokens: 24000
@@ -127,7 +127,7 @@ Skip under `--no-build`. Otherwise run each present language's build with `set -
 
 - **Doxygen (C/C++).** If no `Doxyfile`: under `--config` run `doxygen -g Doxyfile` and set `INPUT`, `RECURSIVE=YES`, `EXTRACT_ALL=NO`, `WARN_IF_UNDOCUMENTED=YES`, `WARN_AS_ERROR=FAIL_ON_WARNINGS`, `GENERATE_LATEX=NO`, plus `OPTIMIZE_OUTPUT_FOR_C=YES` for C trees; otherwise report it missing and skip. Run `doxygen Doxyfile 2>&1 | tee -a "$LOG"`. Undocumented-symbol, mismatched-`@param`, and undocumented-parameter warnings are defects.
 - **Sphinx (Python).** If no `docs/conf.py`: under `--config` run `sphinx-quickstart` non-interactively, add `sphinx.ext.autodoc` (plus `sphinx.ext.napoleon` for Google/NumPy style), and generate stubs with `sphinx-apidoc -o docs/api <package>`; otherwise report it missing and skip. Run `sphinx-build -W -b html docs docs/_build/html 2>&1 | tee -a "$LOG"`; `-W` fails the gate on broken cross-references and malformed sections.
-- **Bash.** There is no doc generator. Run `shellcheck <touched files>` and check each `Usage:` line against the script's actual argument parsing. Report header coverage as a count, "verified by inspection".
+- **Bash.** There is no doc generator. Run `shellcheck --severity=info <touched files>` and check each `Usage:` line against the script's actual argument parsing. Report header coverage as a count, "verified by inspection".
 
 Fix build failures yourself or route them back to that language's documenter, then re-run once. If it fails again, stop and report instead of looping.
 

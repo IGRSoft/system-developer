@@ -1,7 +1,7 @@
 ---
 description: Review C/C++/Python/Bash architecture against its pattern, reporting violations with file:line and P0-P3 severity
 argument-hint: [scope: dir/file (default .)] [--pattern layered|hexagonal|plugin|pipeline] [--lang c|cpp|python|bash] [--abi] [--trust-boundaries] [--deep]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Agent
 estimated-cost:
   min-tokens: 5000
   max-tokens: 24000

@@ -15,13 +15,13 @@ go install mvdan.cc/sh/v3/cmd/shfmt@latest            # or a release binary
 ## Running ShellCheck
 
 `../../../_shared/scripts/wrap_lint_command.sh shellcheck [PATH...]` runs the
-canonical invocation (`--severity=warning --external-sources`; it does the same
+canonical invocation (`--severity=info --external-sources`; it does the same
 for shfmt with `-i 2 -ci -bn`). Raw forms:
 
 ```bash
 shellcheck bin/*.sh lib/*.sh              # files
 shellcheck --shell=bash script            # force dialect (extensionless files)
-shellcheck --severity=warning *.sh        # gate: error + warning only
+shellcheck --severity=info *.sh           # gate: error, warning, info
 shellcheck --external-sources script.sh   # follow `source`d files (-x)
 shellcheck --format=gcc *.sh              # file:line:col for CI / editors
 shellcheck --format=json *.sh             # structured output
@@ -34,10 +34,10 @@ files aren't followed (SC1091).
 ## Severity Levels and Tuning
 
 Levels are `error` > `warning` > `info` > `style`; `--severity=LEVEL` reports
-that level and above. Start the gate at `warning`, drive it to zero, then
-ratchet to `info`. Several common bugs are `info` or `style` (the Gate column
-below), so a warning gate misses them; fix those in review until the gate
-reaches `info`.
+that level and above. The gate is `info`: several common bugs (SC2086, SC2059,
+SC2162) are `info`, so a `warning` gate would miss them. `style` findings stay
+outside the gate (the Gate column below); fix them in review. On a legacy tree,
+start at `warning`, drive it to zero, then ratchet to `info`.
 
 Optional checks are off by default; list them with `shellcheck --list-optional`:
 
@@ -47,7 +47,7 @@ shellcheck --enable=quote-safe-variables,require-variable-braces,check-unassigne
 
 ## Common ShellCheck Codes
 
-Gate = caught by `--severity=warning`.
+Gate = caught by `--severity=info`.
 
 | Code | Gate | Problem | Fix |
 |------|------|---------|-----|
@@ -63,14 +63,14 @@ Gate = caught by `--severity=warning`.
 | SC2207 | yes | `arr=( $(cmd) )` splits unsafely | `mapfile -t arr < <(cmd)` |
 | SC2154 | yes | variable referenced but never assigned | define it, or follow the sourced file (`-x`) |
 | SC1090 | yes | can't follow non-constant `source "$x"` | `# shellcheck source=path`, or a justified disable |
-| SC2086 | no | unquoted `$var`: splitting and globbing | `"$var"`; arrays `"${arr[@]}"` |
-| SC2059 | no | variable in `printf` format string | `printf '%s' "$var"` |
+| SC2086 | yes | unquoted `$var`: splitting and globbing | `"$var"`; arrays `"${arr[@]}"` |
+| SC2059 | yes | variable in `printf` format string | `printf '%s' "$var"` |
 | SC2181 | no | `if [ $? -eq 0 ]` after a command | `if cmd; then` |
-| SC2162 | no | `read` without `-r` mangles backslashes | `read -r line` |
-| SC2015 | no | `A && B \|\| C` is not if/then/else | explicit `if A; then B; else C; fi` |
+| SC2162 | yes | `read` without `-r` mangles backslashes | `read -r line` |
+| SC2015 | yes | `A && B \|\| C` is not if/then/else | explicit `if A; then B; else C; fi` |
 | SC2129 | no | many `echo >>file` in a row | `{ echo a; echo b; } >>file` |
 | SC2006 | no | legacy backticks | `$(cmd)` |
-| SC1091 | no | sourced file not found in this sandbox | `--external-sources`, a `source=` directive, or a justified disable |
+| SC1091 | yes | sourced file not found in this sandbox | `--external-sources`, a `source=` directive, or a justified disable |
 
 ## Inline Directives
 
@@ -99,7 +99,7 @@ to one line, give the reason, and drop stale disables in review.
 `.editorconfig`, and (with `--with-precommit`) the pre-commit config. ShellCheck
 finds `.shellcheckrc` in the file's directory or an ancestor. It accepts
 `shell`, `enable`, `disable`, `external-sources`, and `source-path`; it ignores
-`severity`, so pass that via `--severity` or `SHELLCHECK_OPTS='--severity=warning'`.
+`severity`, so pass that via `--severity` or `SHELLCHECK_OPTS='--severity=info'`.
 
 ```ini
 shell=bash
@@ -160,7 +160,7 @@ mapfile -t files < <(git diff --cached --name-only --diff-filter=ACM \
   | grep -E '\.(sh|bash|bats)$' || true)
 [ "${#files[@]}" -eq 0 ] && exit 0
 
-shellcheck --severity=warning --external-sources "${files[@]}"
+shellcheck --severity=info --external-sources "${files[@]}"
 shfmt -d -i 2 -ci -bn "${files[@]}"
 ```
 
@@ -179,7 +179,7 @@ jobs:
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
         env:
-          SHELLCHECK_OPTS: --severity=warning --external-sources
+          SHELLCHECK_OPTS: --severity=info --external-sources
   shfmt:
     runs-on: ubuntu-latest
     steps:
@@ -195,7 +195,7 @@ shellcheck:
   stage: lint
   image: koalaman/shellcheck-alpine:stable
   script:
-    - find . -type f -name '*.sh' -print0 | xargs -0 -r shellcheck --severity=warning
+    - find . -type f -name '*.sh' -print0 | xargs -0 -r shellcheck --severity=info
 
 shfmt:
   stage: lint

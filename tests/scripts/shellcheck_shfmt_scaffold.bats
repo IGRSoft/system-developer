@@ -17,7 +17,7 @@ setup() {
 	run "${SCRIPT}"
 	[ "${status}" -eq 0 ]
 	[[ "${output}" == *">>> .shellcheckrc"* ]]
-	[[ "${output}" == *"severity=warning"* ]]
+	[[ "${output}" == *"severity=info"* ]]
 	[[ "${output}" == *">>> .editorconfig"* ]]
 	[[ "${output}" == *"binary_next_line"* ]]
 }

@@ -62,7 +62,7 @@ Record which config was found for each language in the report.
 |----------|--------------|------------|
 | C / C++ | `.clang-tidy`, `.clang-format`, `compile_commands.json` | clang-format: `--style=file` falls back to LLVM. clang-tidy: generate the compile DB (below) or skip. |
 | Python | `[tool.ruff]` / `[tool.mypy]` in `pyproject.toml`, `ruff.toml` / `.ruff.toml`, `mypy.ini` | ruff: defaults. mypy: run only with a config, `py.typed`, or type hints present; else note "mypy skipped (no config)". |
-| Bash | `.shellcheckrc` | shellcheck: default severity (`style`+). |
+| Bash | `.shellcheckrc` | shellcheck: defaults. The gate is always `--severity=info` (`.shellcheckrc` can't set severity). |
 | All | `.editorconfig` | Informational; shfmt and clang-format both read it. |
 
 Generating the compile DB:
@@ -81,10 +81,11 @@ In `--fix`, formatters run before the final lint re-check so formatting churn do
 | C / C++ | `clang-tidy -p build <files>` (`-warnings-as-errors=''` keeps it non-fatal) | `clang-format --dry-run --Werror <files>` | `clang-format -i <files>`, then `clang-tidy -p build --fix <files>` |
 | Python | `ruff check --statistics <path>` | `ruff format --check --diff <path>` | `ruff check --fix <path>`, then `ruff format <path>` |
 | Python (types) | `mypy <path>` if configured; optionally `ty check <path>` | — | none |
-| Bash | `shellcheck -f gcc <files>` | `shfmt -d <files>` | `shfmt -w <files>` |
+| Bash | `shellcheck -f gcc --severity=info <files>` | `shfmt -d <files>` | `shfmt -w <files>`, then apply ShellCheck's suggested fixes (below) |
 
 - Run `clang-tidy --fix` only for checks the project's `.clang-tidy` enables, and only fixes that apply cleanly (`modernize-*`, `readability-*`). Never add checks the project didn't opt into.
-- mypy, ty, and shellcheck are report-only; they have no safe mechanical fixer. `ty` (Astral, beta) is an advisory extra signal, never the gate; mypy/pyright stay authoritative.
+- ShellCheck fixes: write `shellcheck -f diff --severity=info <files> > .context/logs/shellcheck-fix.diff`, then `patch -p1 -i .context/logs/shellcheck-fix.diff` (create `.context/logs/` first; the diff uses the paths as passed, so run both from the same directory). The diff only carries ShellCheck's own suggestions, mostly quoting (SC2086). Drop any hunk that quotes a variable meant to split, such as a flag list, and list it under "Needs review".
+- mypy and ty are report-only; they have no safe mechanical fixer. `ty` (Astral, beta) is an advisory extra signal, never the gate; mypy/pyright stay authoritative.
 - `ruff check --statistics` gives the per-rule counts for the report.
 
 ## Workflow

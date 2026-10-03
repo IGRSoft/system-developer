@@ -1,7 +1,7 @@
 ---
 description: Develop a C/C++/Python/Bash feature end-to-end — design, implementation, tests, sanitizers, and a security pass
 argument-hint: [feature description or issue ref] [path (default .)] [--lang c|cpp|python|bash] [--tdd] [--resume|--restart]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 estimated-cost:
   min-tokens: 12000
   max-tokens: 60000

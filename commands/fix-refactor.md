@@ -1,7 +1,7 @@
 ---
 description: Refactor C, C++, Python, or Bash for clean-code and SOLID structure — architect plans, code fixer applies
 argument-hint: [path (default .)] [--extract TARGET] [--dry-run] [--lang c|cpp|python|bash]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 estimated-cost:
   min-tokens: 5000
   max-tokens: 32000

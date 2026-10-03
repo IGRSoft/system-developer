@@ -1,7 +1,7 @@
 ---
 description: Build with sanitizers, run the tests under them, and triage the reports for C, C++, or Python native-extension projects
 argument-hint: [asan|ubsan|tsan|msan|lsan|all (default all)] [path (default .)] [--fix] [--preset NAME]
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash, Edit, Agent
 estimated-cost:
   min-tokens: 2500
   max-tokens: 18000
@@ -36,7 +36,7 @@ Rebuild a project with the requested runtime sanitizers, run its tests under the
 
 What each `kind` builds:
 
-- `asan` → `-fsanitize=address,undefined`
+- `asan` → `-fsanitize=address,undefined -fsanitize-recover=address` (the recover flag lets `halt_on_error=0` keep going past the first error)
 - `ubsan` → `-fsanitize=undefined`
 - `tsan` → `-fsanitize=thread,undefined`
 - `msan` → `-fsanitize=memory,undefined`; always print the MSan warning (Error Handling) before building.
@@ -50,7 +50,7 @@ Every sanitized build is `RelWithDebInfo` with `-g -fno-omit-frame-pointer`, and
 | System | Sanitized configure into `build-<kind>/` |
 |--------|------------------------------------------|
 | CMake | `-DCMAKE_BUILD_TYPE=RelWithDebInfo`, flags on `CMAKE_<LANG>_FLAGS`, `CMAKE_EXE_LINKER_FLAGS`, and `CMAKE_SHARED_LINKER_FLAGS`. With `--preset`, layer them onto that preset. |
-| Meson | `meson setup build-<kind> --buildtype debugoptimized -Db_sanitize=<address,undefined\|thread> -Db_lundef=false` (Clang fails to link without `b_lundef=false`) |
+| Meson | `meson setup build-<kind> --buildtype debugoptimized -Db_sanitize=<address,undefined\|thread> -Db_lundef=false` (Clang fails to link without `b_lundef=false`); for `asan` add `-Dc_args=-fsanitize-recover=address -Dcpp_args=-fsanitize-recover=address` |
 | Make / autotools | `make -C <path> BUILD_DIR=build-<kind> CFLAGS="..." CXXFLAGS="..." LDFLAGS="..."`, with `-fsanitize=` in `LDFLAGS` too |
 
 If the build system can't take per-build flags without editing tracked files, report that and stop rather than changing its config. The `system-developer:diagnostics` skill has the canonical flag sets and per-sanitizer detail.
@@ -59,7 +59,7 @@ If the build system can't take per-build flags without editing tracked files, re
 
 | Kind | Env | Effect |
 |------|-----|--------|
-| `asan` / `lsan` | `ASAN_OPTIONS=halt_on_error=0:detect_leaks=1` | Collect all errors; leak check at exit. |
+| `asan` / `lsan` | `ASAN_OPTIONS=halt_on_error=0`, plus `:detect_leaks=1` on Linux only | Collect all errors; leak check at exit. Apple clang's ASan has no leak detection and `detect_leaks=1` can abort at startup, so leave it unset on macOS. |
 | `ubsan` | `UBSAN_OPTIONS=print_stacktrace=1` | Stack per report instead of location only. |
 | `tsan` | `TSAN_OPTIONS=second_deadlock_stack=1` | Both stacks for lock-order reports. |
 | `msan` | `MSAN_OPTIONS=halt_on_error=1` | Stop at the first report; with uninstrumented deps the rest is usually noise. |

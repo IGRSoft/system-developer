@@ -14,7 +14,7 @@
 #   * ruff          -> ruff check  (lint; --fix autofixes)
 #   * ruff-format   -> ruff format (--check by default; --fix writes)
 #   * mypy          -> mypy        (type check; no --fix)
-#   * shellcheck    -> shellcheck --severity=warning --external-sources
+#   * shellcheck    -> shellcheck --severity=info --external-sources
 #   * shfmt         -> shfmt -i 2 -ci -bn (-d check / -w with --fix)
 #   * clang-format  -> clang-format (--dry-run --Werror / -i with --fix)
 #   * clang-tidy    -> clang-tidy (--warnings-as-errors='*' under --strict)
@@ -114,7 +114,7 @@ case "${TOOL}" in
 		cmd=(mypy)
 		;;
 	shellcheck)
-		cmd=(shellcheck --severity=warning --external-sources)
+		cmd=(shellcheck --severity=info --external-sources)
 		;;
 	shfmt)
 		if [[ "${FIX}" -eq 1 ]]; then
