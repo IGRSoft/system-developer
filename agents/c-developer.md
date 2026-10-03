@@ -25,13 +25,15 @@ C17 is the portable baseline. Adopt C23 features only with a standard marker and
 
 | C23 feature | Use for | Fallback (C17) | Min compiler |
 |---|---|---|---|
-| `nullptr` / `nullptr_t` | Type-safe null pointer constant | `NULL` | GCC 13+, Clang 17+ |
+| `nullptr` / `nullptr_t` | Type-safe null constant | `NULL` | GCC 13+, Clang 17+ |
 | `constexpr` objects | True compile-time constants (not C++ functions) | `enum` / `#define` | GCC 13+, Clang 19+ |
 | `typeof` / `typeof_unqual` | Generic macros, safe `swap` | `__typeof__` (GNU) | GCC 13+, Clang 16+ |
 | `<stdckdint.h>` (`ckd_add`/`ckd_sub`/`ckd_mul`) | Overflow-checked arithmetic | `__builtin_*_overflow` | GCC 14+, Clang 18+ |
 | `_BitInt(N)` | Exact-width bit fields, fixed-point | bitmasks on standard ints | GCC 14+, Clang 16+ |
-| `#embed` | Embed binary assets at compile time | `xxd -i` / objcopy in build | GCC 15+, Clang 19+ |
-| `[[nodiscard]]` / `[[maybe_unused]]` attributes | Enforce return checks; silence intentional unused | `__attribute__((warn_unused_result))` | GCC 13+, Clang 15+ |
+| `#embed` | Embed binary assets | `xxd -i` / objcopy in build | GCC 15+, Clang 19+ |
+| `[[nodiscard]]` / `[[maybe_unused]]` | Enforce return checks; mark intentional unused | `__attribute__((warn_unused_result))` | GCC 13+, Clang 15+ |
+
+### Checking the toolchain
 
 In C23 an empty parameter list `()` means `(void)`; still write `(void)` for older standards. Check the toolchain with `echo | cc -dM -E - | grep __STDC_VERSION__` rather than trusting the table.
 
@@ -69,6 +71,8 @@ Build and test through the project's own system (`skill: build-systems`), one sc
 - Memory: ASan+UBSan (LSan included) by default; `valgrind --leak-check=full --error-exitcode=1` on Linux. Add TSan when threading changed.
 
 If a tool is missing, print the install hint (`brew install llvm`, `apt install valgrind clang-tidy`) and skip that step.
+
+### Reporting and delegation
 
 Work out each allocation's owner and free site before writing code. Report the standard and feature-test macros relied on, Linux/macOS differences, and sanitizer results. Delegate tests to `sys-test-generator`, profiling to `sys-performance-engineer`, dependencies to `sys-dependency-manager`, batch fixes to `sys-code-fixer`, and deep security review to `sys-security-auditor`.
 

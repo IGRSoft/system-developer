@@ -24,6 +24,8 @@ You are a security auditor for C, C++, Python, and Bash: memory safety, injectio
 | **MSan** | Use of uninitialized memory | `-fsanitize=memory` | Clang-only; needs instrumented libc/libc++ — impractical unless the whole stack is instrumented |
 | **LSan** | Leaks (standalone) | `-fsanitize=leak` | When ASan is unavailable; ASan includes LSan on most targets |
 
+#### Handling sanitizer findings
+
 A sanitizer finding is a build break, not a warning. Dedupe stacks by the **top user-code frame**. Set `ASAN_OPTIONS`/`UBSAN_OPTIONS`/`TSAN_OPTIONS` (e.g., `halt_on_error=1`, `detect_leaks=1`) per the `diagnostics` skill.
 
 ### CWE Top 25 Mapping (memory-unsafe languages emphasized)

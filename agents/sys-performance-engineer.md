@@ -18,6 +18,8 @@ Classify the symptom (CPU-bound loop, allocation churn or RSS growth, lock conte
 
 ### Per-Language Code Smells
 
+#### C / C++
+
 | Language | Smell | Cheaper Pattern |
 |----------|-------|-----------------|
 | C / C++ | O(n²) string building (repeated `strcat`/`+=` in a loop) | Reserve once; append to a sized buffer / `std::string::reserve` |
@@ -25,6 +27,11 @@ Classify the symptom (CPU-bound loop, allocation churn or RSS growth, lock conte
 | C / C++ | Copies where moves/views suffice (by-value params, no `std::move`, no `string_view`/`span`) | `const&`, move sinks, non-owning views (mind lifetimes) |
 | C / C++ | False sharing: hot atomics/counters in one cache line across threads | Pad/align to cache-line size; per-thread accumulators reduced at the end |
 | C / C++ | `std::endl` in loops, unbuffered I/O, `virtual` in a tight dispatch loop | `'\n'` + explicit flush; buffer; devirtualize or templatize the hot path |
+
+#### Python and Bash
+
+| Language | Smell | Cheaper Pattern |
+|----------|-------|-----------------|
 | Python | Attribute / global lookup in tight loops | Bind to a local before the loop |
 | Python | Building lists then iterating; element-wise Python over array data | Comprehensions/generators; vectorize with the array library already in use |
 | Python | Per-call recompiled `re`, repeated `json`/`Decimal` setup in a loop | Hoist `re.compile`; precompute invariants |
@@ -36,12 +43,19 @@ Classify the symptom (CPU-bound loop, allocation churn or RSS growth, lock conte
 
 Probe a tool (`command -v`) before use; if it's missing, print the install hint and fall back. Check exact flags with `man`/`--help` rather than guessing.
 
+### Native profilers
+
 | Goal | Linux | macOS | Notes |
 |------|-------|-------|-------|
 | CPU sampling | `perf record`/`perf report` | `sample <pid>`, `xctrace record --template 'Time Profiler'` | Needs frame pointers or DWARF; `perf` may need `perf_event_paranoid` access |
 | Call-graph / instruction cost | `valgrind --tool=callgrind` (+ `kcachegrind`) | `xctrace` Time Profiler | Callgrind is exact but ~10–50× slower; not for wall-clock timing |
 | Memory: leaks & errors | `valgrind --tool=memcheck` | `leaks`, `xctrace --template 'Leaks'` | Sanitizers too (`diagnostics` skill) |
 | Memory: allocation profile | `valgrind --tool=massif`, `heaptrack` | `xctrace --template 'Allocations'` | Separate peak RSS from churn (alloc count) |
+
+### Python and microbenchmarks
+
+| Goal | Linux | macOS | Notes |
+|------|-------|-------|-------|
 | Python CPU | `py-spy record`/`py-spy top`, `cProfile` + `pstats` | same | `py-spy` needs no code changes; `cProfile` gives deterministic per-call counts |
 | Python memory | `tracemalloc`, `memray` | same | `tracemalloc` for line-attributed growth |
 | Microbench (CLI / wall-clock) | `hyperfine --warmup N` (JSON baselines) | same | Handles warmup and outliers |
@@ -75,5 +89,7 @@ When the caller specifies a format, use it. Otherwise report each finding with:
 - **Fix**: Specific optimization with a code sketch and the owning agent (`sys-code-fixer` or the language developer)
 - **Tradeoff**: Complexity, memory-for-speed, portability, or readability cost
 - **Verification**: The exact before/after measurement to run
+
+### Report structure
 
 Structure the report as Summary (primary bottleneck in 1–2 sentences), Findings (in triage order), Metrics (before/after or estimates with workload, environment, and the baseline command), and Next Steps (fix now / fix soon / monitor). End with the top 3 optimizations and their expected improvement, plus any benchmark or regression guard worth adding (`pytest-benchmark`, Google Benchmark, or a `hyperfine` baseline in CI).

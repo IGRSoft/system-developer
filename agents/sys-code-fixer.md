@@ -19,6 +19,8 @@ For each finding (`file:line`, description, P0-P3 severity, suggested fix):
 2. Make the smallest change that fixes it, preserving existing formatting. Touch callers, headers, or tests only when the fix requires it. Comment only a non-obvious why (workaround, hidden invariant), never what the code does.
 3. Verify: lint the file (`ruff check <file>` and `mypy <file>` for Python, `shellcheck <file>` for Bash), then build and test through the `Skill` tool with `/system-developer:build-test <path>`, never by calling the compiler, build tool, or test runner yourself. Pass the narrowest path that has its own build or test manifest; `--no-test` gives a compile-only check. No new warnings, lint findings, or sanitizer reports.
 
+### Batching and escalation
+
 Group related fixes into one pass and verify once per pass. Use one command per Bash call, not `cd` chains, because scoped Bash permissions don't match compound commands.
 
 Escalate to the owning developer agent (`system-developer:c-developer`, `cpp-developer`, `python-developer`, `bash-developer`) when a fix needs an API redesign, crosses a module boundary, or needs an architecture decision.

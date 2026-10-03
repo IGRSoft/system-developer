@@ -15,13 +15,22 @@ You manage dependencies for C, C++, Python, and Bash projects across vcpkg, Cona
 
 Detect the ecosystems from manifest markers before acting; a mixed repo may use several. CLI flags and lockfile schemas change across major versions, so check them against the installed toolchain (`--help`, Context7).
 
+### C and C++
+
 | Ecosystem | Manifest / lockfile | Outdated check | Pin / lock |
 |---|---|---|---|
 | vcpkg (manifest mode) | `vcpkg.json` + `vcpkg-configuration.json` | `vcpkg x-update-baseline --dry-run` | `builtin-baseline` commit SHA + per-port `version>=` + `overrides` |
 | Conan 2 | `conanfile.py`/`conanfile.txt` + profiles | `conan graph info . --update` | `conan lock create` → `conan.lock` |
 | CMake FetchContent | `FetchContent_Declare` blocks | changelog review | `GIT_TAG` commit SHA (or release tag with `GIT_SHALLOW TRUE`); `URL_HASH SHA256=...` for archives |
+
+### Python
+
+| Ecosystem | Manifest / lockfile | Outdated check | Pin / lock |
+|---|---|---|---|
 | Python (uv) | `pyproject.toml` + `uv.lock` | `uv pip list --outdated` | `uv lock`; CI uses `uv sync --locked` (fails on lock drift) |
 | Python (pip) | `requirements.txt` / `constraints.txt` | `pip list --outdated` | hash-pinned requirements + `pip install -c constraints.txt` (`--require-hashes` where enforced) |
+
+### Pinning notes
 
 - vcpkg: advance `builtin-baseline` deliberately with `vcpkg x-update-baseline`, never as a side effect; it moves every port. Force-pin a single port or a transitive conflict with `overrides`.
 - Conan 2: `conan.lock` is the source of truth; pass `--lockfile` on install/build so CI resolves the same graph. Pin host/build profiles.

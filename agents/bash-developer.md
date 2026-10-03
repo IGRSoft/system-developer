@@ -23,6 +23,8 @@ IFS=$'\n\t'
 trap 'printf >&2 "error: %s:%d: exit %d\n" "${BASH_SOURCE[0]}" "$LINENO" "$?"' ERR
 ```
 
+### `set -e` blind spots
+
 `set -e` does not fire in these cases, so check explicitly:
 
 | `set -e` does NOT abort on | Defensive replacement |
@@ -33,7 +35,9 @@ trap 'printf >&2 "error: %s:%d: exit %d\n" "${BASH_SOURCE[0]}" "$LINENO" "$?"' E
 | Functions called in a conditional (errexit suppressed in callee) | Test return value, do not rely on inner `set -e` |
 | `local x="$(cmd)"` masks `cmd`'s exit status | Split: `local x; x="$(cmd)"` |
 
-Other always-on rules: quote every expansion (`"$var"`, `"${arr[@]}"`); `readonly`/`local` for scope; `printf` over `echo` for data; `mktemp` + `EXIT` trap for temp resources; `readarray -d ''`/NUL-safe `find -print0 | while IFS= read -r -d ''` for filenames; `command -v tool >/dev/null \|\| { ...; exit 127; }` preflight for external dependencies.
+### Always-on rules
+
+Quote every expansion (`"$var"`, `"${arr[@]}"`); `readonly`/`local` for scope; `printf` over `echo` for data; `mktemp` + `EXIT` trap for temp resources; `readarray -d ''`/NUL-safe `find -print0 | while IFS= read -r -d ''` for filenames; `command -v tool >/dev/null \|\| { ...; exit 127; }` preflight for external dependencies.
 
 ## Bash vs POSIX Decision Rule
 
@@ -61,16 +65,18 @@ These Bash features are unavailable; verify with `checkbashisms` and `shellcheck
 | `source`, `function name {`, `$RANDOM`, `&>` | `. file`; `name() {`; `awk rand`/`/dev/urandom`; `>f 2>&1` |
 | `set -o pipefail`, `shopt`, `read -a`, `mapfile` | `set -eu` + explicit `\|\| exit`; iterate with `while read` |
 
-Prologue: `#!/bin/sh`, `set -eu` (no `pipefail`), explicit `\|\| exit 1` on fallible commands, `printf` for output, `command -v` not `which`.
+#### POSIX prologue
+
+`#!/bin/sh`, `set -eu` (no `pipefail`), explicit `\|\| exit 1` on fallible commands, `printf` for output, `command -v` not `which`.
 
 ## GNU vs BSD Divergence
 
-macOS ships BSD userland, Linux GNU coreutils, and scripts run on both. Use the portable form or branch on `uname -s`, and check flags in `man` rather than guessing.
+macOS ships BSD userland, Linux GNU coreutils; scripts run on both. Use the portable form or branch on `uname -s`; check flags in `man`.
 
 | Pitfall | Portable handling |
 |---|---|
-| `sed -i` (GNU) vs `sed -i ''` (BSD) requires an arg | Avoid in-place; write to temp + `mv`. If needed, branch on `uname` |
-| `readlink -f` / `realpath` absent on old macOS | Use the `cd -- "$(dirname …)" && pwd -P` idiom for absolute paths |
+| `sed -i` (GNU) vs `sed -i ''` (BSD) | Avoid in-place; write to temp + `mv`. If needed, branch on `uname` |
+| `readlink -f` / `realpath` absent on old macOS | `cd -- "$(dirname …)" && pwd -P` for absolute paths |
 | `date -d` (GNU) vs `date -v`/`-j -f` (BSD) | Compute with `date +%s` arithmetic, or branch |
 | `grep -P` (PCRE, GNU-only) | Use `grep -E` (ERE) or `awk` |
 | `find -printf` (GNU-only), `-regextype` | `find … -exec` / `-print0` + `awk`/`stat` |
@@ -78,6 +84,8 @@ macOS ships BSD userland, Linux GNU coreutils, and scripts run on both. Use the 
 | `mktemp` template differences | `mktemp` no-arg, or `mktemp -d`; never hand-roll temp names |
 | GNU `xargs -r` (no-run-if-empty) | Guard with `[ -s file ]` or feed NUL + `-0` |
 | `echo -e`/`echo -n` (behavior varies) | Always `printf` |
+
+### macOS bash 3.2
 
 macOS `/bin/bash` is 3.2; CI and users may have 5.x from Homebrew. Gate 4.4+/5.x features behind `(( BASH_VERSINFO[0] >= 5 ))` (or the relevant minor) with a fallback, and document the minimum in the script header.
 
@@ -95,12 +103,17 @@ Portability Mode also needs `checkbashisms script.sh` clean. Tee CI runs to `.co
 
 Beyond `skill: secure-coding`:
 
+### Input and command construction
+
 - **No `eval`, `bash -c`, or `source` on external input** (argv, env, file/network/subprocess output). Build commands as arrays: `cmd=(prog --flag "$arg"); "${cmd[@]}"`.
 - **`--` before user-controlled operands** (`rm -rf -- "$dir"`, `grep -- "$pat" file`) so a leading `-` can't inject options.
-- **`umask 077`** (often in a subshell) before creating files that hold secrets, rather than `chmod` after a window of exposure.
 - **Validate before use** — numeric `[[ $n =~ ^[0-9]+$ ]]` (or `case` in POSIX), allowlist paths, reject `..`/control chars; required env via `: "${VAR:?message}"`.
-- **No secrets on the command line** (visible in `ps`/`/proc`) or in logs — pass via env or a file with `0600` perms; scrub on exit.
 - **Quote to defeat word-splitting/globbing** injection; `set -f` (noglob) when handling untrusted globs; pin `PATH` for privileged scripts and prefer absolute paths to defeat PATH hijacking.
+
+### Secrets and cleanup
+
+- **`umask 077`** (often in a subshell) before creating files that hold secrets, rather than `chmod` after a window of exposure.
+- **No secrets on the command line** (visible in `ps`/`/proc`) or in logs — pass via env or a file with `0600` perms; scrub on exit.
 - **`trap … EXIT INT TERM`** for cleanup so temp files and secrets never leak on abnormal exit.
 
 For deep audits (CWE mapping, gitleaks, supply-chain) route to `system-developer:sys-security-auditor`.

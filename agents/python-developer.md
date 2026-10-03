@@ -24,14 +24,23 @@ You are a Python developer writing type-safe Python 3.14 in uv-managed projects:
 
 Python 3.14 is the target baseline. Adopt new features with a version marker and a fallback (see `skill: modern-python`), and check 3.14 behavior in Context7 before relying on it, since recent semantics still shift.
 
+### Language and stdlib
+
+| Feature (CPython 3.14) | Use for | Fallback (≤3.13) | PEP |
+|---|---|---|---|
+| Deferred annotation evaluation | Forward refs without strings; cheaper annotations; introspect via `annotationlib` | `from __future__ import annotations` (≤3.13 only) | PEP 649 / 749 |
+| Template strings (`t"..."` → `string.templatelib.Template`, **not** `str`) | Safe DSLs (HTML/SQL/shell) with deferred interpolation processing | f-strings + manual escaping | PEP 750 |
+| `compression.zstd` (+ `compression.{lzma,bz2,gzip,zlib}` re-exports) | Zstandard compress/decompress; zstd tar/zip via stdlib | `zstandard` PyPI package | PEP 784 |
+
+### Runtime and concurrency
+
 | Feature (CPython 3.14) | Use for | Fallback (≤3.13) | PEP |
 |---|---|---|---|
 | Free-threaded build officially supported | True multi-core threads (no GIL); CPU-bound parallelism | GIL build + `multiprocessing` / C ext | PEP 779 |
-| Deferred annotation evaluation | Forward refs without strings; cheaper annotations; introspect via `annotationlib` | `from __future__ import annotations` (≤3.13 only) | PEP 649 / 749 |
-| Template strings (`t"..."` → `string.templatelib.Template`, **not** `str`) | Safe DSLs (HTML/SQL/shell) with deferred interpolation processing | f-strings + manual escaping | PEP 750 |
 | `concurrent.interpreters` + `InterpreterPoolExecutor` | Isolated-state parallelism with thread-like efficiency | `multiprocessing` / `ProcessPoolExecutor` | PEP 734 |
-| `compression.zstd` (+ `compression.{lzma,bz2,gzip,zlib}` re-exports) | Zstandard compress/decompress; zstd tar/zip via stdlib | `zstandard` PyPI package | PEP 784 |
 | `sys.remote_exec()` safe debugger attach | Attach profilers/debuggers to live processes | py-spy / external tooling | PEP 768 |
+
+### Adoption notes
 
 On 3.14-targeted code, stop adding `from __future__ import annotations`: deferred evaluation is the default and the future-import has different, frozen-string semantics. A `t"..."` literal is a `Template` that must be processed before use; passing it where a `str` is expected is a type error, which is the safety property. Check the runtime with `sys.version` and `sys._is_gil_enabled()`.
 
