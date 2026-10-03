@@ -20,7 +20,7 @@ Run each language's standard linter and formatter over the target and report vio
 - `--check` (the default) never edits: no `-i`, `--fix`, or `-w`. Any violation makes the result FAIL, so CI can rely on it.
 - `--fix` applies formatters and auto-fixable lint rules, then re-runs the linters report-only. Report what was fixed and what remains; only a clean re-check is PASS.
 - Honor project config (see Config Discovery) and pass no overrides when one exists. Fall back to defaults only when none is found, and say so in the report.
-- clang-tidy needs `compile_commands.json`. If it's missing, generate it with CMake; with no CMake project, skip clang-tidy with a note rather than run it blind.
+- clang-tidy needs `compile_commands.json`. If it's missing, generate it with CMake; with no CMake project, skip clang-tidy with a note.
 - Use each tool's own path/recursion flags instead of `cd` or `&&` chains; scoped Bash permissions don't match compound commands.
 - A missing tool never hard-fails: print its install hint, skip that language's pass, continue, and report the skip.
 - No semantic refactors, API changes, or behavior-changing fixes, and no agent delegation. List judgment items under "Needs review".
@@ -83,6 +83,8 @@ In `--fix`, formatters run before the final lint re-check so formatting churn do
 | Python (types) | `mypy <path>` if configured; optionally `ty check <path>` | — | none |
 | Bash | `shellcheck -f gcc --severity=info <files>` | `shfmt -d <files>` | `shfmt -w <files>`, then apply ShellCheck's suggested fixes (below) |
 
+### Fix and report notes
+
 - Run `clang-tidy --fix` only for checks the project's `.clang-tidy` enables, and only fixes that apply cleanly (`modernize-*`, `readability-*`). Never add checks the project didn't opt into.
 - ShellCheck fixes: write `shellcheck -f diff --severity=info <files> > .context/logs/shellcheck-fix.diff`, then `patch -p1 -i .context/logs/shellcheck-fix.diff` (create `.context/logs/` first; the diff uses the paths as passed, so run both from the same directory). The diff only carries ShellCheck's own suggestions, mostly quoting (SC2086). Drop any hunk that quotes a variable meant to split, such as a flag list, and list it under "Needs review".
 - mypy and ty are report-only; they have no safe mechanical fixer. `ty` (Astral, beta) is an advisory extra signal, never the gate; mypy/pyright stay authoritative.
@@ -110,7 +112,9 @@ Flag spellings vary across tool releases; check `--help` when a flag is rejected
 
 ## Output Format
 
-```markdown
+One report, shown in two parts.
+
+````markdown
 ## Lint & Fix Report
 
 **Target:** {path}
@@ -129,7 +133,11 @@ Flag spellings vary across tool releases; check `--help` when a flag is rejected
 | Bash | shfmt | 1 file | ❌ would reformat |
 
 **Result:** PASS / FAIL / PARTIAL — {N violations across M tools}
+````
 
+### Report: fixes, review items, and skips
+
+````markdown
 <!-- --fix mode only -->
 ### Fixes Applied ({total})
 
@@ -152,7 +160,7 @@ git checkout -- {files}
 ### Skipped
 - {language}: {missing tool} — install hint printed above.
 - C/C++ clang-tidy: no `compile_commands.json` and no CMake project.
-```
+````
 
 In `--check` mode the Violations column carries the count and, for ruff, shellcheck, and clang-tidy, the rule codes, so a CI run shows exactly which rules tripped.
 

@@ -19,11 +19,16 @@ Measure-only is the default: Phases 1-5 profile and report without touching sour
 
 ## Rules
 
+### Measurement
+
 - Profile only an optimized build with symbols (RelWithDebInfo, `-O2 -g`, unstripped). If a compiled target is Debug (`-O0`), stripped, or missing, print the rebuild instruction and stop. An `-O0` build moves the hot path and a stripped one has no symbols, so its profile is wrong.
 - Don't interpret the trace yourself; the engineer produces the ranked findings.
 - Save every artifact under `.context/logs/profile-<timestamp>/` (`$OUT`), plus a `meta.txt` with target, mode, platform, language, tool, and build flags. The engineer reads from there, not from scrollback.
 - Use each profiler's own output and target flags instead of `cd` or `&&` chains; scoped Bash permissions don't match compound commands.
 - Run the matrix commands as written. If a flag is rejected, check `man`/`--help` rather than guessing.
+
+### Applying fixes
+
 - Before the checkpoint the only writes are under `$OUT`. `Write`/`Edit` are allowed for the apply phase only.
 - Apply needs both `--apply` and an explicit approval at the checkpoint. Approval of the findings is not approval to edit.
 - `--mode bench` records only and never edits: there is no profile to derive a fix plan from.
@@ -81,6 +86,11 @@ Resolve the OS once with `uname -s`, then run the row for `--mode` + language, s
 | Mode | Darwin | Linux |
 |------|--------|-------|
 | `cpu` | `sample <pid> <duration> -file "$OUT/sample.txt"` (attach), or `xctrace record --template "Time Profiler" --output "$OUT/cpu.trace" --launch -- <target>` (launch, deeper) | `perf record -g --call-graph dwarf -o "$OUT/perf.data" -- <target>` then `perf report -i "$OUT/perf.data" --stdio > "$OUT/perf-report.txt"` |
+
+#### C / C++: memory and I/O
+
+| Mode | Darwin | Linux |
+|------|--------|-------|
 | `memory` | `leaks --atExit -- <target> 2>&1 \| tee "$OUT/leaks.txt"` (leaks at exit); `MallocStackLogging=1 <target>` then `malloc_history <pid> --all-by-size > "$OUT/malloc_history.txt"` (allocation backtraces) | `valgrind --tool=massif --massif-out-file="$OUT/massif.out" <target>` then `ms_print "$OUT/massif.out" > "$OUT/massif.txt"` (heap over time); `heaptrack -o "$OUT/heaptrack" <target>` (lower-overhead churn/leaks); `valgrind --leak-check=full --log-file="$OUT/memcheck.txt" <target>` (definite leaks) |
 | `io` | `fs_usage -w -f filesys <pid> 2>&1 \| tee "$OUT/fs_usage.txt"` (needs privilege), or an `xctrace` File Activity template | `perf record -e 'syscalls:sys_enter_*' -o "$OUT/io-perf.data" -- <target>`, or `strace -f -T -o "$OUT/strace.txt" <target>` for per-syscall timing |
 
@@ -91,6 +101,8 @@ Resolve the OS once with `uname -s`, then run the row for `--mode` + language, s
 | `cpu` | `py-spy record --format speedscope -o "$OUT/pyspy.speedscope.json" -- python <entry>` (attach: `--pid <pid>`); `--native` for C-extension frames (Linux, extension built with `-g`); per-call counts: `python -m cProfile -o "$OUT/profile.prof" <entry>` |
 | `memory` | Write the runner below to `"$OUT/trace_mem.py"`, then `python -X tracemalloc=25 "$OUT/trace_mem.py" <entry> [args]`; top allocation sites by `lineno` land in `"$OUT/tracemalloc.txt"`. The target's source is not touched. |
 | `io` | `py-spy dump --pid <pid> > "$OUT/pyspy-dump.txt"` for a stuck/IO-waiting process; otherwise `strace`/`fs_usage` on the `python` process as for C/C++ |
+
+#### tracemalloc runner
 
 ```python
 # trace_mem.py: run <entry> under tracemalloc (enabled by -X tracemalloc) and save the top sites.
@@ -190,6 +202,8 @@ Re-run the same Phase 3 collection (same mode, target, duration, tool, flags) in
 
 ## Output Format
 
+One report, shown in four parts.
+
 ```markdown
 ## Performance Profile Report
 
@@ -201,7 +215,11 @@ Re-run the same Phase 3 collection (same mode, target, duration, tool, flags) in
 **Build:** RelWithDebInfo ✅ | (bench/Python: N/A)
 **Mutation:** read-only (no --apply) | applied {n} fixes after checkpoint approval
 **Artifacts:** .context/logs/profile-{timestamp}/
+```
 
+### Report: step status
+
+```markdown
 | Step | Result | Notes |
 |------|--------|-------|
 | Build prerequisite | ✅ / ❌ rebuild / ⏭ N/A | {-O2 -g, unstripped — or rebuild hint} |
@@ -210,7 +228,11 @@ Re-run the same Phase 3 collection (same mode, target, duration, tool, flags) in
 | Apply | ⏭ not requested / ⏭ declined at checkpoint / ✅ {n} applied | {approved scope} |
 | Build+test gate | ⏭ N/A / ✅ / ❌ blocked | {only when fixes were applied} |
 | Re-measure | ⏭ N/A / ✅ | {second profile path} |
+```
 
+### Report: findings by mode
+
+```markdown
 ### Top Hotspots
 <!-- cpu/io modes -->
 | Rank | Location (file:line) | Share | Note |
@@ -229,7 +251,11 @@ Re-run the same Phase 3 collection (same mode, target, duration, tool, flags) in
 |---------|----------|-------------|
 | old | 412 ms ± 9 ms | baseline |
 | new | 268 ms ± 6 ms | −35% (beyond noise) |
+```
 
+### Report: fixes and skips
+
+```markdown
 ### Ranked Fix Plan
 <!-- effort/impact order -->
 1. {high-impact / low-effort fix} — implement via system-developer:{agent}
@@ -251,11 +277,18 @@ Re-run the same Phase 3 collection (same mode, target, duration, tool, flags) in
 
 ## Error Handling
 
+### Target and build errors
+
 | Case | Message / action |
 |------|------------------|
 | Target not found | `Error: Target not found: {target}`. Suggest a built binary, Python entry point, directory, or (bench) a runnable command, e.g. `/system-developer:fix-performance build/prog --mode cpu`. |
 | Ambiguous target in a directory | `Error: Could not resolve a single profilable target under {path}.` Suggest passing the explicit binary or entry point. |
 | Debug / stripped build | `Error: {target} is a Debug or stripped build — profiling it yields wrong hot paths.` Print the rebuild instruction, then `Re-run: /system-developer:fix-performance build/{target} --mode {mode}`. This stops the run. |
+
+### Environment and option errors
+
+| Case | Message / action |
+|------|------------------|
 | perf permission denied (Linux) | `Warning: perf could not read CPU counters (perf_event_paranoid too high).` Lower `kernel.perf_event_paranoid` with privilege or run as the process owner; point at any artifacts in `{OUT}`. |
 | py-spy attach denied | `Warning: py-spy could not attach to pid {pid} (OS attach restriction).` Run as the process owner or with privilege. |
 | Tool missing | Print the install hint, skip, continue. Only when every eligible profiler for the mode/platform is absent, report "no profiler available" with the aggregated hints. |

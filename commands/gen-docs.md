@@ -17,8 +17,13 @@ Generate or update API documentation in place: Doxygen blocks for C and C++, PEP
 
 ## Rules
 
+### What to document
+
 - Document the contract and the non-obvious why, never what the next line does (the `corpflow:code-comment-standard` rule). No history or provenance ("was X, now Y", "added for ticket 42"), no call-site lists. Delete narrating comments you come across.
 - API doc comments are contract and in scope: Doxygen `@brief`/`@param`/`@return`/`@retval`/`@throws`, docstring summary + Args/Returns/Raises, a script's purpose/usage/exit codes. A `@param n The n` that restates the name is not; omit it or say something real.
+
+### Style, accuracy, and the build gate
+
 - Match the style the project already uses, because mixing styles documents worse than before: Google vs NumPy vs reST for Python, `@param` vs `\param` and `/**` vs `///<` for C/C++. Pick a default only when there is no precedent, and say so in the report.
 - Document only what the code does. When a contract is unclear, leave it undocumented and list it under "Needs Manual Review"; a wrong `@return` is worse than none.
 - No placeholders: no `TODO`, `Description here`, or empty `@param` lines.
@@ -63,7 +68,9 @@ Detect per file under `path`, excluding vendored and build trees (`build/`, `bui
 
 ## Documentation Standards
 
-**C / C++ (Doxygen).** Put blocks on the declaration in the header so the contract lives with the API:
+### C / C++ (Doxygen)
+
+Put blocks on the declaration in the header so the contract lives with the API:
 
 ```c
 /**
@@ -82,9 +89,13 @@ Detect per file under `path`, excluding vendored and build trees (`build/`, `bui
 
 Document what the signature doesn't say: ownership, lifetime, thread-safety, error contract, units. C++ adds exception guarantees (`@throws`) and template parameters (`@tparam`).
 
-**Python (docstrings + Sphinx).** One-line imperative summary, blank line, discussion, then the section block in the project's style. Types live in annotations, not the docstring. Document raised exceptions, side effects, and argument mutation. Module docstrings state what the module is for, so autodoc renders it.
+### Python (docstrings + Sphinx)
 
-**Bash (header + function contracts).** Every script gets a header below the shebang:
+One-line imperative summary, blank line, discussion, then the section block in the project's style. Types live in annotations, not the docstring. Document raised exceptions, side effects, and argument mutation. Module docstrings state what the module is for, so autodoc renders it.
+
+### Bash (header + function contracts)
+
+Every script gets a header below the shebang:
 
 ```bash
 #!/usr/bin/env bash
@@ -108,24 +119,34 @@ Each non-trivial function gets a contract comment: positional arguments, stdout 
 
 ### 2. Document in parallel
 
-Launch one documenter per detected language in a single message with the Agent tool (`subagent_type` from the detection table). Each prompt:
+Launch one documenter per detected language in a single message with the Agent tool (`subagent_type` from the detection table), and wait for all of them before verifying.
+
+#### Documenter prompt
 
 > Add or update {doc form} documentation for these {language} files: {file_list}. Existing style: {detected style}; match it exactly and do not convert existing comments to another style. {language focus}. Document only the contract and the non-obvious why: never restate what a line does, never record history or provenance, never list call sites, and delete narrating comments you find. Contract entries (`@param`/`@return`, Args/Returns/Raises, Usage/Exit) are in scope, but an entry that only restates the name is not; omit it. Document only behavior the code has; leave unclear contracts undocumented and list them. No TODO or placeholder text. {If --public-only: public surface only (language rule below).} Report `{file, symbol, action}` plus symbols needing manual review.
+
+#### Per-language focus: C and C++
 
 | Language | Focus | `--public-only` surface |
 |----------|-------|-------------------------|
 | C | Blocks on header declarations. Ownership and who frees, lifetime/validity of pointer arguments, thread-safety, units, error contract (`@param`, `@return`, `@retval` with errno values). | Public headers; skip statics and internals. |
 | C++ | Blocks on header declarations. Ownership and lifetime (dangling `string_view`/`span`), `@throws` exception guarantees, `@tparam`, const/thread-safety, return contract. | Public/installed headers. |
+
+#### Per-language focus: Python and Bash
+
+| Language | Focus | `--public-only` surface |
+|----------|-------|-------------------------|
 | Python | PEP 257: imperative summary, blank line, discussion, section block. Raised exceptions, side effects, argument mutation; no types in prose. Add missing module docstrings. | Public names, respecting `__all__`; skip `_` helpers. |
 | Bash | Header below the shebang: Purpose, Usage (real synopsis with flags), Exit (each status the script can return), Requires. Function contracts: positional arguments, stdout, return status, globals read or mutated. | Functions the script exposes. |
-
-Wait for all documenters before verifying.
 
 ### 3. Verify with the doc build
 
 Skip under `--no-build`. Otherwise run each present language's build with `set -o pipefail`, teeing to `.context/logs/gen-docs-<timestamp>.log`, so the tool's exit status survives `tee`.
 
 - **Doxygen (C/C++).** If no `Doxyfile`: under `--config` run `doxygen -g Doxyfile` and set `INPUT`, `RECURSIVE=YES`, `EXTRACT_ALL=NO`, `WARN_IF_UNDOCUMENTED=YES`, `WARN_AS_ERROR=FAIL_ON_WARNINGS`, `GENERATE_LATEX=NO`, plus `OPTIMIZE_OUTPUT_FOR_C=YES` for C trees; otherwise report it missing and skip. Run `doxygen Doxyfile 2>&1 | tee -a "$LOG"`. Undocumented-symbol, mismatched-`@param`, and undocumented-parameter warnings are defects.
+
+#### Sphinx, Bash, and build failures
+
 - **Sphinx (Python).** If no `docs/conf.py`: under `--config` run `sphinx-quickstart` non-interactively, add `sphinx.ext.autodoc` (plus `sphinx.ext.napoleon` for Google/NumPy style), and generate stubs with `sphinx-apidoc -o docs/api <package>`; otherwise report it missing and skip. Run `sphinx-build -W -b html docs docs/_build/html 2>&1 | tee -a "$LOG"`; `-W` fails the gate on broken cross-references and malformed sections.
 - **Bash.** There is no doc generator. Run `shellcheck --severity=info <touched files>` and check each `Usage:` line against the script's actual argument parsing. Report header coverage as a count, "verified by inspection".
 
@@ -152,6 +173,8 @@ Emit the Output Format, including per-language coverage and every symbol left fo
 
 ## Output Format
 
+One report, shown in two parts.
+
 ```markdown
 ## Documentation Report
 
@@ -168,7 +191,11 @@ Emit the Output Format, including per-language coverage and every symbol left fo
 | File | Symbols | Notes |
 |------|---------|-------|
 | {file} | {n} | {new / updated} |
+```
 
+### Report: doc build and follow-ups
+
+```markdown
 ### Doc Build
 - **Doxygen:** {clean | N warnings resolved | not run: reason}
 - **Sphinx (`-W`):** {clean | N warnings resolved | not run: reason}

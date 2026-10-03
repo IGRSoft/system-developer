@@ -19,10 +19,15 @@ The output is a concrete target/module layout with named public boundaries, a ve
 
 ## Rules
 
+### Selection rules
+
 - Resolve scope, language, and toolchain floor once, before delegating, and pass that context to the architector so it doesn't re-derive it.
 - Answer all three axes every time. If no concurrency is needed, say "single-threaded" rather than omitting the axis.
 - Every pick carries its required standard/version and a fallback. Don't recommend a feature the probed toolchain can't build.
 - Smallest structure wins. No pattern switch for a change the current structure still fits, and no new runtime or build dependency (plugin loader, DI framework, new package manager) unless the constraints accept it or the repo already uses it. A detected pattern that still fits is a valid answer: "keep current structure".
+
+### Scope and output rules
+
 - Flag any change to a public struct layout, exported symbol, function signature, `enum` value, or documented Python surface as a potential break with a semver-major plan.
 - Quick Recommendation by default; Deep Refactor only with `--deep` or when a migration, mixed patterns, an ABI/API break, or a module-boundary change is in scope. No migration artifacts for a single-module greenfield pick.
 - Write only `.context/arch-selection.md`. Create or edit no source, header, build file, or manifest.
@@ -43,22 +48,29 @@ The output is a concrete target/module layout with named public boundaries, a ve
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `scope` | required | Prose description of the feature, or a path to an existing module/project. A path enables pattern detection and a real toolchain probe; prose does not. |
-| `--lang c\|cpp\|python\|bash` | auto | Force the language. Use for extensionless scripts, bare `.h` headers, or to narrow a mixed repo. |
-| `--pattern NAME` | none | Validate a named pattern instead of recommending one: fit/mismatch with reasons and, on mismatch, the closest fit and its trade-off. Known: `layered`, `hexagonal` (ports-adapters), `plugin/registry`, `pipeline` (dataflow). |
-| `--deep` | off | Force Deep Refactor: current-state assessment, target, incremental migration phases, coexistence strategy, risk points. Implied by migration/ABI-break scope. |
-| `--abi-stable` | auto | Treat the module as publishing a C ABI or Python public API; forces the full API/ABI section and a semver plan. Auto-enabled when an installed header, SONAME, or `__all__` is detected. |
-| `--no-write` | off | Print the report only; skip writing `.context/arch-selection.md`. |
+| `scope` | required | Feature prose, or a path to an existing module/project. A path also enables pattern detection and a toolchain probe. |
+| `--lang c\|cpp\|python\|bash` | auto | Force the language for extensionless scripts, bare `.h` headers, or a mixed repo. |
+| `--pattern NAME` | none | Validate a named pattern: fit/mismatch with reasons, plus the closest fit and its trade-off on mismatch. Known: `layered`, `hexagonal` (ports-adapters), `plugin/registry`, `pipeline` (dataflow). |
+| `--deep` | off | Force Deep Refactor (current state, target, migration phases, coexistence, risks). Implied by migration/ABI-break scope. |
+| `--abi-stable` | auto | Treat the module as publishing a C ABI or Python public API: full API/ABI section plus a semver plan. Auto-on for a detected installed header, SONAME, or `__all__`. |
+| `--no-write` | off | Print only; don't write `.context/arch-selection.md`. |
 
 ## Version Markers
 
 Check every marker the architector returns against the probed floor. Common ones:
+
+### C and C++
 
 | Feature | Requires | Fallback |
 |---------|----------|----------|
 | `std::jthread` / `stop_token` | C++20 | `std::thread` + atomic stop flag + explicit join |
 | `std::expected` | C++23 | Error code + out-param, or a vendored `expected` |
 | Coroutine (`co_yield`) pipeline stages | C++20 | Callback or explicit state machine |
+
+### Python, Bash, and platform
+
+| Feature | Requires | Fallback |
+|---------|----------|----------|
 | Free-threading (no GIL) | CPython 3.14+ (`3.14t`) | Process pool or `InterpreterPoolExecutor` |
 | Subinterpreter pools | CPython 3.13+ | `multiprocessing` pool |
 | C23 `constexpr`, `typeof`, `nullptr` | C23 (GCC 14+ / Clang 18+) | C17 equivalents (`enum`/macro, `__typeof__`, `NULL`) |
@@ -84,23 +96,30 @@ If a constraint that changes the answer is neither in the repo nor in the prose 
 
 ### Phase 3: Select and lay out
 
-Use the Agent tool with `subagent_type="system-developer:system-architector"`:
+Use the Agent tool with `subagent_type="system-developer:system-architector"`. If language detection stayed ambiguous, route this through `system-developer:system-developer` instead and note the routing in the report.
 
-"Select the architecture for {scope}. Languages: {languages}. Build system: {system}. Toolchain floor: {std flags / requires-python / compiler versions, or 'unknown'}. Constraints: {constraints}. Mode: {Quick Recommendation | Deep Refactor}. {If a path: detect the current pattern and axes with file:line evidence; if it still fits, recommend keeping it.} {If --pattern: The user proposes {NAME}; report fit/mismatch with 1-2 reasons and, on mismatch, the closest fit and its trade-off. Else: recommend the best fit with 1-2 reasons.}
-Answer all three axes: one structural pattern, one concurrency model (or 'single-threaded'), one ownership model. Pure Python answers ownership as managed runtime with context-manager discipline for files, sockets, and locks; Bash as process-scoped (`trap cleanup EXIT` for temp files, locks, fds). For C/C++ state who frees, when, and on which error path.
+#### Architector prompt
+
+"Select the architecture for {scope}. Languages: {languages}. Build system: {system}. Toolchain floor: {std flags / requires-python / compiler versions, or 'unknown'}. Constraints: {constraints}. Mode: {Quick Recommendation | Deep Refactor}. Recommend the best fit with 1-2 reasons.
+Answer all three axes: one structural pattern, one concurrency model (or 'single-threaded'), one ownership model. For C/C++ state who frees, when, and on which error path.
 For each pick give the version marker and a fallback, verified against the floor above. Add no runtime or build dependency unless the constraints accept it.
-Give the concrete directory and build-target layout with project-specific names, key types/interfaces/ports, extension and injection points, symbol visibility, and the test seams the structure creates. State the public API/ABI surface and break risk{, and the semver plan (with SONAME) for any change to it — the module is ABI-stable}.
+Give the concrete directory and build-target layout with project-specific names, key types/interfaces/ports, extension and injection points, symbol visibility, and the test seams the structure creates. State the public API/ABI surface and break risk.
 Use your 'For Architecture Selection' output format. Don't write or edit any file."
 
-In Deep mode, append: "Also use your 'For Migration Planning' format: current→target map, ordered phases each independently buildable and testable behind a green `/system-developer:build-test`, coexistence strategy (ABI shim or facade where a published interface must hold), and risk points (ABI/API compatibility, ownership transfer, concurrency invariants, build-graph cycles). Don't apply any change."
+#### Prompt additions
 
-If language detection stayed ambiguous, route this through `system-developer:system-developer` instead and note the routing in the report.
+- For a path scope, append to the first paragraph: "Detect the current pattern and axes with file:line evidence; if it still fits, recommend keeping it."
+- With `--pattern`, replace "Recommend the best fit with 1-2 reasons." with: "The user proposes {NAME}; report fit/mismatch with 1-2 reasons and, on mismatch, the closest fit and its trade-off."
+- When the module is ABI-stable, extend the break-risk sentence: "State the public API/ABI surface and break risk, and the semver plan (with SONAME) for any change to it — the module is ABI-stable."
+- In Deep mode, append: "Also use your 'For Migration Planning' format: current→target map, ordered phases each independently buildable and testable behind a green `/system-developer:build-test`, coexistence strategy (ABI shim or facade where a published interface must hold), and risk points (ABI/API compatibility, ownership transfer, concurrency invariants, build-graph cycles). Don't apply any change."
 
 ### Phase 4: Report
 
 Check the markers against the floor (Version Markers table), then emit the Output Format. Unless `--no-write`, write it to `.context/arch-selection.md` (create `.context/` if absent). Offer, but don't perform, the next step: scaffold the layout, or run `/system-developer:develop-feature` against it.
 
 ## Output Format
+
+One report, shown in three parts.
 
 ```markdown
 ## Architecture Selection: {scope}
@@ -118,7 +137,11 @@ Check the markers against the floor (Version Markers table), then emit the Outpu
 
 **Fit:** {fit | mismatch}{, on mismatch: closest fit + trade-off}
 **Detected today:** {current pattern with file:line evidence, or "greenfield"}
+```
 
+### Report: layout and boundaries
+
+```markdown
 ### Structure
 {directory / build-target tree with real names}
 
@@ -139,7 +162,11 @@ Check the markers against the floor (Version Markers table), then emit the Outpu
 
 ### Test Seams
 - {what the structure makes testable, and how to stub the ports}
+```
 
+### Report: migration and next steps
+
+```markdown
 <!-- Deep mode only: -->
 ### Migration
 | Phase | Change | Green gate |

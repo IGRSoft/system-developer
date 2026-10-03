@@ -19,9 +19,14 @@ Separating plan from edit keeps the work from drifting into a rewrite, and one c
 
 ## Rules
 
+### Behavior and baseline
+
 - Behavior preservation is the contract: return values, side effects, exit codes, emitted diagnostics, and public signatures stay identical. A class that can't preserve them isn't a refactor; drop it from the ledger and report it as a proposed change.
 - Start from a green baseline with tests over the target. A red baseline or no tests means there's no oracle for "same behavior", so stop (see Baseline Gate). "It still compiles" is not "it still behaves".
 - The architect only plans and edits nothing. The fixer applies exactly the named class with a minimal diff: no extra cleanups, no reformatting untouched code, no redesign. A row it can't apply mechanically escalates to the language developer instead.
+
+### Commits, semver, and tools
+
 - One class per commit, each independently buildable and testable. Run the build + test gate after every class; a class that isn't green is reverted and halts the run.
 - Public-surface changes are semver events (see ABI / API Safety). Mark them MAJOR in the ledger and ask the user to confirm the semver plan before applying one.
 - `--dry-run` writes the ledger and stops: no source edits, no commits.
@@ -63,6 +68,8 @@ Record build status, tests passed/total, and the coverage verdict in the ledger 
 
 Order the ledger cheapest and most local first.
 
+### Local and file classes
+
 | Class | Scope | Typical trigger |
 |-------|-------|-----------------|
 | Rename for intent | local | misleading identifier, `tmp2`, `do_it` |
@@ -71,6 +78,11 @@ Order the ledger cheapest and most local first.
 | Replace magic value with named constant | local | literal repeated across branches |
 | Flatten nesting / early return | local | nesting depth > 3 |
 | Replace conditional chain with table/dispatch | file | type/tag switch repeated in several places |
+
+### Boundary classes
+
+| Class | Scope | Typical trigger |
+|-------|-------|-----------------|
 | Split translation unit / module | boundary | one file owning several responsibilities (SRP) |
 | Introduce interface seam (vtable / `Protocol` / ABC) | boundary | untestable direct dependency on I/O, OS, device |
 | Invert a dependency | boundary | low-level module imported by policy code (DIP) |
@@ -82,12 +94,19 @@ Local classes are the fixer's lane. Boundary classes touch the public surface or
 
 A C/C++ refactor can be source-compatible and still break every consumer at load time.
 
+### Symbol and layout moves
+
 | Move | Risk | Ledger requirement |
 |------|------|--------------------|
 | Function moved between translation units | can drop or add an exported symbol | state the target and export decision; keep visibility explicit |
 | Public struct layout changed | callers compiled against the old layout misread memory | MAJOR; prefer an opaque handle |
 | Symbol visibility changed (`static`, `-fvisibility=hidden`, export macro) | newly visible = new ABI promise; hidden = removal | before/after visibility per symbol |
 | `enum` value renumbered / member inserted | silent break across the boundary | MAJOR |
+
+### Header and Python-surface moves
+
+| Move | Risk | Ledger requirement |
+|------|------|--------------------|
 | Header split or include moved | leaks internals into the public tier or drops a relied-upon include | public-header tier contents unchanged |
 | Python `__all__` entry moved/renamed/removed | public API break | deprecate before removal; note in the report |
 
@@ -108,7 +127,7 @@ These compile cleanly and crash later. Any row touching one names the hazard and
 
 ## The Refactor Ledger
 
-`.context/.refactor/plan.md` is the source of truth across resumes; read it rather than relying on context memory.
+`.context/.refactor/plan.md` is the source of truth across resumes.
 
 ```markdown
 # Refactor Ledger
@@ -129,6 +148,8 @@ Status: `pending -> applied -> verified -> committed`, or `reverted` on a red ga
 
 Extract only when all hold: the unit is one self-contained responsibility; every include/import is classifiable as stdlib, external, or project-internal; a small public surface can be named; the original site can be replaced by a link/import with no behavior change; and there's real reuse or test-isolation value. Don't extract single-use code welded to app logic or a unit that would need its internals published. Avoid names like `utils`, `common`, `helpers`.
 
+### Result per ecosystem
+
 | Ecosystem | Result |
 |-----------|--------|
 | CMake | `add_library({TARGET} ...)` (STATIC unless a consumer needs SHARED), `target_include_directories({TARGET} PUBLIC include/)` with the private tier `PRIVATE`, consumers use `target_link_libraries(... PRIVATE {TARGET})` |
@@ -137,7 +158,7 @@ Extract only when all hold: the unit is one self-contained responsibility; every
 | Python | package dir with its own `pyproject.toml`, added via `uv add --editable ./{TARGET}`, public surface in `__all__` |
 | Bash | sourceable `lib/{TARGET}.sh` exposing only prefixed functions, no top-level side effects on source |
 
-Steps:
+### Extraction steps
 
 1. Create the skeleton and manifest.
 2. Move the code; a copy left behind is a defect.
@@ -161,21 +182,25 @@ Agent tool, `subagent_type: system-developer:system-architector`:
 
 ```
 Read-only refactor plan for `{path}` ({languages}; mode: {in-place | extract {TARGET}}).
-Baseline: {baseline line}. Don't edit any file.
+Baseline: {baseline line}.
 Identify code smells and SOLID violations with file:line evidence, then return an
 ordered ledger of refactoring classes, local (rename, extract function, parameter
 struct, named constant, flatten nesting, dispatch table) before boundary (split
 translation unit/module, interface seam, dependency inversion, extract to
-target/package). Per row: class, scope (local|boundary), owner (sys-code-fixer if
-mechanical; c/cpp/python/bash-developer if it needs judgment), and an ABI/API impact
-line. Public-header change, public struct layout, function moved between translation
-units, symbol visibility, enum renumbering, or `__all__` change is MAJOR.
-For C/C++, name any ownership/lifetime hazard per row (pointer to a new local, moved
-unique_ptr, split arena lifetime, view outliving its backing store, moved free/close).
-Every row must be independently buildable and testable. List classes that can't
-preserve observable behavior separately as proposed changes.
-Return the ledger as a table: # | Refactoring class | Scope | Owner | ABI/API impact | Status.
+target/package). Return a table: # | Refactoring class | Scope | Owner |
+ABI/API impact | Status. Scope is local|boundary; owner is sys-code-fixer if
+mechanical, c/cpp/python/bash-developer if it needs judgment. Public-header change,
+public struct layout, function moved between translation units, symbol visibility,
+enum renumbering, or `__all__` change is MAJOR.
+Each row must build and test independently. List behavior-changing classes
+separately as proposed changes.
 ```
+
+#### C/C++ prompt addition
+
+For C or C++ code, append: "Name any ownership/lifetime hazard per row (pointer to a new local, moved unique_ptr, split arena lifetime, view outliving its backing store, moved free/close)."
+
+#### Write the ledger
 
 Write the ledger to `.context/.refactor/plan.md`, all rows `pending`. With `--dry-run`, report the ledger path and stop.
 
@@ -183,14 +208,16 @@ Write the ledger to `.context/.refactor/plan.md`, all rows `pending`. With `--dr
 
 For each `pending` row: mark it `applied`, delegate, verify, commit. Before a MAJOR row, show the "Public-surface change" note and wait for confirmation.
 
-**Delegate.** Agent tool with the row's owner:
+#### Delegate
+
+Agent tool with the row's owner:
 
 | Row | `subagent_type` |
 |-----|-----------------|
 | mechanical | `system-developer:sys-code-fixer` |
 | judgment, C / C++ / Python / Bash | `system-developer:c-developer` / `cpp-developer` / `python-developer` / `bash-developer` |
 
-Prompt:
+#### Delegation prompt
 
 ```
 Apply only refactoring class **{class}** at {file:line refs} in `{path}` ({language}).
@@ -206,9 +233,13 @@ judgment rows, and any part you couldn't apply without redesigning.
 
 If the fixer reports a row it can't apply mechanically, re-route that row to the language developer.
 
-**Verify.** Run `/system-developer:build-test {path}`, teeing to `.context/logs/`. Green means the build passes and the same tests pass at the same count; then mark `verified`. Red: for an escalated row, give the failing excerpt back to the same agent for one corrective pass. Still red, or red on a mechanical row: revert the diff, mark `reverted`, and halt. Later rows aren't attempted.
+#### Verify
 
-**Commit.** Stage only the row's files and commit with a conventional subject naming the class, e.g. `refactor: extract parse_header() from decode()`. Follow the repo's commit format; no `--no-verify`, no AI-attribution trailers; branch first if on a protected branch; keep refactoring commits separate from feature commits. Mark the row `committed`.
+Run `/system-developer:build-test {path}`, teeing to `.context/logs/`. Green means the build passes and the same tests pass at the same count; then mark `verified`. Red: for an escalated row, give the failing excerpt back to the same agent for one corrective pass. Still red, or red on a mechanical row: revert the diff, mark `reverted`, and halt. Later rows aren't attempted.
+
+#### Commit
+
+Stage only the row's files and commit with a conventional subject naming the class, e.g. `refactor: extract parse_header() from decode()`. Follow the repo's commit format; no `--no-verify`, no AI-attribution trailers; branch first if on a protected branch; keep refactoring commits separate from feature commits. Mark the row `committed`.
 
 Rationale and before/after notes go in the commit or PR, not in source comments.
 
@@ -217,6 +248,8 @@ Rationale and before/after notes go in the commit or PR, not in source comments.
 Emit the Output Format.
 
 ## Output Format
+
+One report: the shared header, then the body for the mode, then any halt or dropped blocks.
 
 ```markdown
 ## Refactor Report
@@ -236,7 +269,11 @@ Emit the Output Format.
 <!-- dry-run: stop after the planned classes -->
 ### Planned Classes ({count})
 {rendered ledger, all rows pending}
+```
 
+### Report: apply-mode body
+
+```markdown
 <!-- apply mode -->
 ### Applied Classes
 | # | Class | Scope | Owner | ABI/API | Status | Commit |
@@ -256,7 +293,11 @@ Emit the Output Format.
 
 **Result:** COMPLETE / PARTIAL / HALTED ({reason})
 - Classes committed: {n} | reverted: {n} | skipped: {n}
+```
 
+### Report: halt and dropped blocks
+
+```markdown
 <!-- on a halt -->
 ### Halt
 - **Class:** {class} — build/test RED: {first error; log in .context/logs/...}

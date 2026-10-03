@@ -17,10 +17,15 @@ Take a feature in a C, C++, Python, or Bash project from a requirement to a buil
 
 ## Rules
 
+### Flow and checkpoints
+
 - Run phases and steps in order. The only reordering is `--tdd`, which moves step 6 ahead of step 3.
 - Each step writes its artifact under `.context/.feature-dev/` before the next begins, and later steps read those files rather than relying on earlier context.
 - Stop at every PHASE CHECKPOINT and get approval with AskUserQuestion. A subagent returning is not approval.
 - Halt on failure: a red build, failing suite, unresolved sanitizer report, or agent error stops the run. Present the first error and the log path and ask how to proceed.
+
+### Gates and grading
+
 - `/system-developer:build-test` is the only build/test gate. For C, C++, or a Python native extension, `/system-developer:sanitize-check asan` (ASan+UBSan) is part of verification, and a confirmed report is a halt.
 - Launch one language agent per language actually present; independent languages run in parallel and reconverge before the gate.
 - The API/ABI verdict (public headers, exported symbols, semver step) is a Phase 1 output in `design.md`.
@@ -113,6 +118,8 @@ Launch one agent per language in `state.json.languages`, all in one message:
 
 "Implement the {language} portion of this feature: $ARGUMENTS. Read `.context/.feature-dev/design.md` and `.context/.feature-dev/inventory.md` first and follow them; don't re-architect. Focus: {focus}. Use the project's existing build system and conventions and wire new targets/modules in. Don't export a symbol or change a public struct or signature the design's API/ABI verdict didn't sanction. Don't write tests or run the full suite; later steps own those. Write the files added/changed, public-surface deltas, and any deviation from the design to `.context/.feature-dev/implementation-{lang}.md`."
 
+#### Per-language focus
+
 | Language | `subagent_type` | `{focus}` |
 |----------|-----------------|-----------|
 | C | `system-developer:c-developer` | ownership and lifetime, checked returns and `errno`, integer overflow safety, cleanup on every error path, header and export-macro discipline |
@@ -187,6 +194,8 @@ Re-run both gates. Findings that need design judgment go to `system-developer:sy
 
 ## Output Format
 
+One report, shown in three parts.
+
 ```markdown
 ## Feature Development Report
 
@@ -206,7 +215,11 @@ Re-run both gates. Findings that need design judgment go to `system-developer:sy
 | {lang} | {agent} | {n} | {added exports / none} |
 
 **Build/test gate:** GREEN / RED ({first error}, log: .context/logs/…)
+```
 
+### Report: tests, security, and API/ABI
+
+```markdown
 ### Phase 3 — Tests & Verification
 - **Framework:** {googletest | catch2 | unity | cmocka | pytest | bats} | **Tests added:** {n} | **Discovery proof:** {ctest -N | pytest --collect-only | bats -c}
 - **Build/test gate:** GREEN / RED
@@ -225,7 +238,11 @@ Re-run both gates. Findings that need design judgment go to `system-developer:sy
 
 **Remediated:** {n} P0/P1 | **Left for manual handling:** {list or "none"}
 **Post-fix gates:** build/test {GREEN|RED} | sanitizers {CLEAN|findings}
+```
 
+### Report: halt block
+
+```markdown
 <!-- on a halt -->
 ### Halt
 - **Phase / step:** {phase} / {step}
@@ -236,6 +253,8 @@ Re-run both gates. Findings that need design judgment go to `system-developer:sy
 
 ## Error Handling
 
+### Fatal failures
+
 | Failure | Criticality | Action |
 |---------|-------------|--------|
 | No C/C++/Python/Bash sources at `path` | fatal | Stop before step 1: "No reviewable sources found — pass an explicit path, or `--lang` for extensionless scripts." |
@@ -245,6 +264,11 @@ Re-run both gates. Findings that need design judgment go to `system-developer:sy
 | Sanitizer findings (step 7b) | fatal | Halt; route the triage table to the language agent. |
 | Tests generated but not discoverable | fatal | One corrective pass with `sys-test-generator`, then halt. |
 | Unresolved P0/P1 after step 10 | fatal | Report HALTED. |
+
+### Degradable failures
+
+| Failure | Criticality | Action |
+|---------|-------------|--------|
 | Sanitizers not applicable (pure Python/Bash) | degradable | Record "not applicable" with the reason; continue. |
 | Toolchain binary missing (`cmake`, `uv`, `bats`, `clang`, `shellcheck`) | degradable | Print the install hint, skip that language's gate, note the reduced coverage; continue. |
 | One language agent fails, others succeed | degradable | Record the partial result and raise it at the checkpoint. |

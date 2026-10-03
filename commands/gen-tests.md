@@ -17,10 +17,15 @@ Generate tests for C, C++, Python, or Bash code, register them with the project'
 
 ## Rules
 
+### Framework and ownership
+
 - Use the framework already in use; never add a second one (no Catch2 beside GoogleTest, no unittest beside pytest, no other harness beside `tests/*.bats`). `--framework` only chooses when nothing is in use. If it conflicts with an in-use framework, stop with "Framework conflict".
 - Match the build system already in use the same way: never add a `CMakeLists.txt` to a Meson or Make project just to register a test.
 - `system-developer:sys-test-generator` writes the test bodies. You own detection, registration, and verification.
 - Registration is part of the deliverable. Prove it by listing tests (`ctest -N`, `pytest --collect-only`, `bats -c`), not by reading files.
+
+### Success and execution
+
 - Report success only when the new tests build (C/C++), are discovered, and run. Anything less is a gate FAIL, routed back per Gate Failure.
 - One command per Bash call, using the tool's directory flag (`cmake -S . -B build`, `ctest --test-dir build`, `uv run --project <path> pytest`, `bats <path>/tests/`), because scoped Bash permissions don't match `cd`/`&&` chains.
 - A missing toolchain skips that language with its install hint; the run continues with the others. It fails only when every targeted language is skipped.
@@ -53,6 +58,8 @@ Generate tests for C, C++, Python, or Bash code, register them with the project'
 | Python | `[tool.pytest.ini_options]` in `pyproject.toml`; `pytest` in `[dependency-groups]`/dev deps; `tests/test_*.py` using pytest fixtures | pytest |
 | Bash | `tests/*.bats`; `bats` in CI config | bats-core |
 
+### When nothing is in use
+
 - No framework and `--framework` given: use it; registration scaffolds the dependency.
 - No framework, no flag: C++ → GoogleTest, C → Unity, Python → pytest, Bash → bats. Announce the choice.
 - Language comes from file extensions and manifests (shebang for extensionless scripts). A bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`. In a mixed repo, detect and generate per language; never cross frameworks.
@@ -84,10 +91,17 @@ One Agent tool call per language, `subagent_type: system-developer:sys-test-gene
 
 > Generate {framework} tests for the {language} units in `{path}`: {signatures}. {framework} is the project's framework; do not introduce any other. Cover each unit's happy path, edge cases, and failure modes: {language focus}. Use Arrange-Act-Assert and `test_[unit]_[scenario]_[expected]` naming. {If --coverage-gaps: Target only these gaps: {gap_list}.} Write the files into the project's test tree, but don't register or run them; I do both. Return the files written, case count per file with coverage focus, and {registration need}.
 
+#### Focus: C and C++
+
 | Language | Focus | Registration need |
 |----------|-------|-------------------|
 | C++ | empty input, boundary sizes, max values, non-UTF-8/unicode paths; allocation failure, `EINTR`/partial reads, error returns, invalid arguments | the exact build snippet (`add_executable` + link `{framework_target}` + `gtest_discover_tests`/`catch_discover_tests`, or the Meson/Make equivalent) |
 | C | same as C++ | the build snippet (`add_executable` + link `cmocka`/`unity` + `add_test`, or the Meson/Make equivalent) |
+
+#### Focus: Python and Bash
+
+| Language | Focus | Registration need |
+|----------|-------|-------------------|
 | Python | empty/`None` input, boundary values, non-UTF-8/unicode paths, large inputs; exceptions, interrupted I/O via mocked boundaries, resource exhaustion. `@pytest.mark.parametrize` for input families, shared fixtures in `conftest.py` | any new `conftest.py` |
 | Bash | empty args, paths with spaces and non-UTF-8 bytes, missing files; nonzero exits, interrupted reads, unset-variable paths. `setup()`/`teardown()` with `mktemp -d` | any shared helpers |
 
@@ -102,6 +116,8 @@ Reject output for units you didn't ask for or in another framework, and re-promp
 | CMocka / Unity | `add_executable`, link `cmocka`/`unity`, `add_test(NAME <name> COMMAND <name>)` | `ctest --test-dir <path>/build -N` |
 | pytest | files as `tests/test_*.py`, extend `conftest.py`, add `[tool.pytest.ini_options] testpaths = ["tests"]` if absent | `uv run --project <path> pytest --collect-only -q` |
 | bats | files as `tests/*.bats` with `setup()`/`teardown()` | `bats <path>/tests/ --count` |
+
+#### Meson, Make, and empty projects
 
 The C/C++ rows are the CMake form. Meson: `test('<name>', executable('<name>', '<test>.cpp', dependencies: <dep>))`, discovered with `meson test -C builddir --list`. Plain Make: add the binary to the `check` target and discover by running it.
 
@@ -118,6 +134,8 @@ Run each command with `set -o pipefail`, teeing to `.context/logs/gen-tests-<tim
    ```
    A compile or link failure fails the gate.
 2. **Discover.** Run the step 4 discovery check. New tests missing from the list is a registration defect: fix it and re-list.
+#### Run
+
 3. **Run.**
 
    | Framework | Run |
@@ -143,7 +161,7 @@ Classify, delegate, then re-run the gate from the failing step. Report each cycl
 | A new test is wrong (bad assertion or fixture) | `system-developer:sys-test-generator` |
 | A new test exposes a real bug | Report as a finding and route the fix to the owning agent (`c-developer`, `cpp-developer`, `python-developer`, `bash-developer`). Don't weaken the test to make it pass. |
 
-Delegation prompt:
+### Delegation prompt
 
 > Generated-test verification failed at the **{stage}** stage for `{path}` ({framework}). Error from `{LOG}`:
 > ```
@@ -164,6 +182,8 @@ Delegation prompt:
 
 ## Output Format
 
+One report, shown in two parts.
+
 ```markdown
 ## Generate Tests Report
 
@@ -182,7 +202,11 @@ Delegation prompt:
 ### Registration
 - {Wired into CMake via gtest_discover_tests | conftest.py + testpaths | tests/*.bats}
 - Discovery check: {N tests now listed by ctest -N / pytest --collect-only / bats -c}
+```
 
+### Report: gate, failures, and skips
+
+```markdown
 ### Verification Gate
 | Step | Result | Notes |
 |------|--------|-------|

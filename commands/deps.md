@@ -30,10 +30,15 @@ An absent or unrecognized first token (empty, a bare path, a harmless word) defa
 
 ## Rules
 
+### Editing and pinning
+
 - `audit` edits nothing: no manifest, lockfile, or source.
 - One dependency per `upgrade` run. After the gate, report and stop; the user re-runs for the next. A failed gate stops the run.
 - Every version written is exact: a vcpkg `overrides[]` version, Conan `pkg/x.y.z`, a FetchContent `GIT_TAG` release tag or full SHA, or a uv lockfile pin. Never `*`, `^`, `~`, `latest`, a branch, or an unpinned `GIT_TAG`.
 - Use each tool's directory flag (`vcpkg --x-manifest-root=DIR`, `uv --project DIR`, a path argument for `conan`) instead of `cd` or `&&` chains; scoped Bash permissions don't match compound commands.
+
+### Missing tools and reporting
+
 - A missing manager or scanner never hard-fails: print its install hint, skip that pass, continue, and list it under Skipped. A missing `osv-scanner` means the osv.dev API fallback, not a skipped CVE pass. Report a hard FAIL only when every eligible pass was skipped.
 - Phrase every vulnerability in SR terms: severity (Critical/High/Medium/Low from CVSS), advisory id (CVE-/GHSA-/OSV-), affected range, fixed-in version, remediation. Critical/High first.
 - CLI flags and osv.dev coverage change between versions; where a command below is uncertain for the installed toolchain, check `--help` before relying on it.
@@ -60,6 +65,8 @@ Scan the project root plus `cmake/`, `deps/`, `external/`. `audit` processes eve
 | FetchContent | `FetchContent_Declare(...)` in `CMakeLists.txt` / `*.cmake` (parse `GIT_REPOSITORY` + `GIT_TAG`) | the `GIT_TAG` itself | C / C++ |
 | uv | `pyproject.toml` (`[project].dependencies`, `[dependency-groups]`) | `uv.lock` | Python |
 
+### Unpinned and non-uv projects
+
 - A FetchContent `GIT_TAG` naming a branch (`main`, `master`) or other moving ref is unpinned: report it as a supply-chain finding and offer to pin it in `upgrade` mode.
 - `requirements*.txt` or `setup.py` without `uv.lock` is a non-uv Python project: note it, recommend migrating to uv, and operate on it only under `--manager uv` after `uv lock` creates a lockfile.
 
@@ -67,7 +74,7 @@ Scan the project root plus `cmake/`, `deps/`, `external/`. `audit` processes eve
 
 Run discovery (filtered by `--manager`); if nothing is found, emit the "no manifests" error. Then, per manager:
 
-**Outdated**
+### Outdated
 
 | Manager | Query |
 |---------|-------|
@@ -76,13 +83,17 @@ Run discovery (filtered by `--manager`); if nothing is found, emit the "no manif
 | Conan 2 | `conan graph info <path> --format=json`, then `conan search "<pkg>/*" -r=conancenter` for newer releases |
 | FetchContent | No tool: compare each `GIT_TAG` to the upstream's latest release via WebSearch/WebFetch (`<repo>/releases`) |
 
-**CVEs**
+### CVEs: scanners
 
 1. With `osv-scanner` installed, scan the lockfile: `osv-scanner --lockfile=<path>/uv.lock` or `conan.lock`. osv-scanner doesn't read `vcpkg.json`, and FetchContent has no lockfile; use the API path for their `(name, version)` pairs.
 2. For uv, also run `uv audit --project <path>` (fallback `uvx pip-audit`) and report the union, de-duplicated by advisory id. For a scanner that doesn't read `uv.lock`, export the PEP 751 lockfile with `uv export --format pylock.toml --project <path> -o pylock.toml` and scan that.
+### CVEs: osv.dev API fallback
+
 3. Without a scanner, POST each `(ecosystem, name, version)` to `https://api.osv.dev/v1/query` via WebFetch with body `{"package": {"ecosystem": "PyPI", "name": "<name>"}, "version": "<version>"}`. Native C/C++ deps: query by upstream project; osv.dev coverage is partial, so cross-check the NVD via WebSearch when it returns nothing for a well-known library.
 
-**Licenses** (best-effort, never blocks)
+### Licenses
+
+Best-effort; never blocks.
 
 - uv: `uv pip show <pkg>` or `License`/classifier metadata; `uvx pip-licenses` for a full pass.
 - vcpkg / Conan: the port manifest `license` field or recipe `license` attribute.
@@ -90,7 +101,9 @@ Run discovery (filtered by `--manager`); if nothing is found, emit the "no manif
 
 GPL/AGPL/SSPL or other copyleft against a permissive project is a license-compatibility review item, not a failure.
 
-**Analysis**: send the raw results to the dependency manager via the Agent tool:
+### Analysis
+
+Send the raw results to the dependency manager via the Agent tool:
 
 - `subagent_type: "system-developer:sys-dependency-manager"`, prompt: "Audit-mode dependency analysis for the project at `{path}`. Managers: {managers}. Outdated:\n```\n{outdated_output}\n```\nCVE findings (raw):\n```\n{cve_output}\n```\nLicenses:\n```\n{license_output}\n```\nClassify each outdated dependency's jump (patch/minor/major), note documented breaking changes, and rate upgrade risk. Normalize each vulnerability to severity, advisory id, affected range, fixed-in, remediation. Return a prioritized upgrade plan: security fixes first, then patch/minor, then each major on its own. Read-only: edit no files."
 
@@ -100,6 +113,8 @@ Synthesize the result into the Output Format report.
 
 1. **Resolve.** Require `<package>` and a single manager. Run the audit's outdated and CVE queries scoped to `<package>` to get current version, latest version, and open advisories.
 2. **Plan** via the Agent tool, `subagent_type: "system-developer:sys-dependency-manager"`, prompt: "Plan a single-step upgrade of `{package}` ({manager}) in `{path}` from `{current}` toward `{target}`. Across majors, advance only one major (v1→v2, not v1→v3) and name the exact version to pin. Summarize documented breaking changes between `{current}` and that version, and return the manifest edits as a concrete diff plan with the exact pin. Don't apply it."
+### Apply the pin
+
 3. **Apply** the pin:
 
    | Manager | Pin mechanism |
@@ -108,6 +123,8 @@ Synthesize the result into the Output Format report.
    | Conan 2 | Set `requires` to `pkg/x.y.z`, then `conan lock create <path>` to regenerate `conan.lock`. |
    | FetchContent | Set `GIT_TAG` to a release tag with `GIT_SHALLOW TRUE`, or to a full commit SHA without `GIT_SHALLOW` (shallow clones need a tag or branch). |
    | uv | `uv lock --upgrade-package <pkg>==<x.y.z> --project <path>` (or pin in `pyproject.toml` and run `uv lock`). |
+
+### Gate and report
 
 4. **Gate.** Run `/system-developer:build-test <path>`.
    - PASS: report the step and stop.
@@ -118,6 +135,8 @@ Synthesize the result into the Output Format report.
 
 1. Require `<package>` and a single target manifest (auto-detected or `--manager`). If the manager has no manifest yet, offer to scaffold a minimal one (`vcpkg.json`, `conanfile.txt`, a `FetchContent_Declare` block, or a `[project].dependencies` entry).
 2. Find the latest stable release (registry query or upstream releases via WebSearch/WebFetch) and run the CVE lookup for that version. Flag any unremediated Critical/High advisory before adding.
+### Delegate and gate
+
 3. Delegate the edit via the Agent tool, `subagent_type: "system-developer:sys-dependency-manager"`, prompt: "Add `{package}` at exact version `{version}` to the {manager} manifest at `{path}`: vcpkg `dependencies` + exact `overrides` entry, Conan `requires` + regenerated lock, FetchContent `GIT_REPOSITORY` + `GIT_TAG <tag>` + `GIT_SHALLOW TRUE`, or uv `pyproject.toml` + `uv lock`. Write the minimal pinned entry, skip transitive duplicates already present, and return the edit."
 4. Run `/system-developer:build-test <path>`. PASS: report the addition. FAIL: revert the addition and report.
 
@@ -133,6 +152,8 @@ Synthesize the result into the Output Format report.
 | CMake (FetchContent gate) | `brew install cmake ninja` |
 
 ## Output Format
+
+One report, shown in two parts.
 
 ```markdown
 ## Dependency Audit Report
@@ -160,7 +181,11 @@ Synthesize the result into the Output Format report.
 | Package | License | Note |
 |---------|---------|------|
 | <pkg> | GPL-3.0 | copyleft — review compatibility (SR item) |
+```
 
+### Report: plan, upgrade step, and skips
+
+```markdown
 ### Prioritized Upgrade Plan
 1. **Security first:** {pkg} {cur}→{fixed} (advisory {id})
 2. {pkg} {cur}→{tgt} (patch/minor)

@@ -70,14 +70,21 @@ Classify extensionless files by shebang. A file still unclassified goes to `syst
 
 ## Review Focus
 
+Every language reviewer also checks source-comment hygiene against `corpflow:code-comment-standard`: flag comments that restate the code, narrate design history or before/after, or enumerate callers (comments carry WHY and contract only).
+
+### C and C++
+
 | Language | Focus |
 |----------|-------|
 | C | buffer bounds and overflow; `malloc`/`free` ownership (double-free, use-after-free, leaks on error paths); unchecked return values and `errno`; integer and signedness overflow; format-string safety; undefined behavior; POSIX portability (GNU vs BSD) |
 | C++ | RAII and ownership (Rule of Zero/Five, naked `new`/`delete`, leaks on exception paths); dangling `string_view`/`span`; exception-safety guarantees; move/copy correctness; const-correctness; iterator and lifetime invalidation; undefined behavior |
+
+### Python and Bash
+
+| Language | Focus |
+|----------|-------|
 | Python | typing correctness and `Any` leaks; async misuse (blocking calls in coroutines, unawaited coroutines, unreferenced `create_task`, `gather` vs `TaskGroup`); unclosed files/sockets and missing context managers; mutable default arguments; broad or swallowed exceptions; error propagation |
 | Bash | quoting and word-splitting (SC2086 and friends); strict mode and its caveats; command injection (`eval`, unsanitized input, missing `--`); unsafe `PATH` and temp-file handling; portability (bashisms, GNU vs BSD); exit-status handling |
-
-Every language reviewer also checks source-comment hygiene against `corpflow:code-comment-standard`: flag comments that restate the code, narrate design history or before/after, or enumerate callers (comments carry WHY and contract only).
 
 ## Severity
 
@@ -98,11 +105,15 @@ Resolve scope, pick the dominant language, and launch its reviewer alone with th
 
 In one message, launch with the Agent tool one reviewer per detected language plus the security pass.
 
-**Language reviewer** (`subagent_type` from Language Detection):
+#### Language reviewer
+
+`subagent_type` from Language Detection:
 
 "Read-only review of the {language} files: {file_list}. Review for: {focus row}; and source-comment hygiene (flag comments that restate the code, narrate design history or before/after, or enumerate callers; WHY/contract only). Don't edit any file. Return findings as `{file, line, category, severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so."
 
-**Security pass** (skipped with `--quick`; `subagent_type="system-developer:sys-security-auditor"`):
+#### Security pass
+
+Skipped with `--quick`; `subagent_type="system-developer:sys-security-auditor"`:
 
 "Read-only cross-cutting security review of: {file_list} (languages: {languages}). Cover memory-safety classes (overflow, UAF, double-free), injection (command, SQL, path, format string), unsafe deserialization (pickle, `yaml.load`, `shell=True`), secrets in code or history, input validation at trust boundaries, and supply-chain risk in changed dependencies. Map findings to CWE where applicable. {If --security-focus: 'Go deep: include sanitizer-class and hardening-flag observations.'} Don't edit any file. Return findings as `{file, line, category (CWE), severity (P0-P3), why, fix, confidence}`. If there are no material issues, say so."
 
@@ -124,6 +135,8 @@ Send only findings with a concrete, localized fix; return the rest for manual ha
 
 ## Output Format
 
+One report, shown in two parts.
+
 ```markdown
 ## Code Review Report
 
@@ -141,7 +154,11 @@ Send only findings with a concrete, localized fix; return the rest for manual ha
 | P1 (fix in this change) | {n} |
 | P2 (should fix) | {n} |
 | P3 (nice to have) | {n} |
+```
 
+### Report: findings, fixes, and notes
+
+```markdown
 ### P0 — Must Fix Before Merge
 | File:Line | Category | Why | Fix | Confidence |
 |-----------|----------|-----|-----|------------|

@@ -42,18 +42,25 @@ Review an existing C, C++, Python, or Bash codebase against the architecture pat
 |--------|---------|--------|
 | `scope` | `.` | Directory (recursive) or file. A file is reviewed with its directory siblings and the build file that owns it. |
 | `--pattern NAME` | detected | Grade against `layered`, `hexagonal`, `plugin`, or `pipeline`. Detection still runs; an expected-vs-detected mismatch is itself a finding. |
-| `--lang c\|cpp\|python\|bash` | auto | Force the language. The violation classes and ABI rules target C, C++, and Python; `--lang bash` grades only classes with a shell analogue (cyclic `source`, boundary bypass, library vs entry-point split) and always reports `low` confidence. |
-| `--abi` | off | Add the exported-symbol audit (Phase 3). Needs an already-built shared library. |
+| `--lang c\|cpp\|python\|bash` | auto | Force the language. `--lang bash` grades only classes with a shell analogue (cyclic `source`, boundary bypass, library vs entry-point split) and always reports `low` confidence. |
+| `--abi` | off | Add the exported-symbol audit (Phase 3) on an already-built shared library. |
 | `--trust-boundaries` | off | Add a read-only trust-boundary pass by `system-developer:sys-security-auditor`. |
 | `--deep` | off | Add the architector's Deep Refactor deliverables: current→target map, incremental migration path, coexistence strategy, risk points. Text only. |
 
 ## Violation Classes
+
+### Structural and ABI classes
 
 | Class | What it looks like |
 |-------|--------------------|
 | Cyclic dependency | Library targets or Python packages that import/link each other, directly or transitively |
 | Leaked internal header | An `internal/`, `detail/`, or `_private` header reachable from the installed public tier or a public header's `#include` |
 | Accidental ABI exposure | Default-visible symbols without `-fvisibility=hidden` plus an export macro; exposed public struct layout where an opaque handle was intended |
+
+### Ownership, concurrency, and language-specific classes
+
+| Class | What it looks like |
+|-------|--------------------|
 | Ownership ambiguity | A pointer whose owner is unnamed at the boundary: raw `T*` returned without a free contract, mixed arena/refcount lifetimes, unclear `PyObject*` ownership at an FFI seam |
 | Concurrency mismatch | Blocking calls in an event loop, shared mutable state handed to a process pool, a thread pool bolted onto a single-threaded reactor |
 | Boundary bypass | A caller reaching past a port/adapter or layer interface into the implementation tier |
@@ -75,7 +82,9 @@ Review an existing C, C++, Python, or Bash codebase against the architecture pat
 
 Resolve the scope once and pass the same file list to every agent. Exclude `build/`, `builddir/`, `.venv/`, `node_modules/`, `third_party/`, `vendor/`, and configured CMake/Meson output directories. Detect languages from build manifests, extensions, and shebangs (`--lang` overrides; a bare `.h` is C unless the tree has C++ sources or `CMAKE_CXX_STANDARD`; helper scripts such as `scripts/*.sh` don't make a root a Bash root); review a mixed repo per root and name the roots. Print roots and file count.
 
-Then collect `file:line` anchors with Glob/Grep/Read:
+#### Evidence anchors
+
+Collect `file:line` anchors with Glob/Grep/Read:
 
 - **Build graph**: `target_link_libraries` scope keywords, `add_library` kinds, Meson `declare_dependency`, Python intra-package imports.
 - **Header tiers**: `include/` vs `src/`, `internal/`, `detail/`; `install(FILES|DIRECTORY ...)` lists.
@@ -85,24 +94,30 @@ Then collect `file:line` anchors with Glob/Grep/Read:
 - **Python surface**: `__all__`, `__init__.py` re-exports, documented API pages.
 - **Bash**: sourced `lib*.sh`/`common.sh` libraries, thin entry scripts, `case`-based subcommand dispatch.
 
+#### Build-graph cycle check
+
 If a configured build directory already exists, read its target graph (`cmake --graphviz` output, `meson introspect --targets`) for an exact cycle check. Never configure a build.
 
 ### Phase 2: Review (parallel)
 
-Launch the architector and, with `--trust-boundaries`, the auditor in one message with the Agent tool.
+Launch the architector (`subagent_type="system-developer:system-architector"`) and, with `--trust-boundaries`, the auditor (`subagent_type="system-developer:sys-security-auditor"`) in one message with the Agent tool.
 
-**Architector**: `subagent_type="system-developer:system-architector"`:
+#### Architector
 
-"Read-only architecture review of `{scope}` (languages: {languages}; build system: {system}). Evidence: {anchors with file:line}. File list: {file_list}.
-1. Detect the structural pattern plus its ownership and concurrency axes; give confidence (high/medium/low) with `file:line` evidence. {If --pattern: The expected pattern is `{pattern}`; report a mismatch with the detected pattern as its own finding.} {If Bash: sourced libraries with a thin entry script or `case` dispatch indicate layered or plugin-registry structure; confidence is low.}
-2. Grade against that pattern. Violation classes: cyclic target/package dependencies, leaked internal headers, accidental ABI exposure, ownership ambiguity, concurrency mismatch, boundary bypass, Python public-API drift (`__all__` vs docs){, cyclic `source` for Bash}. Each needs `file:line` (or target/module) and a severity: P0 structure broken or ABI break shipping, P1 fix before next release (any public API/ABI rule violation is at least P1), P2 should fix, P3 nice to have.
+"Read-only architecture review of `{scope}` (languages: {languages}; build system: {system}). Evidence: {anchors}. File list: {file_list}.
+1. Detect the structural pattern plus its ownership and concurrency axes; give confidence (high/medium/low) with `file:line` evidence.
+2. Grade against that pattern. Classes: cyclic target/package dependencies, leaked internal headers, accidental ABI exposure, ownership ambiguity, concurrency mismatch, boundary bypass, Python public-API drift (`__all__` vs docs). Each needs `file:line` (or target/module) and a severity: P0 structure broken or ABI break shipping, P1 fix before next release (any public API/ABI violation is ≥ P1), P2 should fix, P3 nice to have.
 3. Give the smallest fix per violation with its ABI/API impact (none / additive MINOR / breaking MAJOR with SONAME bump).
-4. End with the pattern-specific PR checklist, pass/fail per item.
-Use your Architecture Review output format. Don't edit any file. If the structure fits its constraints, say so."
+4. End with the pattern's PR checklist, pass/fail per item.
+Use your Architecture Review format. Don't edit any file. If the structure fits, say so."
 
-With `--deep`, append: "Also give Deep Refactor deliverables: current→target map, incremental migration path (each phase independently buildable and testable), coexistence strategy including any ABI shim or facade that holds a published interface, and risk points. Text only."
+#### Architector additions
 
-**Auditor** (`--trust-boundaries` only): `subagent_type="system-developer:sys-security-auditor"`:
+- With `--pattern`, append to step 1: "The expected pattern is `{pattern}`; report a mismatch with the detected pattern as its own finding."
+- For a Bash root, append to step 1: "Sourced libraries with a thin entry script or `case` dispatch indicate layered or plugin-registry structure; confidence is low." Add "cyclic `source`" to step 2's classes.
+- With `--deep`, append: "Also give Deep Refactor deliverables: current→target map, incremental migration path (each phase independently buildable and testable), coexistence strategy including any ABI shim or facade that holds a published interface, and risk points. Text only."
+
+#### Auditor prompt (`--trust-boundaries` only)
 
 "Read-only trust-boundary review of `{scope}` (languages: {languages}). Evidence: {anchors}. For each boundary (ports/adapters, public API/ABI surface, FFI seams, plugin load points, process/IPC edges), state which side is trusted, what crosses it, and whether crossing data is validated there. Flag untrusted input reaching a parser, process spawn, path operation, or deserializer without validation. Don't edit any file. Return `{file, line, boundary, severity (P0-P3), why, fix}`, or say the boundaries are sound."
 
@@ -117,6 +132,8 @@ List each library's dynamic symbols (Linux: `nm -D --defined-only` or `readelf -
 Merge the architector findings, the symbol delta, and any boundary findings; deduplicate on `{file, line}`, keeping the higher severity and clearer fix. Normalize to `{anchor, class, severity, why, fix, abi_impact}`, rank P0→P3, and print the Output Format.
 
 ## Output Format
+
+One report, shown in three parts.
 
 ```markdown
 ## Architecture Review
@@ -141,7 +158,11 @@ Merge the architector findings, the symbol delta, and any boundary findings; ded
 | P1 (fix before the next release) | {n} |
 | P2 (should fix) | {n} |
 | P3 (nice to have) | {n} |
+```
 
+### Report: violations and checklist
+
+```markdown
 ### Violations
 | Anchor | Class | Severity | Why | Fix | ABI/API impact |
 |--------|-------|----------|-----|-----|----------------|
@@ -149,7 +170,11 @@ Merge the architector findings, the symbol delta, and any boundary findings; ded
 
 ### PR Checklist ({pattern})
 - [ ] / [x] {pattern-specific item} — {pass/fail note}
+```
 
+### Report: optional blocks and next step
+
+```markdown
 <!-- With --abi: -->
 ### Exported-Symbol Delta
 | Symbol | Library | Status |

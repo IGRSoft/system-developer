@@ -19,9 +19,14 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
 
 ## Rules
 
+### Order of work
+
 - Resolve the mode first (Mode Dispatch), state which mode and why, then run only that mode's steps.
 - **Sanitizer before debugger.** For a C/C++ crash, wrong value, leak, or suspected race, run `/system-developer:sanitize-check` first: it names the defect where it happened, while a debugger only shows where the process died. Use a debugger when the sanitizer is clean or the symptom is a logic bug or hang.
 - **Debug build, C/C++ only.** Interactive debugging needs `-O0 -g -fno-omit-frame-pointer`; optimized frames read `<optimized out>`. If the target was built optimized, say so and rebuild before setting breakpoints. Python and Bash have no compiled artifact: don't gate `pdb`/`py-spy`/`bash -x` on a rebuild or report a missing debug build for them.
+
+### Outputs, tools, and severity
+
 - **Triage is advisory.** Triage produces a root cause with evidence and does not edit source; the fix goes to the owning language agent or `/system-developer:review-code --fix`. Configure mode may write scaffolding.
 - Tee every debugger, trace, and reproduction run to `.context/logs/debug-<timestamp>.log`; the log is the source of truth, not scrollback.
 - A missing gdb/lldb/strace/ltrace/py-spy never hard-fails: print the install hint (Error Handling), note the constraint, and continue with what is present.
@@ -58,14 +63,21 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
 
 ## Symptom → Tool Routing
 
+### Native crashes, hangs, leaks, and races
+
 | Symptom | First tool | Escalation |
 |---------|-----------|------------|
 | Crash / `SIGSEGV` / `SIGABRT` / heap corruption | `/system-developer:sanitize-check asan` | gdb/lldb on the core if ASan is clean |
 | Wrong values, behavior changes with `-O2` | `/system-developer:sanitize-check ubsan` | debugger at `-O0 -g`; bisect the optimization level |
 | Hang / deadlock (native) | attach + `thread apply all bt` | `/system-developer:sanitize-check tsan` for lock-order reports |
-| Hang / stuck (Python) | `py-spy dump --pid N` | `faulthandler`, then `pdb` at the stuck call |
 | Leak / unbounded growth | `/system-developer:sanitize-check lsan` | `valgrind --tool=massif` when recompiling is impossible |
 | Data race / intermittent wrong results | `/system-developer:sanitize-check tsan` | debugger only to inspect the state TSan named |
+
+### Python hangs, performance, syscalls, and scripts
+
+| Symptom | First tool | Escalation |
+|---------|-----------|------------|
+| Hang / stuck (Python) | `py-spy dump --pid N` | `faulthandler`, then `pdb` at the stuck call |
 | Slow, not wrong | `/system-developer:fix-performance` | profile, don't breakpoint |
 | Syscall/env failure (`ENOENT`, bad path, missing fd) | `strace` / `dtruss` | `ltrace` for library calls |
 | Script exits early / wrong exit status (Bash) | `bash -x` (or `PS4` + `BASH_XTRACEFD` to a log) | `shellcheck` for what `set -e` misses |
@@ -73,10 +85,18 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
 
 ## Platform Notes
 
+### Native builds and cores
+
 - **Builds:** debugging wants `-O0 -g`; profiling and sanitizers want `-O2 -g` (`RelWithDebInfo`). Keep `llvm-symbolizer` on `PATH` or frames render as `??`. If a bug reproduces only at `-O2`, don't force `-O0`: treat it as UB and run UBSan.
 - **Core dumps:** enable before reproducing (`ulimit -c unlimited`; Linux+systemd `coredumpctl list`/`debug`; macOS `sudo sysctl -w kern.coredump=1`, cores in `/cores`). A core is only usable against the same unstripped binary; if it was rebuilt since, say so and re-reproduce.
 - **Pretty-printers:** load libstdc++ gdb printers or lldb libc++ synthetics before inspecting `std::` types; note in the report when raw internals were read instead.
+
+### Tracing
+
 - **Tracing:** `strace -f -e trace=file,network -o trace.log` (narrow `-e trace=` first); `ltrace` is Linux-only and unreliable on static or PLT-optimized binaries. macOS `dtruss` needs `sudo` and SIP blocks it on Apple-signed and hardened-runtime binaries: don't tell the user to disable SIP; fall back to lldb breakpoints on the suspect libc calls or reproduce on Linux.
+
+### Python and Bash
+
 - **Python:** `py-spy dump --pid N` for a stuck process, `python3 -X faulthandler` for fatal signals, `python3 -m pdb -c continue script.py` for post-mortem. `py-spy` needs ptrace: `sudo` on macOS; `sudo` or a relaxed `kernel.yama.ptrace_scope` on Linux.
 - **Bash:** tracing is the debugger. `PS4='+ ${BASH_SOURCE}:${LINENO}:${FUNCNAME[0]:-main}: '`, `exec 9>trace.log; BASH_XTRACEFD=9`, and `trap 'echo "ERR line $LINENO: $BASH_COMMAND" >&2' ERR`. Pair `trap ERR` with `set -euo pipefail`, or the script runs past the failure it reported.
 
@@ -102,6 +122,8 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
 1. Parse the evidence: signal or exception type, top user-code frame, `file:line`, thread count, determinism. Assign P0–P3.
 2. Route through Symptom → Tool Routing. Unless `--no-sanitize`, run the indicated sanitize-check kind first. If it names the defect, that is the root cause; go to step 5.
 3. Establish the narrowest reliable reproduction, teed to `$LOG`. If it doesn't reproduce, say so and work from static evidence; never invent a repro.
+#### Gather evidence
+
 4. Gather evidence: `bt` / `thread apply all bt` on the core or attached process, locals at the faulting frame, a watchpoint on the suspect variable; `py-spy dump` for stuck Python; `strace`/`dtruss` when the boundary is a syscall. Write the causal chain from trigger to failure with the evidence for each link, marking unproven links. For a deep or stalled hunt, escalate with the Agent tool to subagent_type="debugging-toolkit:debugging-toolkit-debugger":
 
    "Root-cause this failure. Symptom: {symptom}. Severity: {P0-P3}. Evidence so far (log `{LOG}`):
@@ -109,6 +131,8 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
    {evidence}
    ```
    Sanitizer result: {clean | finding | skipped}. Return a ranked hypothesis list with the smallest proof step for each. Read-only: don't modify source."
+
+#### Report and route the fix
 
 5. Emit the report, then route the fix with the Agent tool to the owning agent from detect step 2 (`system-developer:c-developer`, `cpp-developer`, `python-developer`, `bash-developer`, or the `system-developer` router with the detected markers):
 
@@ -118,6 +142,8 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
 6. Recommend a regression test via `/system-developer:gen-tests`, verified with `/system-developer:build-test`.
 
 ## Output Format
+
+One report: the shared header plus the body for the active mode.
 
 ```markdown
 ## Debug Report — {Configure | Triage}
@@ -137,7 +163,11 @@ The `system-developer:diagnostics` skill holds the full symptom→tool routing, 
 | Trace hooks | ✅ / ➕ / ⏭ | {PS4+BASH_XTRACEFD / faulthandler / none} |
 
 **Reproduction loop:** {exact command, env, expected vs actual}
+```
 
+### Report: triage-mode body
+
+```markdown
 <!-- Triage mode -->
 ### Failure
 

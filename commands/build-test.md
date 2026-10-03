@@ -56,6 +56,8 @@ Scan `path`; the first match wins.
 | 6 | `pyproject.toml` / `uv.lock` | Python (uv) | `python-developer` |
 | 7 | `*.bats` under `tests/`, no marker above | Bats (Bash) | `bash-developer` |
 
+### Owning agent and tie-breaks
+
 **C vs C++ for CMake/Meson/Make:** only `.c`/`.h` sources (e.g. `project(x C)`, no `CMAKE_CXX_STANDARD`) → `c-developer`; any `.cpp`/`.cc`/`.cxx`/`.hpp` source, `project(x CXX)`, or `CMAKE_CXX_STANDARD` → `cpp-developer`; ambiguous → `system-developer` (router).
 
 - A compiled marker plus `pyproject.toml` (Python with a native extension): the compiled build is primary. Mention the Python layer in the summary and suggest a second run scoped to the Python subdir if its tests matter.
@@ -66,10 +68,17 @@ Scan `path`; the first match wins.
 
 Substitute `path`, build dir, preset, and type.
 
+### CMake
+
 | System | Configure | Build | Test |
 |--------|-----------|-------|------|
 | CMake (preset) | `cmake --preset <PRESET>` | `cmake --build --preset <PRESET>` (fallback `cmake --build build -j`) | `ctest --preset <PRESET> --output-on-failure` (fallback `ctest --test-dir build --output-on-failure`) |
 | CMake (classic) | `cmake -S <path> -B <path>/build -DCMAKE_BUILD_TYPE=<TYPE>` | `cmake --build <path>/build -j` | `ctest --test-dir <path>/build --output-on-failure` |
+
+### Meson, Make, Autotools, Python, Bats
+
+| System | Configure | Build | Test |
+|--------|-----------|-------|------|
 | Meson | `meson setup <path>/builddir <path> --buildtype <debug\|release>` | `meson compile -C <path>/builddir` | `meson test -C <path>/builddir --print-errorlogs` |
 | Make | (none) | `make -C <path> -j` | `make -C <path> check` (fallback `make -C <path> test`) |
 | Autotools | `autoreconf -i <path>` then `<path>/configure` | `make -C <path> -j` | `make -C <path> check` |
@@ -90,6 +99,8 @@ Substitute `path`, build dir, preset, and type.
 
 ## Failure Triage
 
+### Classify the first error
+
 1. Find the first error in the log (`error:` for GCC/Clang, `CMake Error`, `undefined reference`/`Undefined symbols` for the linker, `FAILED`/`not ok`/assertion output for tests) and classify it:
 
    | Symptom in log | Stage |
@@ -99,6 +110,8 @@ Substitute `path`, build dir, preset, and type.
    | `undefined reference to`, `Undefined symbols for architecture`, `ld:`/`lld:` errors, duplicate symbol, missing `-l<lib>` | `link` |
    | `ctest` failures, pytest `FAILED`/`ERROR`, bats `not ok`, assertion failures, nonzero test exit | `test` |
 
+### Delegate the fix
+
 2. Extract the first error with about 10 lines of context (the diagnostic and its notes or backtrace), not the whole log.
 3. Delegate with the Agent tool to the owning agent only: `system-developer:c-developer`, `cpp-developer`, `python-developer`, `bash-developer`, or `system-developer` (router, also given the detected markers) when the language is ambiguous. Prompt:
 
@@ -107,6 +120,8 @@ Substitute `path`, build dir, preset, and type.
    {excerpt}
    ```
    Diagnose the root cause and propose the minimal fix (C/C++: say explicitly if it touches the build configuration; Python: dependency resolution, import error, or failing test). Return the analysis and patch; don't re-run the build or suite."
+
+### Re-run
 
 4. After a fix, re-run from the failing phase (re-configure if configure inputs changed). Report each cycle rather than iterating silently.
 

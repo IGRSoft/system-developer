@@ -34,7 +34,7 @@ Rebuild a project with the requested runtime sanitizers, run its tests under the
 | `msan` | `-fsanitize=memory` | UBSan | ASan, TSan | Clang only | Every linked dependency (incl. libc++) must be instrumented, or it reports false "uninitialized" reads; often impractical. |
 | `lsan` | `-fsanitize=leak` | — | TSan, MSan | GCC, Clang | Linux: comes with ASan. macOS ASan has no LSan, so run it standalone. |
 
-What each `kind` builds:
+### What each kind builds
 
 - `asan` → `-fsanitize=address,undefined -fsanitize-recover=address` (the recover flag lets `halt_on_error=0` keep going past the first error)
 - `ubsan` → `-fsanitize=undefined`
@@ -46,6 +46,8 @@ What each `kind` builds:
 ## Build Flags
 
 Every sanitized build is `RelWithDebInfo` with `-g -fno-omit-frame-pointer`, and the `-fsanitize=` flags reach both compile and link (the link pulls in the runtime). This keeps `file:line` and reliable stacks while still exercising optimizer-sensitive bugs.
+
+### Per-build-system configure
 
 | System | Sanitized configure into `build-<kind>/` |
 |--------|------------------------------------------|
@@ -114,7 +116,9 @@ For each built kind, export its `*_OPTIONS` and run the build system's test comm
 1. Extract each report block from the logs: `ERROR: AddressSanitizer`, `runtime error:` (UBSan), `WARNING: ThreadSanitizer`, `ERROR: LeakSanitizer`, `use-of-uninitialized-value` (MSan).
 2. Find each report's top user-code frame: the first frame inside the project, skipping the sanitizer runtime, libc, libstdc++/libc++, and system headers.
 3. Collapse reports with the same top frame into one row with a hit count, keeping one full stack per row for the agent.
-4. Give each row a type, location, allocation/origin summary (ASan allocation site, leak allocation site, TSan other stack), and a fix class:
+4. Give each row a type, location, allocation/origin summary (ASan allocation site, leak allocation site, TSan other stack), and a fix class from Fix classes.
+
+#### Fix classes
 
 | Fix class | Typical findings | Routing |
 |-----------|------------------|---------|
@@ -126,11 +130,15 @@ For each built kind, export its `*_OPTIONS` and run the build system's test comm
 
 1. When there are findings, send the triage table (not raw logs) with the Agent tool to the owner: `system-developer:c-developer` for C, `cpp-developer` for C++, or the `system-developer` router (with the detected markers) for a native extension or an ambiguous tree. Prompt:
    "Sanitizer findings for the {language} project at `{path}` ({kinds run}). Deduplicated triage below; full logs at `.context/logs/sanitize-*.log`.\n```\n{triage_table}\n```\nFor each finding explain the root cause and the minimal correct fix. Flag any you believe are false positives and why; suppress only a confirmed third-party false positive. Return analysis and patches; don't re-run the suite."
+#### Mechanical fixes and re-run
+
 2. With `--fix`, send only the `mechanical` rows with the Agent tool to `system-developer:sys-code-fixer`:
    "Apply minimal, targeted fixes for these mechanical sanitizer findings: {mechanical_rows}. One fix per finding, smallest diff. Leave `interpretation` findings alone and add no suppression files. Report each fix applied and anything you couldn't fix mechanically."
 3. After fixes, re-run only the affected kinds to confirm, and report each cycle.
 
 ## Output Format
+
+One report, shown in two parts.
 
 ```markdown
 ## Sanitize Report
@@ -144,7 +152,11 @@ For each built kind, export its `*_OPTIONS` and run the build system's test comm
 |------|-------|--------------------|-----|
 | asan+ubsan | ✅ / ❌ / ⏭ skipped | {N} | sanitize-asan.log |
 | tsan+ubsan | ✅ / ❌ / ⏭ | {M} | sanitize-tsan.log |
+```
 
+### Report: triage, routing, and skips
+
+```markdown
 ### Triage
 
 | # | Type | Location (top user frame) | Alloc / origin | Hits | Fix class |

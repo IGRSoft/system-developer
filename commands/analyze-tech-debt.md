@@ -92,15 +92,17 @@ Remediation: `/system-developer:fix-refactor` for build restructuring, `/system-
 |------|--------|-------|------|
 | Untyped Python | Unannotated public functions, `Any` in public signatures, no `mypy`/`ty` gate | `python-developer` | typing |
 | Absent test framework | No `ctest`/GoogleTest/Catch2/Unity, no `pytest`, no `bats` for a script-heavy tree | `sys-test-generator` | tests |
-| Coverage gaps | Measured coverage below the project's floor, or untested failure paths in hot code | `sys-test-generator` | tests |
+| Coverage gaps | Coverage below the project's floor, or untested failure paths in hot code | `sys-test-generator` | tests |
 | ABI/API debt | Default-visible symbols (no `-fvisibility=hidden` or export macro), C++ types across a consumer ABI boundary, no semver policy on a shipped library | architect | abi |
-| Dead / duplicated code | Unreferenced translation units and functions, copy-pasted parsers or option handling | language reviewer | none |
+| Dead / duplicated code | Unreferenced translation units and functions, copy-pasted logic | language reviewer | none |
 
-Remediation: `/system-developer:gen-tests` for coverage, `/system-developer:fix-refactor` for duplication and API/ABI restructuring, `/system-developer:arch-review` for a deeper structural verdict.
+Remediation: `/system-developer:gen-tests` for coverage, `/system-developer:fix-refactor` for duplication and API/ABI restructuring, `/system-developer:arch-review` for a structural verdict.
 
 ## Measurement Signals
 
 All non-mutating. Check `command -v` first; a missing tool leaves its dimension unmeasured.
+
+### Code signals
 
 | Dimension | Signal | If missing |
 |-----------|--------|------------|
@@ -109,6 +111,11 @@ All non-mutating. Check `command -v` first; a missing tool leaves its dimension 
 | Warning gate | grep build config and CI workflows for `-Wall`/`-Wextra`/`-Werror`, `CMAKE_CXX_FLAGS` | always available |
 | Python lint / typing | `ruff check --statistics`, `mypy`/`ty` error count | `uv tool install ruff` / `uv tool install mypy` |
 | Bash | `shellcheck -f gcc --severity=info` finding count over discovered scripts | `brew install shellcheck` |
+
+### Coverage, dependency, and symbol signals
+
+| Dimension | Signal | If missing |
+|-----------|--------|------------|
 | Coverage | an existing `coverage.xml`, `lcov.info`, `.coverage`, or `llvm-cov` report | unmeasured; suggest `/system-developer:build-test` then `/system-developer:gen-tests` |
 | Dependencies | lockfile presence, pinned vs ranged versions; `osv-scanner`/`pip-audit` if installed | `uv tool install pip-audit` |
 | Exported symbols | `nm -gU` / `readelf --dyn-syms` on an already-built artifact | unmeasured; don't build one |
@@ -127,19 +134,30 @@ Set `LOG=".context/logs/techdebt-$(date +%Y%m%d-%H%M%S).log"` (create the direct
 
 Launch the architect and, unless `--quick`, one reviewer per detected language, all in one message with the Agent tool. Wait for all of them before Phase 3.
 
-**Architect** — `subagent_type="system-developer:system-architector"`:
+#### Architect
+
+`subagent_type="system-developer:system-architector"`:
 
 "Read-only technical-debt assessment of `{path}` (languages: {languages}). Measurements: {measurement_table}. Assess structural debt only: module boundaries and layering violations, circular dependencies, build-system debt (hand-rolled Makefiles, non-target-based CMake, no presets, no `-Wall -Wextra -Werror`, no sanitizer job in CI), API/ABI debt (default symbol visibility, C++ types across a consumer ABI boundary, no semver policy), and dead or duplicated modules. Don't edit or build anything. Return findings as `{area, evidence (file:line or metric), impact, effort (low/med/high), why_it_costs}`, or say plainly that the structure is sound."
 
-**Language reviewers** — `subagent_type` is the agent in the table below:
+#### Language reviewers
 
-"Read-only {language} technical-debt inventory of `{path}`. Measurements: {measurement_table}. Look for: {focus}. Don't edit, build, or install anything. Return `{category, file:line or metric, impact, effort (low/med/high), fix_sketch}`, or nothing if there is no debt."
+`subagent_type` is the agent in the Per-language focus tables:
+
+"Read-only {language} technical-debt inventory of `{path}`. Measurements: {measurement_table}. Look for: {focus}, and dead/duplicated code. Don't edit, build, or install anything. Return `{category, file:line or metric, impact, effort (low/med/high), fix_sketch}`, or nothing if there is no debt."
+
+#### Per-language focus: C and C++
 
 | Language | Agent | Focus |
 |----------|-------|-------|
-| C | `system-developer:c-developer` | standard lag (`-std=c89/gnu89/c99` vs C17/C23), manual allocation without a documented owner, leaks on error paths, unchecked returns and `errno` handling, hand-rolled checked arithmetic, missing warning gates, dead/duplicated code |
-| C++ | `system-developer:cpp-developer` | standard lag (C++98/11 vs 17/20/23), naked `new`/`delete` and raw owning pointers, missing Rule of Zero/Five, `std::auto_ptr` and other removed idioms, exception-safety gaps, ABI exposure in public headers, dead/duplicated code |
-| Python | `system-developer:python-developer` | Python 2-isms and pre-3.12 idioms, missing annotations and `Any` in public APIs, no `mypy`/`ty` gate, unpinned dependencies or no `uv.lock`, missing tests or coverage gaps, dead/duplicated modules |
+| C | `system-developer:c-developer` | standard lag (`-std=c89/gnu89/c99` vs C17/C23), manual allocation without a documented owner, leaks on error paths, unchecked returns and `errno` handling, hand-rolled checked arithmetic, missing warning gates |
+| C++ | `system-developer:cpp-developer` | standard lag (C++98/11 vs 17/20/23), naked `new`/`delete` and raw owning pointers, missing Rule of Zero/Five, `std::auto_ptr` and other removed idioms, exception-safety gaps, ABI exposure in public headers |
+
+#### Per-language focus: Python and Bash
+
+| Language | Agent | Focus |
+|----------|-------|-------|
+| Python | `system-developer:python-developer` | Python 2-isms and pre-3.12 idioms, missing annotations and `Any` in public APIs, no `mypy`/`ty` gate, unpinned dependencies or no `uv.lock`, missing tests or coverage gaps |
 | Bash | `system-developer:bash-developer` | bashisms under `#!/bin/sh`, GNU-only flags with no BSD fallback, bash 5.x syntax with no guard for macOS `/bin/bash` 3.2, missing `set -euo pipefail`, unchecked exit statuses, unquoted expansions, no `bats` coverage |
 
 ### Phase 3: Rank and report
@@ -151,6 +169,8 @@ Launch the architect and, unless `--quick`, one reviewer per detected language, 
 5. Apply `--top N`, then emit the Output Format, including unmeasured dimensions.
 
 ## Output Format
+
+One report, shown in two parts.
 
 ```markdown
 ## Technical Debt Report
@@ -173,7 +193,11 @@ Launch the architect and, unless `--quick`, one reviewer per detected language, 
 | P1 (quick win — high impact, low effort) | {n} |
 | P2 (schedule — high impact, high effort) | {n} |
 | P3 (batch — low impact, low effort) | {n} |
+```
 
+### Report: findings by priority
+
+```markdown
 ### P0 — Fix Now
 | Item | Evidence | Impact | Effort | Owner | Remediation |
 |------|----------|--------|--------|-------|-------------|
