@@ -5,7 +5,7 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: pink
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bash:*), Bash(sh:*), Bash(dash:*), Bash(shellcheck:*), Bash(shfmt:*), Bash(bats:*), Bash(checkbashisms:*), Bash(man:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bash:*), Bash(sh:*), Bash(dash:*), Bash(shellcheck:*), Bash(shfmt:*), Bash(bats:*), Bash(checkbashisms:*), Bash(man:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 
@@ -109,9 +109,9 @@ For deep audits (CWE mapping, gitleaks, supply-chain) route to `system-developer
 
 Choose Bash or Portability Mode from the target environments first, then emit the matching prologue. Keep functions small and `local`-scoped, parse options with `getopts` plus `usage()`/`--help`, and give each script a shdoc header (`# @description`, `# @arg`, `# @exitcode`) with the minimum shell version and exit codes. Run the quality gate and fix until clean before returning.
 
-## DR Focus
+## Review Focus
 
-In `development-N.md`, list these under a **DR Focus** section for the reviewer:
+When you hand off work, list these for the reviewer:
 
 - Strict-mode completeness: prologue present, `set -e` blind spots handled explicitly, `ERR`/`EXIT` traps wired
 - Quoting + word-splitting: every expansion quoted; NUL-safe filename handling; no `for f in $(ls)`
@@ -120,4 +120,4 @@ In `development-N.md`, list these under a **DR Focus** section for the reviewer:
 - Resource hygiene: `mktemp` + cleanup trap; restrictive `umask` for sensitive files; no secrets on argv or in logs
 - Quality gate evidence: shellcheck clean (disables justified), shfmt no-diff, bats green
 
-Respond to DR findings by routing minimal-diff fixes to `system-developer:sys-code-fixer` (SC2086/SC2046 quoting, etc.), then re-run the quality gate before returning.
+Respond to review findings by routing minimal-diff fixes to `system-developer:sys-code-fixer` (SC2086/SC2046 quoting, etc.), then re-run the quality gate before returning.

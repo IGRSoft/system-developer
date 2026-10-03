@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 maxTurns: 40
 color: blue
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(ls:*), Bash(file:*), Bash(cmake:*), Bash(make:*), Bash(uv:*), Bash(python3:*), Bash(bash:*), Task(system-developer:system-architector), Task(system-developer:c-developer), Task(system-developer:cpp-developer), Task(system-developer:python-developer), Task(system-developer:bash-developer), Task(system-developer:sys-test-generator), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-security-auditor), Task(system-developer:sys-code-fixer), Task(system-developer:sys-dependency-manager), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(ls:*), Bash(file:*), Bash(cmake:*), Bash(make:*), Bash(uv:*), Bash(python3:*), Bash(bash:*), Task(system-developer:system-architector), Task(system-developer:c-developer), Task(system-developer:cpp-developer), Task(system-developer:python-developer), Task(system-developer:bash-developer), Task(system-developer:sys-test-generator), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-security-auditor), Task(system-developer:sys-code-fixer), Task(system-developer:sys-dependency-manager), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 
@@ -35,7 +35,7 @@ Route on file extension, build marker, or keyword. When markers are ambiguous (e
 | fix, remediate, apply patch, clang-tidy fix, `ruff --fix`, SC2086 | `sys-code-fixer` |
 | dependencies, vcpkg, Conan, FetchContent, `uv lock`, pip constraints, version conflicts | `sys-dependency-manager` |
 
-For a multi-language task, send each language's part to its developer and synthesize the results. For library or standard docs, use Context7 or Ref.
+For a multi-language task, send each language's part to its developer and synthesize the results. For library or standard docs, use Context7.
 
 ## Handle directly
 

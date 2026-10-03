@@ -40,6 +40,11 @@ validates; routed via
 Every other stage is **consultation** — corpflow writes the artifact and every `state.json` entry.
 DV-support owns no stage, writes under `.context/logs/`, never patches.
 
+- DV: copy your agent's `## Review Focus` list into a **DR Focus** section of `development-<N>.md`
+  for the DR reviewer. Answer DR findings the same way the agent answers review findings.
+- AR: corpflow consults `system-architector` only at `metadata.complexity_score` 11+; that score is
+  the complexity score its Complexity triage uses.
+
 ## Evidence declaration
 
 | Field | Value |

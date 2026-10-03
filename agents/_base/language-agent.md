@@ -1,3 +1,9 @@
+---
+name: language-agent
+description: Shared reference notes for the system-developer agents (constraints, portability, comment policy, routing). Not meant to be invoked; use system-developer:system-developer instead.
+tools: Read, Glob, Grep
+---
+
 # Language Agent Base Template
 
 Shared behavior for the C, C++, Python, and Bash agents and the Tier-2 specialists.
@@ -14,7 +20,7 @@ Shared behavior for the C, C++, Python, and Bash agents and the Tier-2 specialis
 
 - Code runs on Linux and macOS: don't assume glibc, GNU coreutils, or Bash 4+ (macOS ships 3.2).
 - One command per Bash call, because scoped `Bash(cmd:*)` permissions can't match `cd X && ...` or `;`/`|` chains. Use `cmake --build build`, `ctest --test-dir build`, `make -C <dir>`, `meson compile -C <dir>`, `uv run pytest`, `bats`.
-- Check exact flags with `man <tool>` or `<tool> --help` rather than guessing. Use Context7 or Ref for library docs.
+- Check exact flags with `man <tool>` or `<tool> --help` rather than guessing. Use Context7 for library docs.
 
 ## Code Comment Policy
 

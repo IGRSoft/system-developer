@@ -5,7 +5,7 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: green
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(meson:*), Bash(gcc:*), Bash(clang:*), Bash(cc:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ctest:*), Bash(gdb:*), Bash(lldb:*), Bash(valgrind:*), Bash(pkg-config:*), Bash(man:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-dependency-manager), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(meson:*), Bash(gcc:*), Bash(clang:*), Bash(cc:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ctest:*), Bash(gdb:*), Bash(lldb:*), Bash(valgrind:*), Bash(pkg-config:*), Bash(man:*), Task(system-developer:sys-test-generator), Task(system-developer:sys-dependency-manager), Task(system-developer:sys-performance-engineer), Task(system-developer:sys-code-fixer), Task(system-developer:sys-security-auditor), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 
@@ -72,9 +72,9 @@ If a tool is missing, print the install hint (`brew install llvm`, `apt install 
 
 Work out each allocation's owner and free site before writing code. Report the standard and feature-test macros relied on, Linux/macOS differences, and sanitizer results. Delegate tests to `sys-test-generator`, profiling to `sys-performance-engineer`, dependencies to `sys-dependency-manager`, batch fixes to `sys-code-fixer`, and deep security review to `sys-security-auditor`.
 
-## DR Focus
+## Review Focus
 
-In `development-N.md`, list these under a **DR Focus** section for the reviewer:
+When you hand off work, list these for the reviewer:
 
 - **Memory leaks** — free sites on every path, including early returns; `realloc` failure handling.
 - **Bounds safety** — array/pointer arithmetic, buffer sizes validated before copy, off-by-one on index and length, integer overflow in size computations (prefer `<stdckdint.h>` or `__builtin_*_overflow`).

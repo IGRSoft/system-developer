@@ -141,7 +141,7 @@ Present files changed, the public-surface delta versus the design, and the gate 
 
 Agent tool, `subagent_type="system-developer:sys-test-generator"`:
 
-"Generate tests for this feature: $ARGUMENTS. Read `.context/.feature-dev/design.md` (test seams, ownership and concurrency axes), `.context/.feature-dev/inventory.md`, and every `.context/.feature-dev/implementation-*.md` first. Use the framework the project already uses. Cover the happy path, edge cases, failure modes, and the error/cleanup paths the ownership model implies. Register the tests so the runner discovers them and prove it with `ctest -N` / `pytest --collect-only` / `bats -c`. Write the suite inventory and the discovery proof to `.context/.feature-dev/tests.md`."
+"Generate tests for this feature: $ARGUMENTS. Read `.context/.feature-dev/design.md` (test seams, ownership and concurrency axes), `.context/.feature-dev/inventory.md`, and every `.context/.feature-dev/implementation-*.md` first. Use the framework the project already uses. Cover the happy path, edge cases, failure modes, and the error/cleanup paths the ownership model implies. Register the tests so the runner discovers them and prove it from a `/system-developer:build-test` run. Write the suite inventory and the discovery proof to `.context/.feature-dev/tests.md`."
 
 (Under `--tdd` there are no `implementation-*.md` files yet; the agent works from the design.)
 

@@ -37,8 +37,8 @@ Frontmatter in `agents/*.md` is the source of truth; keep this table in sync.
 | `bash-developer` | sonnet | high | 50 | — sonnet sufficient for shell work |
 | `system-architector` | opus | xhigh | 60 | already top tier; self-limits scope at Low complexity per § Complexity Triage |
 | `sys-test-generator` | sonnet | high | 50 | — sonnet sufficient for pattern work |
-| `sys-performance-engineer` | sonnet | high | 50 | → `opus` + `xhigh` for deep trace analysis (review-only: `disallowed-tools: Write, Edit`) |
-| `sys-security-auditor` | sonnet | high | 50 | → `opus` + `xhigh` for deep threat modeling (review-only: `disallowed-tools: Write, Edit`) |
+| `sys-performance-engineer` | sonnet | high | 50 | → `opus` + `xhigh` for deep trace analysis (review-only: `disallowedTools: Write, Edit`) |
+| `sys-security-auditor` | sonnet | high | 50 | → `opus` + `xhigh` for deep threat modeling (review-only: `disallowedTools: Write, Edit`) |
 | `sys-code-fixer` | haiku | medium | 30 | — deterministic minimal-diff remediation |
 | `sys-dependency-manager` | haiku | low | 20 | — mechanical lockfile/manifest operations |
 

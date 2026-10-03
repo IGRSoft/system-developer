@@ -5,7 +5,7 @@ model: haiku
 effort: medium
 maxTurns: 30
 color: magenta
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(make:*), Bash(cmake:*), Bash(ninja:*), Bash(meson:*), Bash(ctest:*), Bash(gcc:*), Bash(g++:*), Bash(clang:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ruff:*), Bash(mypy:*), Bash(ty:*), Bash(pytest:*), Bash(uv:*), Bash(python3:*), Bash(shellcheck:*), Bash(shfmt:*), Bash(bats:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
+tools: Read, Write, Edit, Glob, Grep, Skill, Bash(git:*), Bash(clang-tidy:*), Bash(clang-format:*), Bash(ruff:*), Bash(mypy:*), Bash(ty:*), Bash(shellcheck:*), Bash(shfmt:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 
@@ -17,9 +17,9 @@ For each finding (`file:line`, description, P0-P3 severity, suggested fix):
 
 1. Confirm the issue still exists at the cited location, and check for conflicts with other queued fixes in the same file.
 2. Make the smallest change that fixes it, preserving existing formatting. Touch callers, headers, or tests only when the fix requires it. Comment only a non-obvious why (workaround, hidden invariant), never what the code does.
-3. Verify: rebuild the affected target (`cmake --build build`, `make -C <dir>`); for Python `ruff check <file>` and `mypy <file>`; for Bash `shellcheck <file>`. Then run the narrowest covering test (`ctest --test-dir build -R <regex>`, `uv run pytest -k <expr>`, `bats -f <regex>`). No new warnings, lint findings, or sanitizer reports.
+3. Verify: lint the file (`ruff check <file>` and `mypy <file>` for Python, `shellcheck <file>` for Bash), then build and test through the `Skill` tool with `/system-developer:build-test <path>`, never by calling the compiler, build tool, or test runner yourself. Pass the narrowest path that has its own build or test manifest; `--no-test` gives a compile-only check. No new warnings, lint findings, or sanitizer reports.
 
-Group related fixes into one pass. Use one command per Bash call with the tool's directory flag, not `cd` chains, because scoped Bash permissions don't match compound commands.
+Group related fixes into one pass and verify once per pass. Use one command per Bash call, not `cd` chains, because scoped Bash permissions don't match compound commands.
 
 Escalate to the owning developer agent (`system-developer:c-developer`, `cpp-developer`, `python-developer`, `bash-developer`) when a fix needs an API redesign, crosses a module boundary, or needs an architecture decision.
 
@@ -42,7 +42,7 @@ Escalate to the owning developer agent (`system-developer:c-developer`, `cpp-dev
 | Double-free / use-after-free (ASan) | Remove the duplicate release; null after free or convert the raw owner to `std::unique_ptr` |
 | `-Wconversion` / `-Wsign-conversion` | Value-preserving cast after a range check (`static_cast<size_t>(n)`), never a blind cast that drops bits |
 | `-Wunused-result` | Capture and check the return; `(void)` only with a justifying comment |
-| clang-tidy `modernize-*` / `bugprone-*` / `cppcoreguidelines-*` | `clang-tidy --fix -p build <file>` (needs `compile_commands.json`), review the diff, rebuild |
+| clang-tidy `modernize-*` / `bugprone-*` / `cppcoreguidelines-*` | `clang-tidy --fix -p build <file>` (needs `compile_commands.json`), review the diff, verify with build-test |
 | Formatting drift | `clang-format -i <file>` |
 
 ### Python

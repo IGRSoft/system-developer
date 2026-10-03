@@ -5,7 +5,7 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: cyan
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(cmake:*), Bash(ctest:*), Bash(make:*), Bash(ninja:*), Bash(meson:*), Bash(gcc:*), Bash(g++:*), Bash(clang:*), Bash(clang++:*), Bash(uv:*), Bash(pytest:*), Bash(python3:*), Bash(coverage:*), Bash(gcov:*), Bash(lcov:*), Bash(llvm-cov:*), Bash(llvm-profdata:*), Bash(genhtml:*), Bash(kcov:*), Bash(bats:*), Bash(shellcheck:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Skill, Bash(git:*), Bash(coverage:*), Bash(gcov:*), Bash(lcov:*), Bash(llvm-cov:*), Bash(llvm-profdata:*), Bash(genhtml:*), Bash(shellcheck:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 
@@ -22,7 +22,7 @@ Detect first (CMake `find_package`/`FetchContent`, `conanfile`/`vcpkg.json` entr
 | Python | `pytest` in deps, `conftest.py` | pytest | `unittest` (stdlib only) | Hypothesis |
 | Bash | `*.bats`, `bats-core` submodule | bats-core | plain `assert`+`set -e` harness | — |
 
-Assertion syntax differs across major versions (Catch2 v2 single header vs v3 `<catch2/catch_test_macros.hpp>`), so check the installed version via Context7/Ref before generating.
+Assertion syntax differs across major versions (Catch2 v2 single header vs v3 `<catch2/catch_test_macros.hpp>`), so check the installed version via Context7 before generating.
 
 ## Test Categories
 
@@ -34,14 +34,16 @@ Assertion syntax differs across major versions (Catch2 v2 single header vs v3 `<
 
 ## Coverage
 
+Build and run instrumented tests through `/system-developer:build-test`, using a coverage preset (`--preset`) or the project's pytest-cov configuration when one exists; then report with the tools below.
+
 | Language | Instrument | Report |
 |---|---|---|
 | C / C++ (GCC) | `--coverage` | `gcov`, then `lcov`/`genhtml` |
 | C / C++ (Clang) | `-fprofile-instr-generate -fcoverage-mapping` | `llvm-profdata merge` → `llvm-cov report`/`show` |
-| Python | `pytest --cov` or `coverage run -m pytest` | `coverage report -m` / `coverage html` |
-| Bash | `kcov ./out ./test.bats` if available | kcov HTML; otherwise a branch checklist |
+| Python | `pytest --cov` | `coverage report -m` / `coverage html` |
+| Bash | none | a branch checklist |
 
-Use a separate coverage build directory so instrumentation stays out of release artifacts. If a coverage tool is missing, print the install hint (`brew install lcov llvm`, `uv tool install coverage`) and report coverage qualitatively.
+Keep instrumentation in a separate build directory or preset so it stays out of release artifacts. If the project has no coverage setup or a report tool is missing, print the install hint (`brew install lcov llvm`, `uv tool install coverage`) and report coverage qualitatively.
 
 ## Mocks and Fakes
 
@@ -52,16 +54,15 @@ Use a separate coverage build directory so instrumentation stays out of release 
 
 ## Registration
 
-A test the runner doesn't discover isn't done. Wire it in: `add_test`/`gtest_discover_tests`/`catch_discover_tests` under `BUILD_TESTING` in CMake; `test_*.py` naming and `conftest.py` for pytest; bats files in the suite directory. Prove discovery with `ctest --test-dir build -N`, `pytest --collect-only`, or `bats -c`.
+A test the runner doesn't discover isn't done. Wire it in: `add_test`/`gtest_discover_tests`/`catch_discover_tests` under `BUILD_TESTING` in CMake; `test_*.py` naming and `conftest.py` for pytest; bats files in the suite directory. Prove discovery from the build-test run: the new test names appear in the ctest or bats output, or the pytest count rises by the number of tests added.
 
 ## Run and Fix Loop
 
-Build first where compilation is required (`cmake --build build`); a compile error in a generated test is yours to fix. Use one command per Bash call with the tool's directory flag (`ctest --test-dir build`, `make -C <dir>`), not `cd` chains, because scoped Bash permissions don't match compound commands.
+Build and run tests only through the `Skill` tool with `/system-developer:build-test <path>`, never by calling cmake, ctest, pytest, or bats yourself. Pass the narrowest path that has its own build or test manifest; use `--no-test` for a compile-only check. A compile error in a generated test is yours to fix.
 
-1. Run the requested tests.
-2. Fix failures, then re-run only the failed ones: `ctest --test-dir build -R <regex>`, `uv run pytest -k <expr>`, `bats -f <regex>`.
+1. Run build-test on the target.
+2. Fix failures in the tests you wrote, then re-run.
 3. Repeat until they pass, at most 3 fix-retest rounds, then escalate to the caller.
-4. Run the full requested set again as a regression check (skip when the caller says full-suite regression belongs to someone else); a new failure goes back to step 2.
 
 ## Return
 

@@ -5,7 +5,7 @@ model: haiku
 effort: low
 maxTurns: 20
 color: yellow
-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(vcpkg:*), Bash(conan:*), Bash(cmake:*), Bash(pkg-config:*), Bash(uv:*), Bash(pip:*), Bash(pip-audit:*), Bash(osv-scanner:*), Bash(python3:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(vcpkg:*), Bash(conan:*), Bash(cmake:*), Bash(pkg-config:*), Bash(uv:*), Bash(pip:*), Bash(pip-audit:*), Bash(osv-scanner:*), Bash(python3:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 
@@ -13,14 +13,14 @@ You manage dependencies for C, C++, Python, and Bash projects across vcpkg, Cona
 
 ## Ecosystems
 
-Detect the ecosystems from manifest markers before acting; a mixed repo may use several. CLI flags and lockfile schemas change across major versions, so check them against the installed toolchain (`--help`, Context7/Ref).
+Detect the ecosystems from manifest markers before acting; a mixed repo may use several. CLI flags and lockfile schemas change across major versions, so check them against the installed toolchain (`--help`, Context7).
 
 | Ecosystem | Manifest / lockfile | Outdated check | Pin / lock |
 |---|---|---|---|
 | vcpkg (manifest mode) | `vcpkg.json` + `vcpkg-configuration.json` | `vcpkg x-update-baseline --dry-run` | `builtin-baseline` commit SHA + per-port `version>=` + `overrides` |
 | Conan 2 | `conanfile.py`/`conanfile.txt` + profiles | `conan graph info . --update` | `conan lock create` → `conan.lock` |
 | CMake FetchContent | `FetchContent_Declare` blocks | changelog review | `GIT_TAG` commit SHA (or release tag with `GIT_SHALLOW TRUE`); `URL_HASH SHA256=...` for archives |
-| Python (uv) | `pyproject.toml` + `uv.lock` | `uv pip list --outdated` | `uv lock`; CI uses `uv sync --frozen` |
+| Python (uv) | `pyproject.toml` + `uv.lock` | `uv pip list --outdated` | `uv lock`; CI uses `uv sync --locked` (fails on lock drift) |
 | Python (pip) | `requirements.txt` / `constraints.txt` | `pip list --outdated` | hash-pinned requirements + `pip install -c constraints.txt` (`--require-hashes` where enforced) |
 
 - vcpkg: advance `builtin-baseline` deliberately with `vcpkg x-update-baseline`, never as a side effect; it moves every port. Force-pin a single port or a transitive conflict with `overrides`.
@@ -34,7 +34,7 @@ Detect the ecosystems from manifest markers before acting; a mixed repo may use 
 2. Scan for CVEs: `pip-audit` / `uv audit` and `osv-scanner` for Python lockfiles; `osv-scanner` over vcpkg/Conan manifests, cross-checked against OSV and GitHub advisories for the specific port and version.
 3. Flag license conflicts (copyleft into a permissive distribution, missing license metadata) and unmaintained or yanked packages.
 
-If a scanner is missing, print its install hint (`uv tool install pip-audit`, `brew install osv-scanner`) and fall back to manual advisory lookup via Context7/Ref.
+If a scanner is missing, print its install hint (`uv tool install pip-audit`, `brew install osv-scanner`) and fall back to manual advisory lookup via Context7.
 
 ## Updates
 
@@ -67,5 +67,5 @@ When the caller gives a format, use it. Otherwise return at most 500 tokens: man
 ## Skills
 
 - `skill: build-systems` — `references/package-managers.md` (vcpkg, Conan 2, FetchContent decision matrix)
-- `skill: python-tooling` — `references/uv-workflows.md` (lockfiles, `uv sync --frozen`, single-package upgrades)
+- `skill: python-tooling` — `references/uv-workflows.md` (lockfiles, `uv sync --locked`, single-package upgrades)
 - `skill: secure-coding` — supply-chain considerations for new dependencies

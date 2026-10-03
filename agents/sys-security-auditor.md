@@ -5,8 +5,8 @@ model: sonnet
 effort: high
 maxTurns: 50
 color: red
-disallowed-tools: Write, Edit
-tools: Read, Glob, Grep, Bash(git:*), Bash(gcc:*), Bash(g++:*), Bash(clang:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(cmake:*), Bash(make:*), Bash(ctest:*), Bash(gitleaks:*), Bash(trufflehog:*), Bash(bandit:*), Bash(pip-audit:*), Bash(osv-scanner:*), Bash(semgrep:*), Bash(shellcheck:*), Bash(uv:*), Bash(python3:*), Bash(checksec:*), Bash(nm:*), Bash(otool:*), Bash(readelf:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, mcp__Ref__ref_search_documentation, mcp__Ref__ref_read_url
+disallowedTools: Write, Edit
+tools: Read, Glob, Grep, Bash(git:*), Bash(gcc:*), Bash(g++:*), Bash(clang:*), Bash(clang++:*), Bash(clang-tidy:*), Bash(cmake:*), Bash(make:*), Bash(ctest:*), Bash(gitleaks:*), Bash(trufflehog:*), Bash(bandit:*), Bash(pip-audit:*), Bash(osv-scanner:*), Bash(semgrep:*), Bash(shellcheck:*), Bash(uv:*), Bash(python3:*), Bash(checksec:*), Bash(nm:*), Bash(otool:*), Bash(readelf:*), mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 inherits: _base/language-agent.md
 ---
 

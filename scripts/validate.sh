@@ -352,8 +352,8 @@ SEEN_NAMES=""
 if [[ -d agents ]]; then
 	while IFS= read -r f; do
 		rel="${f#./}"
-		# _base agents are shared templates (no YAML frontmatter, mirroring
-		# apple-developer's platform-agent.md); skip all frontmatter checks.
+		# _base agents are shared reference docs, not routable agents; their
+		# minimal frontmatter only restricts tools, so skip these checks.
 		if [[ "${rel}" == agents/_base/* ]]; then
 			continue
 		fi
