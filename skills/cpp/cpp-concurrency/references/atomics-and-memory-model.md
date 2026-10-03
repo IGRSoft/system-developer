@@ -6,6 +6,9 @@ For direct `std::atomic` use, memory-order choices, `atomic::wait` and `stop_tok
 
 1. A data race is undefined behavior, not a wrong value. If two threads access the same memory location without synchronization and at least one access writes, the program has no defined meaning — the compiler may assume it cannot happen and optimize accordingly. "It only reads a slightly stale value" is folklore, not the model.
 2. Synchronization is about *happens-before*. A mutex unlock happens-before the next lock of the same mutex; a release store happens-before an acquire load that reads it. Everything written before the release side is visible after the acquire side. All reasoning about atomics reduces to building these edges.
+
+### Choosing and verifying atomics
+
 3. Atomics are a scalpel; mutexes are the default. Reach for `std::atomic` when exactly one word of state is shared (flag, counter, pointer to immutable data) or when a profiler shows a specific lock is hot. Multi-field invariants need a mutex — two atomics do not update together.
 4. Verification is TSan, not inspection. Every claim in code review about ordering should survive `-fsanitize=thread` on the test suite, on both an x86 and an ARM runner if you ship to both — x86's strong hardware ordering hides acquire/release mistakes that ARM exposes.
 
@@ -14,10 +17,13 @@ For direct `std::atomic` use, memory-order choices, `atomic::wait` and `stop_tok
 - Sequenced-before: ordinary single-thread program order. Within one thread, `a = 1;` is sequenced before `b = 2;`. The compiler and CPU may still *execute* them in any order — sequencing constrains observable behavior of that thread, not the instruction stream.
 - Synchronizes-with: the cross-thread edge. A release operation synchronizes-with an acquire operation that reads the value it wrote (same atomic object). Mutex unlock→lock, `thread::join`, `latch::wait` returning, promise/future, and starting a thread all create the same kind of edge.
 - Happens-before: the transitive closure of sequenced-before and synchronizes-with. If write W happens-before read R, R sees W (or something later in the modification order). If neither access happens-before the other and one is a non-atomic write — that is the data race, and the program's behavior is undefined.
+
+### Modification order and coherence
+
 - Modification order: every individual atomic object has a single total order of all writes to it, seen consistently by all threads. Even `relaxed` operations respect it — two threads never disagree about the order of writes *to one atomic*. What relaxed forfeits is any relationship to operations on *other* memory.
 - Coherence: the family of rules saying reads of one atomic don't go backwards in its modification order. This is why a relaxed counter is safe to increment from anywhere: the counts can't be lost, only observed "early" relative to other state.
 
-Worked example — why the publish pattern needs both halves:
+### Worked example: why the publish pattern needs both halves
 
 ```cpp
 // thread P                                  // thread C
@@ -125,10 +131,13 @@ static_assert(std::atomic<Header>::is_always_lock_free,
               "Header grew past the lock-free width for this target");
 ```
 
+- Padding bits can make `compare_exchange` fail spuriously on structs. C++20 (P0528) makes it ignore padding, but not every standard library implements that yet; prefer padding-free types in atomics.
+
+### C++20 additions: atomic<double>, atomic<shared_ptr>, atomic_ref
+
 - `std::atomic<double>` supports `fetch_add`/`fetch_sub` since C++20 (before that: CAS loop).
 - `std::atomic<std::shared_ptr<T>>` (C++20) replaces the deprecated free-function `atomic_load(&sp)` API; it is typically not lock-free — fine for low-frequency config swaps, wrong for hot paths.
 - `std::atomic_ref<T>` (C++20) applies atomic operations to a normal object — useful for parallel loops over arrays you cannot redeclare as atomic. The object must be sufficiently aligned (`std::atomic_ref<T>::required_alignment`), and all concurrent accesses during the contended window must go through `atomic_ref` — one plain access reintroduces the race.
-- Padding bits can make `compare_exchange` fail spuriously on structs. C++20 (P0528) makes it ignore padding, but not every standard library implements that yet; prefer padding-free types in atomics.
 
 ### atomic_flag
 
@@ -149,7 +158,7 @@ public:
 };
 ```
 
-The acquire/release pair here is the publish pattern. Still, a userspace spinlock loses to `std::mutex` the moment a holder is preempted, and mainstream `std::mutex` implementations already spin briefly before sleeping. Hand-rolled spinlocks need a benchmark to justify them; the C++20 `wait` in the loop keeps the failure mode bounded.
+A userspace spinlock loses to `std::mutex` the moment a holder is preempted, and mainstream `std::mutex` implementations already spin briefly before sleeping. Hand-rolled spinlocks need a benchmark to justify them; the C++20 `wait` in the loop keeps the failure mode bounded.
 
 ## Compare-and-Swap Recipes
 
@@ -188,7 +197,11 @@ const Table& get_table() {
 }
 ```
 
-`_strong` because this is a single attempt, not a loop; the failure order is `acquire` because the loser must see the winner's fully built table. For function-local singletons, prefer the zero-code option: C++ guarantees thread-safe initialization of `static` locals (`static const Table t = build_table();`) — use the CAS form only for non-static lifetimes or when build-twice is acceptable and lock-free init is genuinely required.
+`_strong` because this is one attempt, not a loop; failure order `acquire` so the loser sees the winner's fully built table.
+
+#### Simpler alternative: a function-local static
+
+For function-local singletons prefer a `static` local (`static const Table t = build_table();`), whose initialization is guaranteed thread-safe. Use the CAS form only for non-static lifetimes, or when building twice is acceptable and lock-free init is required.
 
 ### Recipe: atomic bitmask updates
 
@@ -372,7 +385,10 @@ Pass `stop_token` by value (it is a cheap shared handle). A `jthread`'s own toke
 
 - "Lock-free" is a progress guarantee, not a speed guarantee. It promises some thread completes in bounded steps (no deadlock/priority-inversion via a preempted lock holder). Under typical contention, a well-fitted `std::mutex` (which spins briefly before sleeping in mainstream implementations) frequently *outperforms* a CAS-retry storm — every failed CAS is wasted work plus a cache-line ping.
 - The hard problem is memory reclamation, not the fast path: a popped node another thread may still dereference can't be deleted yet. C++23 has no reclamation primitive; C++26 adds `<hazard_pointer>` and `<rcu>`, with standard-library support still arriving. Until it lands, use a vetted library (e.g., a maintained concurrent-queue implementation), epoch schemes you did not write yourself, or the design that sidesteps reclamation entirely (fixed slots, indices instead of pointers).
-- Decision ladder: mutex → sharded mutexes / `shared_mutex` → a proven concurrent library type → bespoke lock-free (with a TSan+stress+ARM test budget to match). Each step needs profiler evidence that the previous one is the bottleneck.
+
+### Decision ladder
+
+- Mutex → sharded mutexes / `shared_mutex` → a proven concurrent library type → bespoke lock-free (with a TSan+stress+ARM test budget to match). Each step needs profiler evidence that the previous one is the bottleneck.
 - If you do go bespoke: every weakened order documented per the policy above; stress tests that oversubscribe cores; runs on a weakly ordered target.
 
 ## False Sharing and hardware_destructive_interference_size
@@ -390,11 +406,16 @@ struct alignas(std::hardware_destructive_interference_size) PaddedCounter {
 PaddedCounter counters[8];
 ```
 
+### hardware_destructive_interference_size
+
 `std::hardware_destructive_interference_size` (`<new>`, C++17) is the portable spelling of "cache line size for avoiding false sharing"; its sibling `hardware_constructive_interference_size` is the keep-together hint. Practical notes:
 
 - Mainstream values: 64 on common x86_64, 128 on several ARM designs (including Apple silicon's performance cores); check your target rather than hardcoding.
 - libstdc++ ships it from GCC 12 and warns (`-Winterference-size`) when it is used in ways that leak into ABI, because the value can change with `-mtune`. Heed the warning: keep the constant out of public headers and serialized layouts; a project-local `constexpr std::size_t kCacheLine = 64;` (or 128) is the right call for ABI-stable interfaces.
-- Diagnose before padding: `perf c2c` on Linux attributes cache-line contention to source lines; padding speculatively bloats memory for no measured gain. See [profiling-tools](../../../tooling/diagnostics/references/profiling-tools.md).
+
+### Diagnose before padding
+
+- Diagnose first: `perf c2c` on Linux attributes cache-line contention to source lines; padding speculatively bloats memory for no measured gain. See [profiling-tools](../../../tooling/diagnostics/references/profiling-tools.md).
 - Independent per-thread state is better restructured (thread-local accumulation, merged after join) than padded.
 
 ## Fences

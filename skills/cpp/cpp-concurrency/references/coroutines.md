@@ -8,7 +8,10 @@ A coroutine is a function that can suspend itself and be resumed later. Any func
 
 1. Locals move off the stack. Parameters and local variables live in a *coroutine frame*, allocated (usually on the heap) when the coroutine is first called, destroyed when it finishes or when someone calls `handle.destroy()`. The compiler may elide the allocation when it can prove the frame's lifetime is enclosed by the caller's (HALO — heap allocation elision optimization). Treat elision as an optimization, never a guarantee.
 2. Calling a coroutine does not run its body. The call allocates the frame, constructs the *promise*, obtains the *return object* (your `generator`, `task`, etc.), and then consults `initial_suspend()`. For lazy types (`std::generator`, most `task` designs) the body has not executed a single statement when the call returns.
-3. The return type is in charge. Everything about a coroutine's behavior — lazy or eager, what `co_yield` means, where exceptions go — is decided by the `promise_type` nested in (or associated with) its return type. The keywords are fixed syntax; the semantics are supplied by library code.
+
+### Third consequence: the return type is in charge
+
+Everything about a coroutine's behavior — lazy or eager, what `co_yield` means, where exceptions go — is decided by the `promise_type` nested in (or associated with) its return type. The keywords are fixed syntax; the semantics are supplied by library code.
 
 ### The promise
 
@@ -22,6 +25,8 @@ The compiler finds `ReturnType::promise_type` (or a `std::coroutine_traits` spec
 | `return_value(v)` / `return_void()` | at `co_return` | store the result |
 | `unhandled_exception()` | exception escapes the body | store `std::current_exception()` |
 | `final_suspend()` | after the body finishes | `suspend_always`, or symmetric transfer to a continuation; must be `noexcept` |
+
+### What the compiler generates
 
 The conceptual rewrite of every coroutine body:
 
@@ -53,7 +58,7 @@ struct awaiter {
 };
 ```
 
-`await_suspend` return types:
+### await_suspend return types
 
 | Returns | Meaning |
 |---------|---------|
@@ -98,7 +103,7 @@ for (auto f : fibs() | std::views::take(10))
     std::println("{}", f);
 ```
 
-Rules of use:
+### Rules of use
 
 - Lazy. Calling `fibs()` runs nothing; each `++it` (or loop iteration) resumes the body to the next `co_yield`.
 - Single-pass and move-only. It models `input_range`: one consumer, one traversal. Calling `begin()` twice is precondition-violating; restart by calling the coroutine function again.
@@ -184,7 +189,9 @@ private:
 };
 ```
 
-The load-bearing details, in order of how often they are botched:
+### Load-bearing details of the fallback
+
+In order of how often they are botched:
 
 1. `final_suspend` is `noexcept` and returns `suspend_always` — the frame must stay alive after completion so the owner can `destroy()` it; if it didn't suspend, the frame would self-destroy and the destructor's `destroy()` would be a double-free.
 2. The destructor calls `h_.destroy()`; move construction nulls the source. One owner, one destroy.
@@ -250,7 +257,7 @@ private:
 };
 ```
 
-How a chain executes:
+### How a task chain executes
 
 ```cpp
 task<int> leaf()   { co_return 42; }
@@ -263,7 +270,9 @@ task<int> middle() { co_return co_await leaf() + 1; }
 //   middle co_returns; its final_awaiter transfers back to the original awaiter
 ```
 
-What this skeleton lacks, and why production code uses a library:
+### What the task skeleton lacks
+
+Why production code uses a library:
 
 - No `sync_wait`. Something at the top of the chain must resume the first task from non-coroutine code and block for the result (typically `atomic<bool>` + `wait`). Easy to get subtly wrong.
 - No scheduler/executor. Everything resumes inline on the current thread. Real runtimes decide *where* `await_suspend` resumes things.
@@ -294,7 +303,7 @@ struct read_awaiter {
 };
 ```
 
-Rules:
+### Awaiter rules
 
 - Document which thread `await_resume` continues on. After the awaiter above, the coroutine is running on the I/O callback thread — every local it touches migrated threads with it. `co_await` is a potential thread switch; code after it must not assume the thread before it.
 - If the operation can complete *before* `await_suspend` finishes registering, return `bool` from `await_suspend` (`false` = "already done, resume now") or use an atomic state to avoid the lost-wakeup race.
@@ -306,12 +315,12 @@ Coroutine lifetime bugs dominate real-world coroutine defects. The frame routine
 
 ### Pitfall 1: lambda captures (the big one)
 
-Captures live in the closure object. The coroutine frame copies the lambda's *parameters*, not its captures — the frame holds only a reference to the closure. When the closure dies, every capture dangles, including by-value captures:
+The coroutine frame copies the lambda's *parameters*, not its captures, which stay in the closure; the frame holds only a reference to it. When the closure dies, every capture dangles, including by-value captures:
 
 ```cpp
 auto make = [](std::vector<int> data) {
-    // BAD: `data` is captured (even by value) — it lives in the closure,
-    // and the closure is a temporary destroyed at the end of this statement.
+    // BAD: the closure holding `data` is a temporary destroyed at the end
+    // of this statement.
     return [data]() -> std::generator<int> {
         for (int x : data) co_yield x;        // UB after first resume
     }();
@@ -324,7 +333,7 @@ auto good = [](std::vector<int> data) -> std::generator<int> {
 auto gen = good(load());
 ```
 
-Rule: a coroutine lambda captures nothing. Pass everything as parameters. If a framework forces captures (callback adapters), the closure object must provably outlive the last resumption — which usually means heap-allocating it alongside the work.
+Rule: a coroutine lambda captures nothing. Pass everything as parameters. If a framework forces captures (callback adapters), the closure must provably outlive the last resumption, usually by heap-allocating it with the work.
 
 ### Pitfall 2: reference parameters
 
@@ -381,9 +390,11 @@ try {
 } catch (const parse_error& e) { report(e); }
 ```
 
+### Exceptions from final_suspend and unhandled_exception
+
 3. From `final_suspend` or `unhandled_exception` themselves: `final_suspend` must be `noexcept` (the program is ill-formed otherwise); if `unhandled_exception` throws or rethrows immediately, the exception escapes into the coroutine teardown path and the practical result is `std::terminate`. Promises that rethrow inside `unhandled_exception()` are valid only for designs where the resumer is prepared for `resume()` to throw — don't combine that with `noexcept` resumption loops.
 
-Guidelines:
+### Exception-handling guidelines
 
 - Tasks: store `exception_ptr`, rethrow in `await_resume` (as the `task<T>` skeleton does). This keeps `co_await` transparent: exceptions flow as if the awaited body were a called function.
 - Generators: expect throws from iteration, not construction; wrap the *loop*, not the call.
@@ -396,10 +407,15 @@ Guidelines:
 |---------|--------------|-----|
 | garbage/ASan UAF on first iteration of a generator | dangling reference parameter or lambda capture | by-value parameters; no captures |
 | crash on second `begin()` of a generator | single-pass range iterated twice | call the coroutine function again |
-| stack overflow in deeply chained tasks | `resume()` inside `await_suspend` instead of symmetric transfer | return the handle from `await_suspend` |
-| O(n²) traversal of recursive generator | manual re-yield loop | `std::ranges::elements_of` |
 | double-free in coroutine type destructor | `final_suspend` returned `suspend_never` while destructor calls `destroy()` | `suspend_always` + owner destroys |
 | exception appears at the loop, not the call | normal lazy-coroutine semantics | wrap consumption, not construction |
+
+### Performance, threading, and toolchain symptoms
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| stack overflow in deeply chained tasks | `resume()` inside `await_suspend` instead of symmetric transfer | return the handle from `await_suspend` |
+| O(n²) traversal of recursive generator | manual re-yield loop | `std::ranges::elements_of` |
 | coroutine resumes on unexpected thread | awaiter resumed from a callback thread | document/await a re-scheduling awaiter; never assume thread affinity across `co_await` |
 | `no member named 'generator' in namespace 'std'` | pre-C++23 stdlib or missing `-std=c++23` | gate on `__cpp_lib_generator`; use the C++20 fallback skeleton |
 
