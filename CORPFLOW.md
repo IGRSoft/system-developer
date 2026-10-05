@@ -1,15 +1,15 @@
 <!--
 The single corpflow-facing file in this plugin. Keep it self-contained — splitting it into a
-references/ directory rebuilds the coupling it replaced. Never add a `## Routing` heading: that one
-is reserved for a CORPFLOW.md sitting at a *user project* root.
+references/ directory rebuilds the coupling it replaced. Never add a `## Routing` or `## Models`
+heading — both are reserved for a CORPFLOW.md at a *user project* root or at user scope (`~/.claude/CORPFLOW.md`).
 Contract: corpflow skills/cross-plugin-handoff/references/plugin-contract.md
 -->
 
 # corpflow Integration — system-developer
 
 The only file in system-developer that knows corpflow exists — delete it and the plugin is
-standalone. Nothing in `agents/`, `commands/`, `skills/`, or `hooks/` may reference corpflow;
-dispatch injects `Read CORPFLOW.md and follow it` into every delegation prompt.
+standalone. Nothing in `agents/`, `commands/`, `skills/`, or `hooks/` may reference corpflow.
+Dispatch names system-developer's loaded install root in every prompt: resolve paths under it, never search.
 
 ## Are we in a worktask?
 
@@ -26,24 +26,22 @@ stage ran — read `state.json`.
 
 | Stage | system-developer agent | Handoff data |
 |---|---|---|
-| AR (Architecture) | `system-architector` | planning context + platform constraints — **consultation only**, corpflow retains the stage |
+| AR (Architecture) | `system-architector` | planning context + platform constraints |
 | DV (Development) | `system-developer`, `c-developer`, `cpp-developer`, `python-developer`, `bash-developer` | planning + architecture context |
-| DR (Developer Review) | `sys-code-fixer` | `metadata.gate_blockers[]` + minimal-diff remediation — **consultation only**, corpflow retains the stage and writes the artifact |
-| SR (Security) | `sys-security-auditor` | development context + systems security checklist — **consultation only**, corpflow retains the stage and writes the artifact |
-| QA (Quality) | `sys-test-generator` | development context + test requirements — **consultation only**, corpflow retains the stage and writes the artifact |
-| DV-support | `sys-performance-engineer`, `sys-dependency-manager` | scoped findings returned to the parent DV agent, which owns the artifact |
+| DR (Developer Review) | `sys-code-fixer` | `metadata.gate_blockers[]` + minimal-diff remediation |
+| SR (Security) | `sys-security-auditor` | development context + systems security checklist |
+| QA (Quality) | `sys-test-generator` | development context + test requirements |
+| DV-support | `sys-performance-engineer`, `sys-dependency-manager` | scoped findings for parent DV agent |
 
-**DV is the only stage ownership transfers for.** Read `tasks.DV0.agent`: a `system-developer:` id
-means you own `development-N.md`, patch the ledger, and your frontmatter is what the harness
-validates; routed via
-`corpflow:developer` it owns the artifact and you return implementation plus a ≤500-token summary.
-Every other stage is **consultation** — corpflow writes the artifact and every `state.json` entry.
-DV-support owns no stage, writes under `.context/logs/`, never patches.
+AR, DR, SR, QA are **consultation only** — corpflow retains the stage and writes the artifact. DV-support owns no stage.
 
-- DV: copy your agent's `## Review Focus` list into a **DR Focus** section of `development-<N>.md`
-  for the DR reviewer. Answer DR findings the same way the agent answers review findings.
-- AR: corpflow consults `system-architector` only at `metadata.complexity_score` 11+; that score is
-  the complexity score its Complexity triage uses.
+#### Who owns the artifact
+
+**DV is the only stage ownership transfers for.** Read your DV row's `agent`: a `system-developer:` id means you own that row's own `metadata.artifact`, patch the ledger by row id, and your frontmatter is validated; routed via `corpflow:developer` it owns the artifact and you return implementation plus ≤500 tokens. Every other stage is consultation — corpflow writes the artifact and every state.json entry.
+
+**DV Focus:** Copy your agent's `## Review Focus` list into a **DR Focus** section of your `metadata.artifact` for the DR reviewer.
+
+**AR consultation:** Triggered at High+ complexity (`metadata.complexity_score` ≥31) or explicit trigger.
 
 ## Evidence declaration
 
@@ -58,13 +56,9 @@ Build Evidence is terminal transcripts: compiler output, `ctest`/`pytest`/`bats`
 ## Build and test
 
 - Build and test **only** through `/system-developer:build-test`; never invoke the toolchain directly.
-- Compile-only: `--no-test`, classified `build_only` and allowed at every stage. `--build-only` is
-  not a flag anywhere; it classifies as a full test run and is denied.
-- DV runs scoped tests, QA is the sole full-suite authority, SR/DR/RE hold none. Your dispatch brief
-  states the resolved test mode and selector; DV's executed set is the tests you touched plus
-  `metadata.always_required_tests`.
-- Denied and `--no-test` does not fit → record `requests_test_evidence: <what and why>` in your
-  artifact, or return `verdict: blocked`. Never reach for the toolchain.
+- Compile-only: `--no-test`, classified `build_only` and allowed at every stage. `--build-only` is not a flag anywhere; it classifies as a full test run and is denied.
+- DV runs scoped tests, QA is the sole full-suite authority, SR/DR/RE hold none. Your dispatch brief states the resolved test mode and selector; DV's executed set is the tests you touched plus `metadata.always_required_tests`.
+- Denied and `--no-test` does not fit → record `requests_test_evidence: <what and why>` in your artifact, or return `verdict: blocked`. Never reach for the toolchain.
 
 ## Worktree isolation (DV)
 
@@ -76,21 +70,20 @@ You run in an isolated git worktree; `task.metadata.workspace_path` is the tree 
 - Never create or move worktrees. Writes outside your tree are never yours — report, do not make.
 - Record it as `worktree: true` in the DV frontmatter. Absent or false is a hard DR fail
   (`worktree_isolation_violation`).
-- Screenshots append to the run's `screenshots.md` manifest, which is the record of authority.
-  Never read or write `state.json facts.screenshots` — it is capped and merged last-writer-wins, so
+- Screenshots go to your task's own `screenshots-<TASK_ID>.md` manifest, which is the record of
+  authority; pass your ledger task id as `--task-id` to every capture script. Never read or write `state.json facts.screenshots` — it is capped and merged last-writer-wins, so
   in a multi-stream run it keeps one stream and silently drops the rest.
 
 ## Artifacts
 
 Write to `.context/`; in DV you also own the source paths corpflow assigned you inside your
-worktree, and nothing else. `<N>` is `run_index`. Basenames are a convenience for the
-`SubagentStop` hook — the frontmatter is the contract. Errors go to
-`.context/errors/<agent-basename>.md`.
+worktree, and nothing else. `<N>` is `run_index`. Basenames are a convenience for the `SubagentStop`
+hook — the frontmatter is the contract. Errors go to `.context/errors/<agent-basename>.md`.
 
 | Stage | Artifact |
 |---|---|
 | AR | `.context/systems-architecture.md` (consultation output, ≤500-token return summary) |
-| DV | `.context/development-<N>.md` |
+| DV | your row's `metadata.artifact` — `.context/development-<N>-<stream>.md`, or `.context/development-<N>.md` when the run has one DV row |
 | DR | `.context/developer-review-<N>.md` (written by corpflow:technical-lead) |
 | SR | `.context/security-review-<N>.md` (written by corpflow:security-reviewer) |
 | QA | `.context/testing-<N>.md` (written by corpflow:qa-engineer) |
@@ -117,16 +110,24 @@ handoff:
   files_touched:
     - <path>
   next_stage_focus: "<imperative: what DR/QA must focus on>"
+```
+
+#### DV schema, continued — sweep, refs and architecture
+
+```yaml
+# …continued: the same handoff: mapping, second half.
   open_questions:              # REQUIRED — [] when nothing to elicit, never omitted
-    - { id: sw-DV0-1, class: decision, ref: "development-N.md#elicitation-sweep" }
+    - { id: sw-DV0-1, class: decision, ref: "<this artifact>#elicitation-sweep", blocks_next_stage: false }
   refs:
     decisions: architecture-N.md#decisions    # ONLY when AR ran; omit otherwise
-    tests: development-N.md#tests-added
+    tests: <this artifact>#tests-added
   architecture:                # ONLY when AR ran; omit the whole object otherwise
     ref: architecture-N.md#decisions
     applied: true              # your truthful statement that AR's decisions were followed
 ---
 ```
+
+#### Pairing rule
 
 `refs.decisions` and the `architecture` object travel together — one without the other makes DR
 report `missing_input`, either without AR trips the inverse guard.
@@ -139,6 +140,8 @@ report `missing_input`, either without AR trips the inverse guard.
 | DR / SR | `key_decisions` = findings; no `files_touched` | pass / fail |
 | QA | `files_touched` = tests added, `key_decisions` = results | go / no-go |
 | IR | `key_decisions` = root cause | ok / escalate |
+
+#### Verdict and artifact rules
 
 `key_decisions` items are stubs: `{ id: ad1, summary: "<≤160 chars>", anchor: "<artifact>#decisions" }`.
 A `verdict` outside `ok|blocked|escalate|pass|fail|go|no-go|approve|reject` reaches the ledger
@@ -162,8 +165,10 @@ yours to resolve, not the user's — cost is not an exemption.
 | Where | Carries |
 |---|---|
 | artifact `## elicitation-sweep` H2 | the FULL item. Canonical. Heading present even when the array is empty. |
-| `handoff.open_questions[]` | the stub `{{ id, class, ref }}` |
+| `handoff.open_questions[]` | the stub `{ id, class, ref }` |
 | `state-patch.sh --facts` | the stub plus `stage`, `blocks_next_stage`, `status` |
+
+#### The item, as written in the artifact
 
 ```markdown
 ## elicitation-sweep
@@ -177,11 +182,14 @@ yours to resolve, not the user's — cost is not an exemption.
   - `<label ≤24>` — <detail ≤120>
 ```
 
+#### Rules
+
 - `id` is `sw-<TASK_ID>-<n>` — the ledger unions on `.id`, so an unscoped `q1` overwrites another
   stage's question. Max 4 per stage; more is handing the user your triage.
 - `escalate` is never auto-answered, `decision` may be; the orchestrator raises your label, never
-  lowers it. `blocks_next_stage: true` costs a round trip at your own boundary, absent/`false`
-  batches at the final gate.
+  lowers it. `blocks_next_stage` is REQUIRED on every stub and on BOTH stub transports —
+  `handoff.open_questions[]` **and** the `state-patch.sh --facts` payload — and the two copies must
+  agree — `true` costs a round trip at your own boundary, `false` batches at the final gate.
 - Re-emitting after a rework or retry carries `status` and `resolution` forward.
 - You never ask — no plugin agent holds an ask tool; the orchestrator renders every item.
 - Not the sweep, each already has a channel: runtime evidence (`requests_test_evidence:`), a skipped
@@ -194,14 +202,16 @@ Run `state-patch.sh --stage <CODE> --prev <PREV>` when its path is supplied (pro
 write `state.json`. Patch fails → proceed and return; the `SubagentStop` hook rebuilds from your
 frontmatter. Exit 3 means your artifact is not on disk — write it and re-run.
 
+### Facts on the same call
+
 Pass `--facts` on the **same** call. Arrays union on identity, so send only your own entries:
 
 ```bash
-state-patch.sh --stage DV --prev <PREV> --facts '{
+state-patch.sh --stage DV --task-id <ID> --artifact <your artifact> --prev <PREV> --facts '{
   "files_modified": ["<path>"], "tests_added": ["<path>"],
-  "decisions": [{"id":"dv-1","summary":"≤160 chars","ref":"development-0.md#decisions"}],
+  "decisions": [{"id":"dv-1","summary":"≤160 chars","ref":"development-<N>[-<stream>].md#decisions"}],
   "open_questions": [{"id":"sw-DV0-1","stage":"DV","class":"decision",
-                      "ref":"development-0.md#elicitation-sweep",
+                      "ref":"development-<N>[-<stream>].md#elicitation-sweep",
                       "blocks_next_stage":false,"status":"open"}]
 }'
 ```
@@ -229,11 +239,19 @@ On re-dispatch after a DR or QA rejection, `metadata.gate_blockers[]` carries th
 review artifact's `## blockers`. **Fix those and nothing else**: address every entry or say in the
 artifact why one is not actionable, and dispute via `error_escalated_to:` rather than by ignoring.
 
+### Consultant return — consultant-return.v1
+
+DR and SR consultations end the return with exactly one `json` fence, placed last, holding one
+`consultant-return.v1` object (`schema_version`, `verdict`, `severity_counts`, `findings[]`) with
+lowercase severities. A rejected return is re-dispatched once and never hand-fixed.
+
 ## Orchestrator agent roles
 
 This plugin's own multi-stage commands name a **role**, never an id, so this table is the only place
 an id appears. Resolve the id, then check your available agent list: **present** → dispatch it;
 **absent** → apply the call site's own `Error handling:` line. Never a hard halt.
+
+### Which roles never route through corpflow
 
 **Roles with a local equivalent are not dispatched through corpflow at all.** Architect, QA
 engineer, and security reviewer resolve to routers that come straight back here, so app-layer work
@@ -243,6 +261,8 @@ corpflow's *inbound* routing, resolved at worktask init; these commands run outs
 **Split by layer, not by role.** The local architect selects this platform's patterns; service
 decomposition, storage topology, and API contracts have no local equivalent and go to the
 orchestrator's architect. Routing system-level design at the local architect is misrouted.
+
+### Role to agent id
 
 | Role named in a command | Agent id |
 |---|---|
@@ -272,9 +292,7 @@ fork a standard's text into this plugin; a copy drifts silently.
 
 | | |
 |---|---|
-| Targets corpflow | `4.0.27` |
-| Size budget | ≤260 lines |
-| Size budget | ≤280 lines |
-| Size budget | ≤280 lines |
+| Targets corpflow | `4.1.1` |
+| Consultant return | `consultant-return.v1` |
+| Size budget | ≤300 lines |
 | Contract source | `corpflow skills/cross-plugin-handoff/references/plugin-contract.md` |
-| Template | `corpflow skills/cross-plugin-handoff/templates/CORPFLOW.md` |
